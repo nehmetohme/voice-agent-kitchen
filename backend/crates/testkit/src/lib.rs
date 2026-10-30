@@ -4,3 +4,5 @@
 //!
 //! `cargo xtask check-layers` fails if any crate uses this as a normal or build
 //! dependency.
+
+pub mod repositories;

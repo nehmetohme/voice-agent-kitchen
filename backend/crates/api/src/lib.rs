@@ -10,10 +10,12 @@
 
 mod health;
 mod openapi;
+mod state;
 
 use axum::Router;
 
 pub use openapi::openapi_json;
+pub use state::AppState;
 
 /// The application router.
 ///
@@ -22,4 +24,12 @@ pub use openapi::openapi_json;
 /// | `GET /health` | liveness: `{"status":"ok","version":"<vak-api version>"}` |
 pub fn router() -> Router {
     openapi::routes().into()
+}
+
+/// The whole application: [`router`] plus the `/api/v1` routes, which need a signed-in
+/// operator.
+pub fn app(state: AppState) -> Router {
+    // CONTRACT-STUB
+    drop(state);
+    router()
 }

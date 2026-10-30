@@ -14,11 +14,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 utoipa = { workspace = true }
 utoipa-axum = { workspace = true }
+vak-services = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 tower = { workspace = true }
+vak-testkit = { workspace = true }
 
 [lints]
 workspace = true
