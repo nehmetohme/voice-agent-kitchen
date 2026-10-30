@@ -97,6 +97,19 @@ fn the_real_contract_globs_skip_ordinary_files() {
 }
 
 #[test]
+fn the_real_manifest_registers_the_existing_contracts() {
+    let manifest = Manifest::parse(include_str!("../../../../contracts/contracts.toml"))
+        .expect("contracts/contracts.toml parses");
+
+    assert_eq!(manifest.contract_globs, GLOBS);
+    let health = &manifest.features["health"];
+    assert!(health.matches("backend/crates/api/tests/contract_health.rs"));
+    let app_shell = &manifest.features["app-shell"];
+    assert!(app_shell.matches("frontend/e2e/contract/app-shell/app-shell.contract.spec.ts"));
+    assert!(app_shell.matches("frontend/src/shared/ui/button.contract.test.tsx"));
+}
+
+#[test]
 fn parses_a_manifest() {
     let manifest = Manifest::parse(
         r#"
