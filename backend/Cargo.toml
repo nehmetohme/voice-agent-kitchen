@@ -61,7 +61,9 @@ thiserror = "2.0.21"
 tokio = { version = "1.54.1", default-features = false }
 toml = "1.1.8"
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
-tracing = "0.1.44"
+# No `attributes` feature: tracing-attributes 0.1.31 still uses syn 2, everything else syn 3
+# (cargo-deny multiple-versions). Revisit when #[instrument] is needed.
+tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = [
   "ansi",
   "env-filter",
