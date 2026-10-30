@@ -91,15 +91,20 @@ module.exports = {
     {
       name: 'no-test-code-in-production',
       severity: 'error',
-      comment: 'Production code never imports tests or test helpers.',
-      from: { pathNot: ['\\.(test|stories)\\.tsx?$', '^src/test/'] },
-      to: { path: ['\\.(test|stories)\\.tsx?$', '^src/test/'] },
+      comment:
+        'Production code never imports tests or test helpers (including the MSW mocks orval generates).',
+      from: { pathNot: ['\\.(test|stories)\\.tsx?$', '\\.msw\\.ts$', '^src/test/'] },
+      to: { path: ['\\.(test|stories)\\.tsx?$', '\\.msw\\.ts$', '^src/test/'] },
     },
     {
       name: 'no-dev-dependencies-in-production',
       severity: 'error',
-      comment: 'Production code only imports runtime dependencies.',
-      from: { path: '^src/', pathNot: ['\\.(test|stories)\\.tsx?$', '^src/test/'] },
+      comment:
+        'Production code only imports runtime dependencies. Generated *.msw.ts mocks are test code.',
+      from: {
+        path: '^src/',
+        pathNot: ['\\.(test|stories)\\.tsx?$', '\\.msw\\.ts$', '^src/test/'],
+      },
       to: { dependencyTypes: ['npm-dev'], dependencyTypesNot: ['type-only'] },
     },
     {
