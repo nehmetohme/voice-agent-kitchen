@@ -34,9 +34,11 @@ impl ModelProfile {
 
     /// Accepts a name in any case, with surrounding whitespace.
     pub fn parse(raw: &str) -> Result<Self, ModelProfileError> {
-        // CONTRACT-STUB
-        let _ = raw;
-        Err(ModelProfileError::Unknown)
+        let raw = raw.trim();
+        Self::ALL
+            .into_iter()
+            .find(|profile| profile.as_str().eq_ignore_ascii_case(raw))
+            .ok_or(ModelProfileError::Unknown)
     }
 }
 
@@ -65,11 +67,17 @@ impl TurnDetection {
     /// `silence_ms`: how long the caller is silent before the agent answers.
     /// `barge_in`: whether the caller can interrupt the agent.
     pub fn new(silence_ms: u32, barge_in: bool) -> Result<Self, TurnDetectionError> {
-        // CONTRACT-STUB
-        Ok(Self {
-            silence_ms,
-            barge_in,
-        })
+        if (Self::MIN_SILENCE_MS..=Self::MAX_SILENCE_MS).contains(&silence_ms) {
+            Ok(Self {
+                silence_ms,
+                barge_in,
+            })
+        } else {
+            Err(TurnDetectionError::SilenceOutOfRange {
+                min: Self::MIN_SILENCE_MS,
+                max: Self::MAX_SILENCE_MS,
+            })
+        }
     }
 
     #[must_use]
@@ -86,10 +94,9 @@ impl TurnDetection {
 impl Default for TurnDetection {
     /// 500 ms of silence ends a turn, and callers can interrupt.
     fn default() -> Self {
-        // CONTRACT-STUB
         Self {
-            silence_ms: 0,
-            barge_in: false,
+            silence_ms: Self::DEFAULT_SILENCE_MS,
+            barge_in: true,
         }
     }
 }
@@ -118,5 +125,37 @@ impl AgentSettings {
     #[must_use]
     pub fn turn_detection(&self) -> TurnDetection {
         self.turn_detection
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    #[test]
+    fn profiles_round_trip_and_default_to_balanced() {
+        for profile in ModelProfile::ALL {
+            assert_eq!(ModelProfile::parse(profile.as_str()), Ok(profile));
+        }
+        assert_eq!(ModelProfile::default(), ModelProfile::Balanced);
+        assert_eq!(
+            AgentSettings::default(),
+            AgentSettings::new(ModelProfile::Balanced, TurnDetection::default())
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn silence_is_accepted_exactly_within_its_range(silence_ms in 0_u32..5_000, barge_in: bool) {
+            let result = TurnDetection::new(silence_ms, barge_in);
+            let in_range = (TurnDetection::MIN_SILENCE_MS..=TurnDetection::MAX_SILENCE_MS)
+                .contains(&silence_ms);
+            prop_assert_eq!(result.is_ok(), in_range);
+            if let Ok(turn) = result {
+                prop_assert_eq!((turn.silence_ms(), turn.barge_in()), (silence_ms, barge_in));
+            }
+        }
     }
 }

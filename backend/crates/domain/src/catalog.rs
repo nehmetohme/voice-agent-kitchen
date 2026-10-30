@@ -65,12 +65,15 @@ pub const VOICES: &[VoiceInfo] = &[
     },
 ];
 
+/// The default language.
+const EN_US: LanguageInfo = LanguageInfo {
+    code: "en-US",
+    name: "English (United States)",
+};
+
 /// Every language, the default first.
 pub const LANGUAGES: &[LanguageInfo] = &[
-    LanguageInfo {
-        code: "en-US",
-        name: "English (United States)",
-    },
+    EN_US,
     LanguageInfo {
         code: "en-GB",
         name: "English (United Kingdom)",
@@ -91,9 +94,12 @@ pub enum VoiceIdError {
 impl VoiceId {
     /// Accepts a voice ID in any case, with surrounding whitespace.
     pub fn parse(raw: &str) -> Result<Self, VoiceIdError> {
-        // CONTRACT-STUB
-        let _ = raw;
-        Err(VoiceIdError::Unknown)
+        let raw = raw.trim();
+        VOICES
+            .iter()
+            .find(|voice| voice.id.eq_ignore_ascii_case(raw))
+            .map(Self)
+            .ok_or(VoiceIdError::Unknown)
     }
 
     #[must_use]
@@ -128,9 +134,12 @@ impl Language {
     /// Accepts a tag in any case, with `_` or `-` (Postel): `en_us`, `EN-us` and `en-US`
     /// are the same language.
     pub fn parse(raw: &str) -> Result<Self, LanguageError> {
-        // CONTRACT-STUB
-        let _ = raw;
-        Err(LanguageError::Unsupported)
+        let tag = raw.trim().replace('_', "-");
+        LANGUAGES
+            .iter()
+            .find(|language| language.code.eq_ignore_ascii_case(&tag))
+            .map(Self)
+            .ok_or(LanguageError::Unsupported)
     }
 
     #[must_use]
@@ -146,13 +155,40 @@ impl Language {
 
 impl Default for Language {
     fn default() -> Self {
-        // CONTRACT-STUB
-        Self(&LANGUAGES[1])
+        Self(&EN_US)
     }
 }
 
 impl fmt::Display for Language {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn ids_and_codes_are_unique() {
+        let voices: HashSet<&str> = VOICES.iter().map(|voice| voice.id).collect();
+        let languages: HashSet<&str> = LANGUAGES.iter().map(|language| language.code).collect();
+
+        assert_eq!(voices.len(), VOICES.len());
+        assert_eq!(languages.len(), LANGUAGES.len());
+    }
+
+    #[test]
+    fn parsed_values_expose_their_catalog_entry() {
+        let voice = VoiceId::parse("bm_george").expect("listed");
+        let language = Language::parse("EN-gb").expect("listed");
+
+        assert_eq!(voice.info().name, "George");
+        assert_eq!(voice.to_string(), "bm_george");
+        assert_eq!(language.info().name, "English (United Kingdom)");
+        assert_eq!(language.to_string(), "en-GB");
+        assert_eq!(Language::default().info(), &EN_US);
     }
 }

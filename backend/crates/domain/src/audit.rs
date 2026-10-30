@@ -84,3 +84,29 @@ impl AuditEvent {
         &self.action
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_names_are_namespaced_by_entity() {
+        let hash = ContentHash::of(b"draft");
+        let names = [
+            AuditAction::AgentCreated {
+                draft_hash: hash.clone(),
+            },
+            AuditAction::AgentDraftUpdated {
+                fields: vec![DraftField::Name],
+                draft_hash: hash,
+            },
+            AuditAction::AgentArchived,
+        ]
+        .map(|action| action.name());
+
+        assert_eq!(
+            names,
+            ["agent.created", "agent.draft_updated", "agent.archived"]
+        );
+    }
+}

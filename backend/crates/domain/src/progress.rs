@@ -71,12 +71,27 @@ pub struct SetupProgress {
 
 impl SetupProgress {
     /// Derives progress from the draft and what later steps know about it.
+    ///
+    /// - Provision is done for every draft: a draft can't exist without its required fields.
+    /// - Plan is done when the plan validates.
+    /// - Test is done when the latest passing run tested exactly this draft, so editing the
+    ///   draft after a test clears the step until a new run passes.
+    /// - Publish is done when the live version is exactly this draft.
     #[must_use]
     pub fn derive(draft: &AgentDraft, facts: &ProgressFacts) -> Self {
-        // CONTRACT-STUB
-        let _ = (draft, facts);
+        let hash = draft.content_hash();
+        let is_current = |tested: &Option<ContentHash>| tested.as_ref() == Some(&hash);
+        let done = |step| match step {
+            SetupStep::Provision => true,
+            SetupStep::Plan => facts.plan_valid,
+            SetupStep::Test => is_current(&facts.passing_test_run),
+            SetupStep::Publish => is_current(&facts.live_version),
+        };
         Self {
-            steps: SetupStep::ALL.map(|step| StepProgress { step, done: false }),
+            steps: SetupStep::ALL.map(|step| StepProgress {
+                step,
+                done: done(step),
+            }),
         }
     }
 
@@ -86,17 +101,98 @@ impl SetupProgress {
         &self.steps
     }
 
-    /// 0, 25, 50, 75 or 100.
+    /// 0, 25, 50, 75 or 100: 25 per completed step.
     #[must_use]
     pub fn percent(&self) -> u8 {
-        // CONTRACT-STUB
-        0
+        let done = self.steps.iter().filter(|step| step.done).count();
+        u8::try_from(done).unwrap_or(u8::MAX).saturating_mul(25)
     }
 
     /// The first step not done yet, or `None` when setup is complete.
     #[must_use]
     pub fn next_step(&self) -> Option<SetupStep> {
-        // CONTRACT-STUB
-        None
+        self.steps
+            .iter()
+            .find(|step| !step.done)
+            .map(|step| step.step)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+    use crate::{AgentName, DraftPatch, UseCase, VoiceId};
+
+    fn draft() -> AgentDraft {
+        AgentDraft::new(
+            AgentName::parse("Front desk").expect("valid"),
+            UseCase::Support,
+            VoiceId::parse("af_heart").expect("valid"),
+        )
+    }
+
+    #[test]
+    fn a_published_agent_is_complete() {
+        let hash = draft().content_hash();
+        let facts = ProgressFacts {
+            plan_valid: true,
+            passing_test_run: Some(hash.clone()),
+            live_version: Some(hash),
+        };
+
+        let progress = SetupProgress::derive(&draft(), &facts);
+
+        assert_eq!(progress.percent(), 100);
+        assert_eq!(progress.next_step(), None);
+    }
+
+    #[test]
+    fn editing_after_a_test_clears_test_and_publish() {
+        let tested = draft().content_hash();
+        let facts = ProgressFacts {
+            plan_valid: true,
+            passing_test_run: Some(tested.clone()),
+            live_version: Some(tested),
+        };
+        let edited = draft().apply(&DraftPatch {
+            name: Some(AgentName::parse("After hours").expect("valid")),
+            ..DraftPatch::default()
+        });
+
+        let progress = SetupProgress::derive(&edited, &facts);
+
+        assert_eq!(progress.percent(), 50);
+        assert_eq!(progress.next_step(), Some(SetupStep::Test));
+    }
+
+    #[test]
+    fn step_names_are_the_wire_names() {
+        let names: Vec<&str> = SetupStep::ALL.iter().map(|step| step.as_str()).collect();
+
+        assert_eq!(names, ["provision", "plan", "test", "publish"]);
+    }
+
+    proptest! {
+        #[test]
+        fn percent_is_25_per_done_step(plan_valid: bool, tested: bool, live: bool) {
+            let hash = draft().content_hash();
+            let facts = ProgressFacts {
+                plan_valid,
+                passing_test_run: tested.then(|| hash.clone()),
+                live_version: live.then_some(hash),
+            };
+
+            let progress = SetupProgress::derive(&draft(), &facts);
+
+            let done = 1 + u8::from(plan_valid) + u8::from(tested) + u8::from(live);
+            prop_assert_eq!(progress.percent(), done * 25);
+            prop_assert_eq!(progress.steps().len(), 4);
+            prop_assert_eq!(
+                progress.next_step(),
+                progress.steps().iter().find(|step| !step.done()).map(StepProgress::step)
+            );
+        }
     }
 }

@@ -54,14 +54,29 @@ impl UseCase {
 
     /// Accepts a name in any case, with surrounding whitespace (Postel).
     pub fn parse(raw: &str) -> Result<Self, UseCaseError> {
-        // CONTRACT-STUB
-        let _ = raw;
-        Err(UseCaseError::Unknown)
+        let raw = raw.trim();
+        Self::ALL
+            .into_iter()
+            .find(|use_case| use_case.as_str().eq_ignore_ascii_case(raw))
+            .ok_or(UseCaseError::Unknown)
     }
 }
 
 impl fmt::Display for UseCase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_name_round_trips() {
+        for use_case in UseCase::ALL {
+            assert_eq!(UseCase::parse(use_case.as_str()), Ok(use_case));
+            assert_eq!(UseCase::parse(&use_case.to_string()), Ok(use_case));
+        }
     }
 }
