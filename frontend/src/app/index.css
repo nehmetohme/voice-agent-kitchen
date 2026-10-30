@@ -1,0 +1,15 @@
+/* Global styles. Scan only src/ for class names, and skip the CLAUDE.md files there. */
+@import 'tailwindcss' source('..');
+@source not '../**/*.md';
+/* Token-only theme: replaces Tailwind's default theme entirely (generated, see tokens/). */
+@import '../shared/ui/tokens.css';
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-base text-ink;
+  }
+}

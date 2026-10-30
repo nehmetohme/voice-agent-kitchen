@@ -1,0 +1,98 @@
+{
+  "$description": "Voice Agent Kitchen design tokens (DTCG). Each top-level group maps 1:1 to a Tailwind 4 theme namespace (--<group>-<name>). `pnpm tokens` compiles this file to src/shared/ui/tokens.css.",
+  "color": {
+    "$type": "color",
+    "canvas": { "$value": "#ffffff", "$description": "Page background" },
+    "surface": { "$value": "#f8fafc", "$description": "Sidebar and raised panels" },
+    "ink": { "$value": "#0f172a", "$description": "Body text" },
+    "muted": { "$value": "#475569", "$description": "Secondary text; 7:1 on canvas" },
+    "line": { "$value": "#e2e8f0", "$description": "Borders and dividers" },
+    "hover": { "$value": "#f1f5f9", "$description": "Hover background for quiet controls" },
+    "selected": { "$value": "#e0e7ff", "$description": "Current item in a list or navigation" },
+    "focus": {
+      "$value": "#2563eb",
+      "$description": "Focus outline; 3:1 against canvas and surface"
+    },
+    "primary": {
+      "$value": "#4338ca",
+      "$description": "Reserved for the one primary call to action (Von Restorff)"
+    },
+    "primary-hover": { "$value": "#3730a3" },
+    "on-primary": { "$value": "#ffffff", "$description": "Text on primary" },
+    "danger": { "$value": "#b91c1c", "$description": "Destructive actions and errors" },
+    "danger-hover": { "$value": "#991b1b" },
+    "on-danger": { "$value": "#ffffff" },
+    "success": { "$value": "#15803d" },
+    "warning": { "$value": "#b45309" }
+  },
+  "spacing": {
+    "$type": "dimension",
+    "$description": "4-point scale. Gaps inside a group stay at or below 2; gaps between groups use 6 or more (proximity).",
+    "0": { "$value": "0rem" },
+    "1": { "$value": "0.25rem" },
+    "2": { "$value": "0.5rem" },
+    "3": { "$value": "0.75rem" },
+    "4": { "$value": "1rem" },
+    "6": { "$value": "1.5rem" },
+    "8": { "$value": "2rem" },
+    "12": { "$value": "3rem" },
+    "16": { "$value": "4rem" },
+    "target": {
+      "$value": "2.75rem",
+      "$description": "Minimum interactive target: 44 CSS px (Fitts, WCAG 2.5.5)"
+    }
+  },
+  "container": {
+    "$type": "dimension",
+    "sidebar": { "$value": "16rem", "$description": "Width of the app sidebar" },
+    "readable": { "$value": "40rem", "$description": "Maximum width of a text column" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "sm": { "$value": "0.25rem" },
+    "md": { "$value": "0.5rem" },
+    "full": { "$value": "9999px" }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "sm": {
+      "$value": {
+        "color": "#0f172a14",
+        "offsetX": "0px",
+        "offsetY": "1px",
+        "blur": "2px",
+        "spread": "0px"
+      }
+    },
+    "md": {
+      "$value": {
+        "color": "#0f172a1f",
+        "offsetX": "0px",
+        "offsetY": "4px",
+        "blur": "12px",
+        "spread": "0px"
+      }
+    }
+  },
+  "font": {
+    "$type": "fontFamily",
+    "sans": {
+      "$value": ["ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"]
+    },
+    "mono": { "$value": ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"] }
+  },
+  "text": {
+    "$type": "dimension",
+    "sm": { "$value": "0.875rem" },
+    "base": { "$value": "1rem" },
+    "lg": { "$value": "1.125rem" },
+    "xl": { "$value": "1.25rem" },
+    "2xl": { "$value": "1.5rem" }
+  },
+  "font-weight": {
+    "$type": "fontWeight",
+    "normal": { "$value": 400 },
+    "medium": { "$value": 500 },
+    "semibold": { "$value": 600 }
+  }
+}

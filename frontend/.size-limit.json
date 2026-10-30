@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Initial JS (Doherty: ≤ 200 kB gzip)",
+    "path": "dist/assets/index-*.js",
+    "limit": "200 kB",
+    "gzip": true
+  },
+  {
+    "name": "Initial CSS",
+    "path": "dist/assets/index-*.css",
+    "limit": "20 kB",
+    "gzip": true
+  }
+]
