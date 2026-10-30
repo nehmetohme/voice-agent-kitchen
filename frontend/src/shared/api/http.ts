@@ -46,8 +46,12 @@ export class ContractViolationError extends Error {
 }
 
 export interface HttpOptions<T> extends RequestInit {
-  /** Response schema; orval passes it when `includeZodSchemaInArguments` is on. */
-  schema?: ZodType<T>;
+  /**
+   * Response schema; orval passes it when `includeZodSchemaInArguments` is on. Generated calls
+   * type their options as `Parameters<typeof http>[1]` (that is, `HttpOptions<unknown>`), so a
+   * call without a response body (`204`, `Promise<void>`) must accept a `ZodType<unknown>` too.
+   */
+  schema?: ZodType<T> | ZodType;
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -79,5 +83,6 @@ export async function http<T>(url: string, options: HttpOptions<T> = {}): Promis
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) throw new ContractViolationError(url, parsed.error.issues);
-  return parsed.data;
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- orval pairs every call's T with its own schema; ZodType<unknown> appears only in the shared options type
+  return parsed.data as T;
 }

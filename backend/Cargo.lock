@@ -1997,8 +1997,10 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+ "tracing",
  "utoipa",
  "utoipa-axum",
+ "vak-domain",
  "vak-services",
  "vak-testkit",
 ]
