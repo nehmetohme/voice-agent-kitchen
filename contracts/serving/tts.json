@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vak:contracts:serving:tts:v1",
+  "title": "TTS serving endpoint, v1",
+  "description": "Bodies of POST /serving-endpoints/{name}/invocations for text-to-speech: the Databricks custom-model (MLflow pyfunc) envelope. One record per clause; one prediction per record, in the same order. Audio is base64 (RFC 4648 §4, padded) of raw PCM: signed 16-bit little-endian, mono, 24 kHz (Kokoro's native rate). See README.md.",
+  "$defs": {
+    "request": {
+      "description": "Request body. `dataframe_records` is MLflow's records-oriented DataFrame input.",
+      "type": "object",
+      "required": ["dataframe_records"],
+      "additionalProperties": false,
+      "properties": {
+        "dataframe_records": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/clause" }
+        }
+      }
+    },
+    "clause": {
+      "description": "One clause or sentence to speak.",
+      "type": "object",
+      "required": ["text", "encoding", "sample_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S"
+        },
+        "voice": {
+          "description": "Kokoro voice ID: a language letter, a gender letter, '_', a name. The language letter picks the pronunciation (a = US English, b = UK English).",
+          "type": "string",
+          "pattern": "^[a-z][fm]_[a-z]+$",
+          "default": "af_heart"
+        },
+        "speed": {
+          "description": "Speaking rate; 1.0 is normal.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "default": 1.0
+        },
+        "encoding": {
+          "description": "Sample format wanted for audio_b64. Signed 16-bit little-endian PCM.",
+          "const": "pcm_s16le"
+        },
+        "sample_rate": {
+          "description": "Samples per second wanted for audio_b64. The caller resamples for other rates.",
+          "const": 24000
+        }
+      }
+    },
+    "response": {
+      "description": "Response body for a 200.",
+      "type": "object",
+      "required": ["predictions"],
+      "additionalProperties": false,
+      "properties": {
+        "predictions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/speech" }
+        }
+      }
+    },
+    "speech": {
+      "type": "object",
+      "required": ["audio_b64", "encoding", "sample_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "audio_b64": {
+          "description": "Base64 of PCM s16le mono samples; at least one sample.",
+          "type": "string",
+          "contentEncoding": "base64",
+          "minLength": 4,
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        },
+        "encoding": { "const": "pcm_s16le" },
+        "sample_rate": { "const": 24000 }
+      }
+    },
+    "error": {
+      "description": "Body of every non-200 response: the Databricks REST error shape.",
+      "type": "object",
+      "required": ["error_code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "BAD_REQUEST",
+            "RESOURCE_DOES_NOT_EXIST",
+            "REQUEST_LIMIT_EXCEEDED",
+            "INTERNAL_ERROR",
+            "TEMPORARILY_UNAVAILABLE",
+            "DEADLINE_EXCEEDED"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
