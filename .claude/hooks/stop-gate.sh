@@ -30,7 +30,7 @@ set -euo pipefail
 
 VERIFY_CMD=${VAK_VERIFY_CMD:-just verify}
 BASE_REF=${VAK_BASE_REF:-origin/main}
-MAX_TURNS=${VAK_REVIEW_MAX_TURNS:-40}
+MAX_TURNS=40 # when the agent file sets no maxTurns; VAK_REVIEW_MAX_TURNS overrides both
 MAX_BUDGET_USD=${VAK_REVIEW_MAX_BUDGET_USD:-2.00}
 REVIEW_TIMEOUT_S=${VAK_REVIEW_TIMEOUT_S:-600}
 CONCURRENCY=${VAK_REVIEW_CONCURRENCY:-8}
@@ -277,11 +277,12 @@ write_prompts() {
   done
 }
 
-agent_model() { # name : the model in the agent file's front matter
+agent_field() { # name key : a value from the agent file's front matter, or nothing
   local file
   for file in "$root/.claude/agents/$1.md" "$HOOK_DIR/../agents/$1.md"; do
     if [ -f "$file" ]; then
-      awk '/^---[[:space:]]*$/ { n++; next } n == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }' "$file"
+      awk -v key="$2" '/^---[[:space:]]*$/ { n++; next }
+        n == 1 && index($0, key ":") == 1 { sub(/^[^:]*:[[:space:]]*/, ""); print; exit }' "$file"
       return 0
     fi
   done
@@ -289,15 +290,16 @@ agent_model() { # name : the model in the agent file's front matter
 }
 
 run_reviewer() { # name seconds : always runs in a background subshell
-  local name=$1 seconds=$2 model rc=0
+  local name=$1 seconds=$2 model turns rc=0
   local -a model_args=()
   export CLAUDE_REVIEW_CHILD=1
-  model=$(agent_model "$name")
+  model=$(agent_field "$name" model)
   if [ -n "$model" ] && [ "$model" != inherit ]; then model_args=(--model "$model"); fi
+  turns=${VAK_REVIEW_MAX_TURNS:-$(agent_field "$name" maxTurns)}
   run_with_timeout "$seconds" claude -p \
     --agent "$name" ${model_args[@]+"${model_args[@]}"} \
     --output-format json --json-schema "$schema" \
-    --max-turns "$MAX_TURNS" --max-budget-usd "$MAX_BUDGET_USD" \
+    --max-turns "${turns:-$MAX_TURNS}" --max-budget-usd "$MAX_BUDGET_USD" \
     --permission-mode dontAsk --permission-prompts none \
     --allowedTools "$ALLOWED_TOOLS" --disallowedTools "$DISALLOWED_TOOLS" \
     --no-session-persistence \
