@@ -56,6 +56,8 @@ jobs:
             web:
               - 'frontend/**'
               - 'contracts/**'
+              # The E2E run serves the real backend (vak-server on Postgres).
+              - 'backend/**'
               - 'justfile'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
@@ -111,7 +113,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Includes a cold debug build of vak-server for the E2E run.
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -131,6 +134,18 @@ jobs:
       - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: just
+      # The E2E run builds vak-server and serves it on a throwaway Postgres in Docker
+      # (frontend/e2e/support/backend-server.ts); the runner image ships Docker.
+      - name: Install the toolchain from backend/rust-toolchain.toml
+        working-directory: backend
+        run: |
+          rustup toolchain install
+          rustc --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: backend -> target
+          key: e2e
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - id: playwright
         name: Read the Playwright version
         working-directory: frontend
