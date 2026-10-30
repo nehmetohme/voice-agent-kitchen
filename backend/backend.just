@@ -26,6 +26,26 @@ backend-test *args:
     cargo nextest run --all-features {{ args }}
     cargo test --workspace --all-features --doc
 
+# Regenerate the sqlx offline query cache (crates/repositories-pg/.sqlx) against a freshly
+# migrated database in this worktree's test container. Commit the result.
+[working-directory: 'backend']
+db-prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    server="$(tools/test-db.sh url)"
+    url="${server%/postgres}/vak_prepare"
+    sqlx database drop -y --database-url "$url" >/dev/null
+    sqlx database create --database-url "$url"
+    sqlx migrate run --source crates/repositories-pg/migrations --database-url "$url"
+    cd crates/repositories-pg
+    DATABASE_URL="$url" SQLX_OFFLINE=false cargo sqlx prepare -- --all-targets --all-features
+    echo "db-prepare: regenerated crates/repositories-pg/.sqlx; commit it"
+
+# Stop and remove this worktree's test Postgres container (the tests restart it on demand)
+[working-directory: 'backend']
+db-test-stop:
+    tools/test-db.sh stop
+
 # Format Rust code and backend TOML files
 [working-directory: 'backend']
 backend-fmt:

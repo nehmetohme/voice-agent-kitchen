@@ -8,5 +8,19 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+jiff-sqlx = { workspace = true }
+secrecy = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+vak-domain = { workspace = true }
+vak-repositories = { workspace = true }
+
+[dev-dependencies]
+jiff = { workspace = true }
+vak-testkit = { workspace = true }
+
 [lints]
 workspace = true

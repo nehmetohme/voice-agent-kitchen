@@ -2,12 +2,25 @@
 # (CI sets NEXTEST_PROFILE=ci). Doctests don't run under nextest: `just backend-test` runs
 # them separately.
 
+# Setup scripts are still experimental in nextest; this is the only one we use.
+experimental = ["setup-scripts"]
+
+[scripts.setup.postgres]
+# Starts (or reuses) this worktree's throwaway Postgres in Docker and hands DATABASE_URL to
+# the tests below. `#[sqlx::test]` creates and drops one database per test inside it.
+command = { command-line = "tools/test-db.sh nextest", relative-to = "workspace-root" }
+slow-timeout = { period = "60s", terminate-after = 3 }
+
 [profile.default]
 # Local runs: stop at the first failure. Flaky tests are bugs, so never retry.
 fail-fast = true
 retries = 0
 slow-timeout = { period = "30s", terminate-after = 4 }
 failure-output = "immediate"
+
+[[profile.default.scripts]]
+filter = "package(vak-repositories-pg)"
+setup = "postgres"
 
 [profile.ci]
 # CI: run everything so one report shows all failures, never retry, JUnit for the run summary.

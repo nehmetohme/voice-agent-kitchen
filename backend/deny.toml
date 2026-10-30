@@ -44,7 +44,23 @@ multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
 highlight = "all"
-skip = []
+# Duplicates that come from inside one dependency and that we can't unify from here. Each
+# entry names its source; revisit them on every bump of that dependency (review by
+# 2027-04-30 at the latest).
+skip = [
+  # sqlx 0.9.0: sqlx-core (migration checksums) uses the sha2 0.10 generation, sqlx-postgres
+  # (SCRAM auth) sha2 0.11. Both are only in vak-repositories-pg.
+  { crate = "sha2@0.10.9", reason = "sqlx-core 0.9.0 pins sha2 0.10; sqlx-postgres uses 0.11" },
+  { crate = "digest@0.10.7", reason = "sha2 0.10 via sqlx-core 0.9.0" },
+  { crate = "block-buffer@0.10.4", reason = "sha2 0.10 via sqlx-core 0.9.0" },
+  { crate = "crypto-common@0.1.6", reason = "sha2 0.10 via sqlx-core 0.9.0" },
+  { crate = "cpufeatures@0.2.17", reason = "sha2 0.10 via sqlx-core 0.9.0" },
+  # sqlx-core 0.9.0's hashlink pins hashbrown 0.16; indexmap uses 0.17.
+  { crate = "hashbrown@0.16.1", reason = "hashlink 0.11 via sqlx-core 0.9.0" },
+  # sqlx-macros 0.9.0 and tracing-attributes 0.1.31 (enabled by sqlx-core) still use syn 2;
+  # everything else uses syn 3. Compile-time only.
+  { crate = "syn@2.0.119", reason = "proc macros of sqlx 0.9.0 and tracing-attributes 0.1.31" },
+]
 # Framework firewall: only the named crates may depend on these directly (research 02,
 # "Enforcement"). Wrappers are declared before their crates use the banned crate, so the
 # policy is fixed up front; until then cargo-deny prints `unused-wrapper` warnings. Those
@@ -53,6 +69,8 @@ deny = [
   { crate = "sqlx", wrappers = [
     "vak-repositories-pg",
     "apalis-postgres",
+    # jiff Timestamp <-> timestamptz; used only by vak-repositories-pg.
+    "jiff-sqlx",
   ], reason = "persistence lives only in vak-repositories-pg" },
   { crate = "axum", wrappers = [
     "vak-api",
