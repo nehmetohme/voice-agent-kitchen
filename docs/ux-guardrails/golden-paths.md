@@ -14,7 +14,7 @@ first cell is a backticked ID. Keep the columns in this order.
 
 | ID | Path | Budget | End state (peak-end) | Milestone | Status |
 |---|---|---|---|---|---|
-| `create-agent` | Create an agent from the Agents page | ≤ 8 interactions, ≤ 60 s, ≤ 3 required fields | Agent page with "Saved" status and setup progress at 25 % | M2 | planned |
+| `create-agent` | Create an agent from the Agents page | ≤ 8 interactions, ≤ 60 s, ≤ 3 required fields | Agent page with "Saved" status and setup progress at 25 % | M2 | active |
 | `edit-plan` | Edit the agent's plan in the flow editor | Autosave ≤ 1 s after the last edit | Plan valid, errors shown on their node, progress at 50 % | M3 | planned |
 | `test-call` | Talk to the agent in the browser | Feedback ≤ 100 ms, live latency badge each turn | Summary: turns, latency p50/p95, transcript and a "Publish" call to action | M5 | planned |
 | `publish` | Publish a version that passed its tests | ≤ 3 interactions from the test summary | Version number, live channel, "Roll back" link and a success toast | M6 | planned |

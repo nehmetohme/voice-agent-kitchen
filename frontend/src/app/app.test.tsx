@@ -8,10 +8,15 @@ import {
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { fakeAgentsApi } from '../test/agents-api';
+import { startMswServer } from '../test/msw-server';
 import { RouteError } from './error-boundary';
 import { AppProviders } from './providers';
 import { createQueryClient } from './query-client';
 import { createAppRouter } from './router';
+
+// The Agents home lists agents from the API; start every test with none.
+startMswServer(...fakeAgentsApi().handlers);
 
 function renderApp(path: string) {
   const queryClient = createQueryClient();
@@ -30,7 +35,11 @@ describe('app shell', () => {
     const router = renderApp('/');
     await heading('Agents');
     expect(router.state.location.pathname).toBe('/agents');
-    expect(screen.getByRole('heading', { name: 'No agents yet' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'No agents yet' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Create agent' })).toHaveAttribute(
+      'href',
+      '/agents/new',
+    );
     await waitFor(() => {
       expect(document.title).toBe('Agents · Voice Agent Kitchen');
     });
