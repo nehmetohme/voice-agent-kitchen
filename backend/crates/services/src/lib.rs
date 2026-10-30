@@ -8,6 +8,6 @@ mod agents;
 pub mod catalog;
 
 pub use agents::{
-    AgentService, AgentSummary, CreateAgent, CreateAgentError, FindAgentError, LIST_LIMIT,
-    ListAgentsError, UpdateDraftError,
+    AgentService, AgentSummary, ArchiveAgentError, CreateAgent, CreateAgentError, FindAgentError,
+    LIST_LIMIT, ListAgentsError, UpdateDraftError,
 };

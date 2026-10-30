@@ -141,6 +141,7 @@ pub(crate) async fn update(
         (status = NO_CONTENT, description = "The agent is archived"),
         (status = UNAUTHORIZED, description = "No signed-in operator", body = Problem, content_type = "application/problem+json"),
         (status = NOT_FOUND, description = "No such agent", body = Problem, content_type = "application/problem+json"),
+        (status = CONFLICT, description = "The agent kept changing while archiving", body = Problem, content_type = "application/problem+json"),
         (status = SERVICE_UNAVAILABLE, description = "Storage is unavailable", body = Problem, content_type = "application/problem+json"),
     ),
     security(("databricksApps" = []))

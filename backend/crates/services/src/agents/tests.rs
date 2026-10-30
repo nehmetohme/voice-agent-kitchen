@@ -127,7 +127,7 @@ async fn every_use_case_fails_cleanly_when_storage_is_down() {
     ));
     assert!(matches!(
         agents.archive(&actor(), id).await,
-        Err(FindAgentError::Unavailable(_))
+        Err(ArchiveAgentError::Unavailable(_))
     ));
 }
 
@@ -181,7 +181,7 @@ async fn unknown_agents_are_not_found() {
     ));
     assert!(matches!(
         agents.archive(&actor(), unknown).await,
-        Err(FindAgentError::NotFound)
+        Err(ArchiveAgentError::NotFound)
     ));
 }
 
@@ -315,10 +315,7 @@ async fn archive_gives_up_after_repeated_conflicts() {
 
     let result = agents.archive(&actor(), agent.id()).await;
 
-    assert!(matches!(
-        result,
-        Err(FindAgentError::Unavailable(RepoError::Conflict))
-    ));
+    assert!(matches!(result, Err(ArchiveAgentError::Conflict)));
 }
 
 /// A repository whose calls never finish.

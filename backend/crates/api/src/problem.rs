@@ -8,7 +8,9 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use utoipa::ToSchema;
-use vak_services::{CreateAgentError, FindAgentError, ListAgentsError, UpdateDraftError};
+use vak_services::{
+    ArchiveAgentError, CreateAgentError, FindAgentError, ListAgentsError, UpdateDraftError,
+};
 
 /// The media type of every error response.
 pub(crate) const PROBLEM_JSON: &str = "application/problem+json";
@@ -160,6 +162,20 @@ impl From<FindAgentError> for ApiError {
         match error {
             FindAgentError::NotFound => Self::NotFound,
             unavailable @ FindAgentError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<ArchiveAgentError> for ApiError {
+    fn from(error: ArchiveAgentError) -> Self {
+        match error {
+            ArchiveAgentError::NotFound => Self::NotFound,
+            ArchiveAgentError::Conflict => {
+                Self::Conflict("The agent changed while archiving. Try again.")
+            }
+            unavailable @ ArchiveAgentError::Unavailable(_) => {
                 Self::Unavailable(Box::new(unavailable))
             }
         }
