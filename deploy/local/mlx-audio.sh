@@ -7,7 +7,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=deploy/local/env.sh
+# shellcheck source=env.sh
 . "$here/env.sh"
 project="$here/mlx-audio"
 
@@ -29,6 +29,8 @@ export ESPEAK_DATA_PATH="$short"
 
 # Models come from VAK_MODELS_DIR only (`just models-pull`); never download at run time.
 export HF_HUB_OFFLINE=1
+# No browser talks to mlx-audio (only the shim does), so allow no web origin but the shim's
+# own address instead of mlx-audio's default "*".
 exec uv run --project "$project" --frozen --no-sync mlx_audio.server \
-  --host 127.0.0.1 --port 8000 \
+  --host 127.0.0.1 --port 8000 --allowed-origins http://127.0.0.1:8001 \
   --log-dir "${TMPDIR:-/tmp}/vak-mlx-audio-logs"

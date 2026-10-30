@@ -4,7 +4,7 @@
 set -uo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=deploy/local/env.sh
+# shellcheck source=env.sh
 . "$here/env.sh"
 
 failures=0
@@ -63,9 +63,11 @@ case "$VAK_LLM_BASE_URL" in
     fail llm "VAK_LLM_BASE_URL is not set" "put the GPU box's URL in .env, e.g. http://<host>:<port>/v1"
     ;;
   *)
-    auth=()
-    [ -z "$VAK_LLM_API_KEY" ] || auth=(-H "Authorization: Bearer $VAK_LLM_API_KEY")
-    if models=$(curl -fsS -m 3 ${auth[@]+"${auth[@]}"} "$VAK_LLM_BASE_URL/models" 2>&1); then
+    # The key goes in a header file, never on the command line (where `ps` shows it).
+    headers=$(mktemp "${TMPDIR:-/tmp}/vak-doctor.XXXXXX")
+    trap 'rm -f "$headers"' EXIT
+    [ -z "$VAK_LLM_API_KEY" ] || printf 'Authorization: Bearer %s\n' "$VAK_LLM_API_KEY" >"$headers"
+    if models=$(curl -fsS -m 3 -H @"$headers" "$VAK_LLM_BASE_URL/models" 2>&1); then
       if jq -e --arg m "$VAK_LLM_MODEL" '[.data[].id] | index($m)' >/dev/null 2>&1 <<<"$models"; then
         ok llm "$VAK_LLM_MODEL answers at $VAK_LLM_BASE_URL"
       else

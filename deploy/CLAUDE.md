@@ -40,7 +40,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 - **Pin everything:** container images by digest, model files by commit and SHA-256, Python packages by `uv.lock`.
 - **Native models, Docker only for Postgres:** containers on macOS get no Metal GPU.
 - **Bind to 127.0.0.1.** Nothing local listens on the LAN.
-- **Scripts:** `bash` with `set -euo pipefail` (doctor and smoke collect failures with `-uo`), shellcheck-clean. Every network call has a timeout (`curl -m`).
+- **Scripts:** `bash` with `set -euo pipefail` (doctor and smoke collect failures with `-uo`). Every network call has a timeout (`curl -m`). They must be shellcheck-clean: `just repo-hooks-test` (in `just verify` and CI) checks `local/*.sh` with `--source-path=SCRIPTDIR`, so write `# shellcheck source=env.sh`.
 - **Keep it in step with the bundle (M7):** a model or contract change lands in both, or the PR says why not.
 - **Known gap:** espeak-ng (Kokoro's out-of-vocabulary fallback) keeps its data path in a 160-byte buffer, and a worktree's `.venv` path is longer, so `mlx-audio.sh` passes a short symlink in `TMPDIR` as `ESPEAK_DATA_PATH`.
 
@@ -56,8 +56,6 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `just dev-setup` | syncs the mlx-audio environment |
 | `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models, `/v1/systemone` support and ports, with fix hints |
 | `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server` and Vite |
-| `just dev-lint` | shellcheck of `local/*.sh`; part of `just repo-verify-fast`, so commits and CI run it |
-
 ## Testing
 
 - `vak-model-shim` has its own contract tests (`backend/apps/model-shim`), against wiremock.
