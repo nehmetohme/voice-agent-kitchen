@@ -86,7 +86,8 @@ voice/
 │   └── .storybook/
 │
 ├── deploy/ 📘
-│   ├── local/                  docker-compose.yml (Postgres), process-compose.yml, models.sh
+│   ├── local/                  docker-compose.yml (Postgres), process-compose.yml, models.sh, dev.just,
+│   │                           mlx-audio/ (uv lock), env.sh, doctor.sh, smoke.sh
 │   └── databricks/             databricks.yml bundle, app/ (app.yaml, wheel launcher),
 │                               serving/stt/, serving/tts/ (MLflow pyfunc), resources/
 │

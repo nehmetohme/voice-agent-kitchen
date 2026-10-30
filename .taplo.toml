@@ -1,0 +1,3 @@
+# taplo, the TOML formatter (`taplo fmt --check` in `just repo-verify-fast`). taplo doesn't read
+# .gitignore, so skip third-party trees that hold TOML files we don't own.
+exclude = ["**/.venv/**", "**/node_modules/**", "**/target/**"]

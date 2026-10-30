@@ -1,0 +1,34 @@
+# The mlx-audio speech server for the local dev stack (Parakeet STT, Kokoro TTS on MLX).
+# Dependencies only, no code: `uv sync` builds a project-local .venv from uv.lock, and
+# process-compose runs `mlx_audio.server` from it. Nothing is installed globally.
+# Bump mlx-audio here, then `uv lock --project deploy/local/mlx-audio` and run `just dev-smoke`.
+[project]
+name = "vak-mlx-audio"
+version = "0.0.0"
+description = "Pinned mlx-audio server for the Voice Agent Kitchen local dev stack"
+requires-python = "==3.12.*"
+dependencies = [
+  "mlx-audio[server]==0.6.3",
+  # Kokoro's English G2P: misaki's `en` extra without spacy-curated-transformers, which
+  # only the transformer G2P uses and which would pull in PyTorch (~1 GB).
+  "misaki==0.9.4",
+  "espeakng-loader",
+  "num2words",
+  "phonemizer-fork",
+  "spacy",
+  # spaCy's small English model; spaCy would otherwise pip-install it at runtime, and a uv
+  # venv has no pip.
+  "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+  # The same `webrtcvad` module as mlx-audio's webrtcvad 2.0.10, without pkg_resources.
+  "webrtcvad-wheels==2.0.14.post1",
+]
+
+[tool.uv]
+package = false
+# mlx-audio's server extra caps setuptools below 81 only because webrtcvad 2.0.10 imports
+# pkg_resources, and every setuptools below 83 has GHSA-h35f-9h28-mq5c. Take a patched
+# setuptools and swap webrtcvad for webrtcvad-wheels (the never-true marker drops it).
+override-dependencies = [
+  "setuptools>=83",
+  "webrtcvad ; sys_platform == 'never'",
+]

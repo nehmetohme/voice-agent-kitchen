@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vak:contracts:serving:stt:v1",
+  "title": "STT serving endpoint, v1",
+  "description": "Bodies of POST /serving-endpoints/{name}/invocations for speech-to-text: the Databricks custom-model (MLflow pyfunc) envelope. One record per utterance; one prediction per record, in the same order. Audio is base64 (RFC 4648 §4, padded) of raw PCM: signed 16-bit little-endian, mono, 16 kHz, so the byte length is even. See README.md.",
+  "$defs": {
+    "request": {
+      "description": "Request body. `dataframe_records` is MLflow's records-oriented DataFrame input.",
+      "type": "object",
+      "required": ["dataframe_records"],
+      "additionalProperties": false,
+      "properties": {
+        "dataframe_records": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/utterance" }
+        }
+      }
+    },
+    "utterance": {
+      "description": "One utterance to transcribe, at most 30 s.",
+      "type": "object",
+      "required": ["audio_b64", "encoding", "sample_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "audio_b64": {
+          "description": "Base64 of PCM s16le mono samples; 1 sample to 30 s (960,000 bytes, 1,280,000 base64 characters).",
+          "type": "string",
+          "contentEncoding": "base64",
+          "minLength": 4,
+          "maxLength": 1280000,
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        },
+        "encoding": {
+          "description": "Sample format of audio_b64. Signed 16-bit little-endian PCM.",
+          "const": "pcm_s16le"
+        },
+        "sample_rate": {
+          "description": "Samples per second of audio_b64. Phone audio (8 kHz) is resampled by the caller.",
+          "const": 16000
+        },
+        "language": {
+          "description": "ISO 639-1 language of the speech, as a hint. Parakeet TDT 0.6B v2 is English-only.",
+          "type": "string",
+          "pattern": "^[a-z]{2}$",
+          "default": "en"
+        }
+      }
+    },
+    "response": {
+      "description": "Response body for a 200.",
+      "type": "object",
+      "required": ["predictions"],
+      "additionalProperties": false,
+      "properties": {
+        "predictions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/transcript" }
+        }
+      }
+    },
+    "transcript": {
+      "type": "object",
+      "required": ["text"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "description": "The transcript, trimmed; empty when no speech was recognised.",
+          "type": "string"
+        }
+      }
+    },
+    "error": {
+      "description": "Body of every non-200 response: the Databricks REST error shape.",
+      "type": "object",
+      "required": ["error_code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "BAD_REQUEST",
+            "RESOURCE_DOES_NOT_EXIST",
+            "REQUEST_LIMIT_EXCEEDED",
+            "INTERNAL_ERROR",
+            "TEMPORARILY_UNAVAILABLE",
+            "DEADLINE_EXCEEDED"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
