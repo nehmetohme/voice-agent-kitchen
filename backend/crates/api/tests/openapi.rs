@@ -1,5 +1,9 @@
 //! The OpenAPI document is generated from the code (utoipa), documents every route, and
 //! renders deterministically so `contracts/openapi.json` can be drift-checked.
+#![expect(
+    clippy::expect_used,
+    reason = "helpers outside #[test] functions fail the test on a malformed document"
+)]
 
 use serde_json::{Value, json};
 

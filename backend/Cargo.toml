@@ -70,6 +70,9 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
   "fmt",
   "std",
 ] }
+# Code-first OpenAPI 3.1 (research 02 §4). Only vak-api uses them.
+utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
+utoipa-axum = "0.3.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
