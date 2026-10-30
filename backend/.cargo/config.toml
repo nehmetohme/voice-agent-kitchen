@@ -1,0 +1,3 @@
+[alias]
+# `cargo xtask <command>`: check-layers, coverage-gate (see xtask/CLAUDE.md).
+xtask = "run --package vak-xtask --bin xtask --quiet --"

@@ -1,0 +1,117 @@
+# Allowed dependencies between workspace crates. Source: docs/research/02-rust-backend.md
+# ("Allowed internal dependencies") and docs/plan/architecture.md §2.
+# Enforced by `cargo xtask check-layers`; owner-reviewed (CODEOWNERS). Agents must not edit it.
+#
+# Per crate:
+#   deps         workspace crates allowed as normal, build and dev dependencies
+#   dev-deps     workspace crates allowed only as dev-dependencies
+#   external     if set, the only external crates allowed as normal or build dependencies
+#   external-dev extra external crates allowed as dev-dependencies when `external` is set
+#
+# Every workspace member must have an entry, and every name must be a workspace member.
+
+# Never allowed as a normal or build dependency of any crate.
+dev-only = ["vak-testkit", "vak-contract-tests"]
+
+# Pure types and rules: no I/O, no async, no frameworks.
+[crates.vak-domain]
+deps = []
+external = ["serde", "thiserror", "uuid", "jiff"]
+external-dev = ["proptest", "insta"]
+
+[crates.vak-audio]
+deps = []
+
+# Ports (traits) only.
+[crates.vak-providers]
+deps = ["vak-domain", "vak-audio"]
+
+[crates.vak-repositories]
+deps = ["vak-domain"]
+
+[crates.vak-repositories-pg]
+deps = ["vak-repositories", "vak-domain", "vak-databricks-auth"]
+dev-deps = ["vak-testkit"]
+
+# Adapters implement provider ports; never another adapter, repositories, services or api.
+[crates.vak-adapter-llm-openai]
+deps = ["vak-providers", "vak-domain", "vak-audio", "vak-databricks-auth"]
+dev-deps = ["vak-testkit"]
+
+[crates.vak-adapter-stt-serving]
+deps = ["vak-providers", "vak-domain", "vak-audio", "vak-databricks-auth"]
+dev-deps = ["vak-testkit"]
+
+[crates.vak-adapter-tts-serving]
+deps = ["vak-providers", "vak-domain", "vak-audio", "vak-databricks-auth"]
+dev-deps = ["vak-testkit"]
+
+[crates.vak-adapter-decision-systemone]
+deps = ["vak-providers", "vak-domain", "vak-audio", "vak-databricks-auth"]
+dev-deps = ["vak-testkit"]
+
+# Shared by adapters and repositories-pg.
+[crates.vak-databricks-auth]
+deps = []
+
+# Persists through a service-provided sink, never through repositories.
+[crates.vak-pipeline]
+deps = ["vak-providers", "vak-domain", "vak-audio"]
+dev-deps = ["vak-testkit"]
+
+[crates.vak-services]
+deps = ["vak-repositories", "vak-providers", "vak-pipeline", "vak-domain"]
+dev-deps = ["vak-testkit"]
+
+# Services re-export the few port types the API needs.
+[crates.vak-api]
+deps = ["vak-services", "vak-domain"]
+dev-deps = ["vak-testkit"]
+
+[crates.vak-config]
+deps = []
+
+[crates.vak-telemetry]
+deps = []
+
+# Dev-only crates.
+[crates.vak-testkit]
+deps = ["vak-domain", "vak-audio", "vak-repositories", "vak-providers"]
+
+[crates.vak-contract-tests]
+deps = [
+  "vak-domain",
+  "vak-audio",
+  "vak-repositories",
+  "vak-providers",
+  "vak-api",
+]
+dev-deps = ["vak-testkit"]
+
+# Composition root: the only place implementations are wired to ports.
+[crates.vak-server]
+deps = [
+  "vak-domain",
+  "vak-audio",
+  "vak-providers",
+  "vak-repositories",
+  "vak-repositories-pg",
+  "vak-adapter-llm-openai",
+  "vak-adapter-stt-serving",
+  "vak-adapter-tts-serving",
+  "vak-adapter-decision-systemone",
+  "vak-databricks-auth",
+  "vak-pipeline",
+  "vak-services",
+  "vak-api",
+  "vak-config",
+  "vak-telemetry",
+]
+dev-deps = ["vak-testkit"]
+
+# Dev-only app; speaks the serving contracts, shares no product code.
+[crates.vak-model-shim]
+deps = ["vak-config", "vak-telemetry"]
+
+[crates.vak-xtask]
+deps = []

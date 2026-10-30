@@ -1,0 +1,16 @@
+[package]
+name = "vak-model-shim"
+description = "Dev-only shim that serves Databricks STT/TTS shapes from local models"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vak-model-shim"
+path = "src/main.rs"
+
+[lints]
+workspace = true

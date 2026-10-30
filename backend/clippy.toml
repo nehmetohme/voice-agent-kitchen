@@ -1,0 +1,11 @@
+# Lint levels live in Cargo.toml [workspace.lints]; this file configures lint behaviour.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+# ".." keeps clippy's default list.
+doc-valid-idents = ["OpenAPI", ".."]
+
+disallowed-methods = [
+  { path = "std::thread::sleep", reason = "blocks an async worker; use tokio::time::sleep" },
+  { path = "tokio::task::block_in_place", reason = "stalls a runtime worker; use a dedicated thread or spawn_blocking", allow-invalid = true },
+]

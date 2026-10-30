@@ -1,0 +1,21 @@
+# cargo-nextest profiles. Pick one with `--profile <name>` or `NEXTEST_PROFILE=<name>`
+# (CI sets NEXTEST_PROFILE=ci). Doctests don't run under nextest: `just backend-test` runs
+# them separately.
+
+[profile.default]
+# Local runs: stop at the first failure. Flaky tests are bugs, so never retry.
+fail-fast = true
+retries = 0
+slow-timeout = { period = "30s", terminate-after = 4 }
+failure-output = "immediate"
+
+[profile.ci]
+# CI: run everything so one report shows all failures, never retry, JUnit for the run summary.
+fail-fast = false
+retries = 0
+slow-timeout = { period = "60s", terminate-after = 5 }
+failure-output = "immediate-final"
+
+[profile.ci.junit]
+# Written to target/nextest/ci/junit.xml.
+path = "junit.xml"
