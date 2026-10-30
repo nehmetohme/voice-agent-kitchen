@@ -81,7 +81,10 @@ fn renders_deterministically_with_sorted_keys_and_a_trailing_newline() {
 
 #[test]
 fn the_committed_contract_is_current() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../contracts/openapi.json");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../contracts/openapi.json"
+    );
     let committed = std::fs::read_to_string(path).expect("contracts/openapi.json exists");
 
     assert!(

@@ -63,6 +63,9 @@ mod tests {
 
         let rendered = serde_json::to_string(&sorted(value)).expect("serializes");
 
-        assert_eq!(rendered, r#"{"a":{"x":true,"y":null},"b":[{"a":2,"z":1},3]}"#);
+        assert_eq!(
+            rendered,
+            r#"{"a":{"x":true,"y":null},"b":[{"a":2,"z":1},3]}"#
+        );
     }
 }
