@@ -16,7 +16,7 @@ It translates each request to the local mlx-audio server on `:8000` (Parakeet fo
 | TTS record (`text`, `voice`, `speed`) | JSON `POST /v1/audio/speech`: `model`, `input`, `voice`, `speed`, `lang_code` = the voice's first letter, `response_format=wav` |
 | prediction | STT: `text`, trimmed. TTS: the WAV's samples as base64; anything but 24 kHz mono 16-bit PCM is a 500, never relabelled |
 
-**Configuration** (environment, `src/config.rs`): `VAK_SHIM_ADDR` (`127.0.0.1:8001`), `VAK_SHIM_MLX_AUDIO_URL` (`http://127.0.0.1:8000`), `VAK_SHIM_STT_MODEL`, `VAK_SHIM_TTS_MODEL` (a Hugging Face repo or a local folder; `deploy/local/process-compose.yml` passes the folders under `VAK_MODELS_DIR`), `VAK_SHIM_TIMEOUT_MS` (30000; the first call also loads the model) and `VAK_LOG` (`info`).
+**Configuration** (environment, `src/config.rs`): `VAK_SHIM_ADDR` (`127.0.0.1:8001`; loopback only, since the shim has no auth), `VAK_SHIM_MLX_AUDIO_URL` (`http://127.0.0.1:8000`), `VAK_SHIM_STT_MODEL`, `VAK_SHIM_TTS_MODEL` (a Hugging Face repo or a local folder; `deploy/local/process-compose.yml` passes the folders under `VAK_MODELS_DIR`), `VAK_SHIM_TIMEOUT_MS` (30000; the first call also loads the model) and `VAK_LOG` (`info`).
 
 | Module | Does |
 |---|---|
@@ -43,7 +43,7 @@ It translates each request to the local mlx-audio server on `:8000` (Parakeet fo
 ## Testing
 
 - **Contract tests** (`tests/contract_model_shim.rs`, feature `model-shim` in `contracts/contracts.toml`): black-box. Each test starts the real binary against a wiremock mlx-audio and validates every request and response against the JSON Schemas. The signed tag pins the test file and both schemas.
-- **Unit tests** per module: config parsing, field validation, WAV reading and writing, error codes.
+- **Unit tests** per module: config parsing, field validation, WAV reading and writing, error codes, and the router's body limit (413), unknown routes (404) and `/health`.
 - **Against real models:** `just dev-smoke` sends a fixture WAV and a sentence through the running shim.
 
 ## Coverage floor

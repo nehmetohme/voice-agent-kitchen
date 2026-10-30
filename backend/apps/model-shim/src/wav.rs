@@ -80,6 +80,8 @@ pub(crate) fn parse(bytes: &[u8]) -> Result<Wav<'_>, &'static str> {
     Err("no data chunk")
 }
 
+// Callers pass slices of exactly 2 and 4 bytes: chunk headers come from `get(at..at + 8)`
+// and fmt fields from a body checked to be at least 16 bytes long.
 fn u16_le(bytes: &[u8]) -> u16 {
     u16::from_le_bytes([bytes[0], bytes[1]])
 }
