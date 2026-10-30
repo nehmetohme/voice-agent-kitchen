@@ -1,0 +1,11 @@
+# Frontend build and test output. The root .gitignore lists these too; this copy is what
+# oxfmt and oxlint read when they run inside frontend/.
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+storybook-static/
+.tanstack/
+*.local

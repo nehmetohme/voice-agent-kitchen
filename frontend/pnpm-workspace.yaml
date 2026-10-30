@@ -1,0 +1,34 @@
+# pnpm settings for the frontend. This is a single-project workspace (no `packages:` list).
+# pnpm 12 reads only auth/registry settings from .npmrc; everything else lives here.
+
+# Supply-chain delay: never resolve a version published less than 1 day (1440 minutes) ago.
+# Setting it explicitly also turns on minimumReleaseAgeStrict, so resolution fails instead of
+# silently falling back to a too-new version.
+minimumReleaseAge: 1440
+
+# Refuse a version whose publish trust (provenance, trusted publisher) is weaker than before.
+trustPolicy: no-downgrade
+# Exact versions reviewed and exempted. Keep this list short and explain each entry.
+trustPolicyExclude:
+  # 2023 backport of the ReDoS fix to the 6.x line, published by hand after 7.x had
+  # provenance. Pulled in by @babel/core (TanStack router plugin).
+  - semver@6.3.1
+
+# Exact versions in package.json; Dependabot proposes upgrades.
+saveExact: true
+
+# What dependencies may do. Unlisted build scripts fail the install (strictDepBuilds).
+permissions:
+  # orval loads its config through esbuild; the script only verifies the platform binary.
+  esbuild:
+    build: true
+  # Its script only checks the native binary and falls back to wasm; the binary arrives as an
+  # optional dependency, so the script is not needed.
+  '@swc/core':
+    build: false
+  # Packages may offer agent skills. Our agent setup lives in /.claude and is reviewed there,
+  # so package-provided skills are denied.
+  '@tanstack/react-router':
+    skills: false
+  '@tanstack/router-plugin':
+    skills: false
