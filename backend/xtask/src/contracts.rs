@@ -164,8 +164,17 @@ pub(crate) struct Report {
 }
 
 impl Report {
-    pub(crate) fn passed(&self) -> bool {
-        self.problems.is_empty()
+    /// Whether the check passes. Findings that only await the owner's signature pass when
+    /// `allow_pending` is set (local gates); violations never pass. CI runs with `false`.
+    pub(crate) fn passed(&self, allow_pending: bool) -> bool {
+        self.problems
+            .iter()
+            .all(|problem| allow_pending && problem.is_pending())
+    }
+
+    /// How many findings only await the owner's signature.
+    pub(crate) fn pending(&self) -> usize {
+        self.problems.iter().filter(|p| p.is_pending()).count()
     }
 }
 
@@ -248,6 +257,14 @@ pub(crate) enum Untagged {
 }
 
 impl Problem {
+    /// Whether this finding only awaits the owner's approval (a contract tag not signed
+    /// yet: the tag is missing, or a contract file isn't covered by any tag), rather than
+    /// violating an approved contract (a changed or deleted tagged file, a bad or unknown
+    /// signature, a lower version, a removed feature, an inconsistent tag).
+    pub(crate) fn is_pending(&self) -> bool {
+        matches!(self, Self::TagMissing { .. } | Self::Untagged { .. })
+    }
+
     /// The short form shown in a `contract-status` row.
     fn short(&self) -> String {
         match self {

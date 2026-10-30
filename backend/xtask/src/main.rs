@@ -54,6 +54,11 @@ enum Command {
         /// Any directory inside the repository [default: the current directory]
         #[arg(long)]
         repo: Option<PathBuf>,
+        /// Local gates only: contracts awaiting the owner's signature (missing tag,
+        /// untagged contract file) warn instead of failing. Violations of signed
+        /// contracts still fail. CI runs without it.
+        #[arg(long)]
+        allow_pending: bool,
     },
     /// List contract features with their versions and tag state. Never fails on findings.
     ContractStatus {
@@ -85,9 +90,12 @@ fn run(cli: Cli) -> anyhow::Result<bool> {
     match cli.command {
         Command::CheckLayers { config } => check_layers(config),
         Command::CoverageGate { summary, config } => coverage_gate(&summary, config),
-        Command::ContractCheck { base, head, repo } => {
-            contract_check(&base, &head, repo.as_deref())
-        }
+        Command::ContractCheck {
+            base,
+            head,
+            repo,
+            allow_pending,
+        } => contract_check(&base, &head, repo.as_deref(), allow_pending),
         Command::ContractStatus { base, head, repo } => {
             contract_status(&base, &head, repo.as_deref()).map(|()| true)
         }
@@ -163,23 +171,39 @@ fn contract_report(
     Ok(report)
 }
 
-fn contract_check(base: &str, head: &str, repo: Option<&Path>) -> anyhow::Result<bool> {
+fn contract_check(
+    base: &str,
+    head: &str,
+    repo: Option<&Path>,
+    allow_pending: bool,
+) -> anyhow::Result<bool> {
     let report = contract_report("contract-check", base, head, repo)?;
     for problem in &report.problems {
-        eprintln!("contract-check: error: {problem}");
+        if allow_pending && problem.is_pending() {
+            eprintln!("contract-check: warning: awaiting owner signature: {problem}");
+        } else {
+            eprintln!("contract-check: error: {problem}");
+        }
     }
-    let passed = report.passed();
-    if passed {
+    let (pending, passed) = (report.pending(), report.passed(allow_pending));
+    let violations = report.problems.len() - pending;
+    if passed && pending == 0 {
         eprintln!(
             "contract-check: ok ({} feature(s), {} file(s) match their signed tags)",
             report.features.len(),
             report.pinned
         );
+    } else if passed {
+        eprintln!(
+            "contract-check: ok locally, {pending} finding(s) awaiting the owner's signature \
+             (see `just contract-status`). CI is strict and fails until the owner signs."
+        );
     } else {
         eprintln!(
-            "contract-check: {} problem(s). Contract files stay byte-identical to the tags the \
-             owner signed; see contracts/CLAUDE.md",
-            report.problems.len()
+            "contract-check: failed: {violations} violation(s), {pending} awaiting the owner's \
+             signature{}. Contract files stay byte-identical to the tags the owner signed; \
+             see contracts/CLAUDE.md",
+            if allow_pending { " (allowed)" } else { "" }
         );
     }
     Ok(passed)
@@ -218,9 +242,11 @@ fn contract_status(base: &str, head: &str, repo: Option<&Path>) -> anyhow::Resul
             eprintln!("contract-status: {problem}");
         }
     }
+    let pending = report.pending();
     eprintln!(
-        "contract-status: {} problem(s); `contract-check` fails on any of them",
-        report.problems.len()
+        "contract-status: {pending} finding(s) awaiting the owner's signature, {} violation(s). \
+         Local gates fail only on violations; CI fails on both.",
+        report.problems.len() - pending
     );
     Ok(())
 }

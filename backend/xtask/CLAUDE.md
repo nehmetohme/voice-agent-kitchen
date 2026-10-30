@@ -8,7 +8,7 @@ This crate builds the `xtask` binary, run as `cargo xtask <command>` from `backe
 |---|---|
 | `check-layers` | Reads `layers.toml` and `cargo metadata --no-deps`, then fails on any of the following (see below). |
 | `coverage-gate <summary.json>` | Reads `cargo llvm-cov report --json --summary-only` output and `coverage.toml`. Fails any crate below its floor, and fails if total coverage is below the global floor. |
-| `contract-check --base <ref> [--head <ref>]` | Fails unless every contract file at HEAD is byte-identical to a `contract/<feature>/v<N>` tag the owner signed (rules below; workflow in `contracts/CLAUDE.md`). |
+| `contract-check --base <ref> [--head <ref>] [--allow-pending]` | Fails unless every contract file at HEAD is byte-identical to a `contract/<feature>/v<N>` tag the owner signed (rules below; workflow in `contracts/CLAUDE.md`). With `--allow-pending` (local gates), findings that only await the owner's signature (missing tag, untagged file) warn instead of failing. CI runs strict. |
 | `contract-status [--base <ref>] [--head <ref>]` | Lists each contract feature with its version and tag state. Never fails on findings. |
 
 `check-layers` fails on:
@@ -27,6 +27,8 @@ This crate builds the `xtask` binary, run as `cargo xtask <command>` from `backe
 - a tag whose own manifest doesn't pin that version, or whose paths match no file
 - a file in the tag's file set (from the tag's own manifest) that changed or is missing at HEAD
 - a file at HEAD matching any `contract_globs` (the base's or HEAD's) that no valid tag covers ("untagged contract file")
+
+A missing tag and an untagged file are *pending approval* (`Problem::is_pending`); everything else is a *violation*. `--allow-pending` lets only the pending kind pass, with an "awaiting owner signature" warning.
 
 The rules live in `src/contracts.rs` over a `Repo` trait; `src/git.rs` runs `git` through `std::process::Command`. Globs are matched in Rust because `git ls-tree` rejects `:(glob)` pathspecs. CI runs the base branch's copy of this checker (`just contracts-check-ci`).
 
