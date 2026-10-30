@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH upserted AS (\n               INSERT INTO operators (workspace_id, external_id, email)\n               VALUES ($1, $2, $3)\n               ON CONFLICT (workspace_id, external_id)\n               DO UPDATE SET email = EXCLUDED.email, last_seen_at = now()\n               WHERE operators.email IS DISTINCT FROM EXCLUDED.email\n                  OR operators.last_seen_at < now() - interval '1 minute'\n               RETURNING id\n           )\n           SELECT id AS \"id!\" FROM upserted\n           UNION ALL\n           SELECT id FROM operators WHERE workspace_id = $1 AND external_id = $2\n           LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7b46c338613d32a2be944322d86d0b553f8408c6505f97c79fdd003bc97d9a2a"
+}

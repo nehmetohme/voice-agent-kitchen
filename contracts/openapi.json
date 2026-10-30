@@ -679,6 +679,16 @@
             },
             "description": "No such agent"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent kept changing while archiving"
+          },
           "503": {
             "content": {
               "application/problem+json": {

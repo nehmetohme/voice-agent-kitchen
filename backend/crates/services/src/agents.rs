@@ -66,6 +66,26 @@ pub enum FindAgentError {
     Unavailable(#[source] RepoError),
 }
 
+/// Why [`AgentService::archive`] failed.
+#[derive(Debug, thiserror::Error)]
+pub enum ArchiveAgentError {
+    #[error("no such agent")]
+    NotFound,
+    #[error("the agent kept changing while it was being archived")]
+    Conflict,
+    #[error("agent storage is unavailable")]
+    Unavailable(#[source] RepoError),
+}
+
+impl From<FindAgentError> for ArchiveAgentError {
+    fn from(error: FindAgentError) -> Self {
+        match error {
+            FindAgentError::NotFound => Self::NotFound,
+            FindAgentError::Unavailable(source) => Self::Unavailable(source),
+        }
+    }
+}
+
 /// Why [`AgentService::update_draft`] failed.
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateDraftError {
@@ -213,19 +233,23 @@ impl AgentService {
 
     /// Archives the agent: lists hide it and its draft can no longer change. Archiving an
     /// archived agent changes nothing.
-    pub async fn archive(&self, actor: &Actor, id: AgentId) -> Result<(), FindAgentError> {
+    pub async fn archive(&self, actor: &Actor, id: AgentId) -> Result<(), ArchiveAgentError> {
         for _ in 0..UPDATE_ATTEMPTS {
-            let stored = self.within(self.repo.get(id)).await?;
+            let stored = self
+                .within(self.repo.get(id))
+                .await
+                .map_err(FindAgentError::from)?;
             let Some(archived) = stored.value.archive(now()) else {
                 return Ok(());
             };
-            let event = audit_event(actor, &archived, AuditAction::AgentArchived)?;
+            let event = audit_event(actor, &archived, AuditAction::AgentArchived)
+                .map_err(ArchiveAgentError::Unavailable)?;
             match self.save(&archived, stored.revision, &event).await {
                 Err(RepoError::Conflict) => {}
-                result => return result.map_err(FindAgentError::from),
+                result => return result.map_err(|error| FindAgentError::from(error).into()),
             }
         }
-        Err(FindAgentError::Unavailable(RepoError::Conflict))
+        Err(ArchiveAgentError::Conflict)
     }
 
     async fn save(
@@ -267,7 +291,9 @@ fn audit_event(actor: &Actor, agent: &Agent, action: AuditAction) -> Result<Audi
 }
 
 /// The current time at Postgres precision (microseconds), so a value reads back exactly as
-/// it was written.
+/// it was written. Rounding fails only within a microsecond of jiff's maximum timestamp
+/// (year 9999), which a clock never reads; the unrounded value is then still correct, just
+/// finer than the database keeps.
 fn now() -> Timestamp {
     let now = Timestamp::now();
     now.round(Unit::Microsecond).unwrap_or(now)

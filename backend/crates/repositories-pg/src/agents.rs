@@ -156,8 +156,10 @@ impl PgAgentRepo {
         .await
         .map_err(map_error)?;
         let Some(revision) = revision else {
-            // Dropping `tx` rolls back the operator upsert too.
-            return Err(self.missing_or_stale(agent.id()).await);
+            // Asked on the transaction's own connection: a second pool acquire while this one
+            // is held could exhaust the pool under concurrent stale writes. Dropping `tx`
+            // afterwards rolls back the operator upsert too.
+            return Err(missing_or_stale(&mut tx, agent.id()).await);
         };
         sqlx::query!(
             "UPDATE agent_drafts
@@ -182,36 +184,45 @@ impl PgAgentRepo {
             .map(Revision::new)
             .map_err(RepoError::unavailable)
     }
+}
 
-    /// Why a conditional update matched no row: the agent is gone, or its revision moved on.
-    async fn missing_or_stale(&self, id: AgentId) -> RepoError {
-        let exists = sqlx::query_scalar!(
-            r#"SELECT EXISTS (SELECT 1 FROM agents WHERE id = $1 AND workspace_id = $2)
-               AS "exists!""#,
-            id.as_uuid(),
-            DEFAULT_WORKSPACE,
-        )
-        .fetch_one(&self.pool)
-        .await;
-        match exists {
-            Ok(true) => RepoError::Conflict,
-            Ok(false) => RepoError::NotFound,
-            Err(error) => map_error(error),
-        }
+/// Why a conditional update matched no row: the agent is gone, or its revision moved on.
+async fn missing_or_stale(tx: &mut Transaction<'_, Postgres>, id: AgentId) -> RepoError {
+    let exists = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM agents WHERE id = $1 AND workspace_id = $2)
+           AS "exists!""#,
+        id.as_uuid(),
+        DEFAULT_WORKSPACE,
+    )
+    .fetch_one(&mut **tx)
+    .await;
+    match exists {
+        Ok(true) => RepoError::Conflict,
+        Ok(false) => RepoError::NotFound,
+        Err(error) => map_error(error),
     }
 }
 
-/// Creates the operator on first sight, or refreshes their email; returns their ID.
+/// Creates the operator on first sight and returns their ID. The row is rewritten only when
+/// the email changed or `last_seen_at` is a minute old, so autosaves don't write it each time.
 async fn upsert_operator(
     tx: &mut Transaction<'_, Postgres>,
     actor: &Actor,
 ) -> Result<Uuid, RepoError> {
     sqlx::query_scalar!(
-        "INSERT INTO operators (workspace_id, external_id, email)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (workspace_id, external_id)
-         DO UPDATE SET email = EXCLUDED.email, last_seen_at = now()
-         RETURNING id",
+        r#"WITH upserted AS (
+               INSERT INTO operators (workspace_id, external_id, email)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (workspace_id, external_id)
+               DO UPDATE SET email = EXCLUDED.email, last_seen_at = now()
+               WHERE operators.email IS DISTINCT FROM EXCLUDED.email
+                  OR operators.last_seen_at < now() - interval '1 minute'
+               RETURNING id
+           )
+           SELECT id AS "id!" FROM upserted
+           UNION ALL
+           SELECT id FROM operators WHERE workspace_id = $1 AND external_id = $2
+           LIMIT 1"#,
         DEFAULT_WORKSPACE,
         actor.user_id(),
         actor.email(),

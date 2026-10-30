@@ -39,8 +39,13 @@ async fn audit_trail(pool: &PgPool, id: AgentId) -> Vec<AuditRow> {
         .collect()
 }
 
-/// A created agent and its stored `agent.created` event.
+/// A created agent and its stored `agent.created` event, by Ada.
 async fn created(repo: &PgAgentRepo) -> Agent {
+    created_by(repo, "ada@example.com").await
+}
+
+/// A created agent, by the operator `4815162342` signed in as `email`.
+async fn created_by(repo: &PgAgentRepo, email: &str) -> Agent {
     let draft = AgentDraft::new(
         AgentName::parse("Front desk").expect("valid"),
         UseCase::Support,
@@ -51,7 +56,7 @@ async fn created(repo: &PgAgentRepo) -> Agent {
     let event = AuditEvent::new(
         AuditEventId::from_uuid(Uuid::now_v7()).expect("v7"),
         at,
-        Actor::new("4815162342", "ada@example.com").expect("valid"),
+        Actor::new("4815162342", email).expect("valid"),
         agent.id(),
         AuditAction::AgentCreated {
             draft_hash: agent.draft().content_hash(),
@@ -97,19 +102,30 @@ async fn audit_events_are_append_only(pool: PgPool) {
 #[sqlx::test]
 async fn the_operator_is_recorded_once_and_keeps_their_latest_email(pool: PgPool) {
     let repo = PgAgentRepo::new(pool.clone());
-    created(&repo).await;
-    created(&repo).await;
-
-    let operators: Vec<(String, String)> =
-        sqlx::query_as("SELECT external_id, email FROM operators")
+    let operators = || async {
+        sqlx::query_as::<_, (String, String)>("SELECT external_id, email FROM operators")
             .fetch_all(&pool)
             .await
-            .expect("readable");
+            .expect("readable")
+    };
+    created(&repo).await;
+    created(&repo).await;
 
     assert_eq!(
-        operators,
+        operators().await,
         [("4815162342".to_owned(), "ada@example.com".to_owned())]
     );
+
+    let renamed = created_by(&repo, "ada.lovelace@example.com").await;
+
+    assert_eq!(
+        operators().await,
+        [(
+            "4815162342".to_owned(),
+            "ada.lovelace@example.com".to_owned()
+        )]
+    );
+    assert_eq!(audit_trail(&pool, renamed.id()).await.len(), 1);
 }
 
 #[sqlx::test]
