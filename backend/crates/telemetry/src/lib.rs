@@ -3,6 +3,8 @@
 //!
 //! Only the composition root calls into this crate.
 
+use std::io::IsTerminal as _;
+
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::ParseError;
 use tracing_subscriber::util::{SubscriberInitExt as _, TryInitError};
@@ -17,12 +19,14 @@ pub enum TelemetryError {
 }
 
 /// Installs the global tracing subscriber: human-readable output on stderr, filtered by
-/// `filter` in `EnvFilter` syntax (e.g. `info,vak_api=debug`). Call it once, at startup.
+/// `filter` in `EnvFilter` syntax (e.g. `info,vak_api=debug`). Colours only when stderr is a
+/// terminal, so log collectors get plain text. Call it once, at startup.
 pub fn init(filter: &str) -> Result<(), TelemetryError> {
     let filter = EnvFilter::try_new(filter).map_err(TelemetryError::InvalidFilter)?;
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
+        .with_ansi(std::io::stderr().is_terminal())
         .finish()
         .try_init()
         .map_err(TelemetryError::AlreadyInitialized)
