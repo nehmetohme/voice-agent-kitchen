@@ -86,7 +86,7 @@ A canary that isn't caught gets one of these results, and the suite exits 1 and 
 
 Each canary's full output goes to `.claude/state/canaries/<name>.log` (`VAK_CANARY_LOG_DIR`). The e2e canary serves on `E2E_PORT`, default 4176. Every canary worktree shares one cargo target dir, `backend/target/canaries` (`VAK_CANARY_TARGET_DIR`), so dependencies build once.
 
-The `canaries` job in `nightly.yml` runs `just canaries` every night and on demand. It doesn't block PRs. A red run uploads the logs as the `canary-logs` artifact.
+The `canaries` job in `nightly.yml` runs `just canaries` every night and on demand. It doesn't block PRs. A red run uploads the logs as the `canary-logs` artifact. The runner itself is tested in `just verify`: `tools/tests/hooks/test_canaries_runner.sh` uses dummy canaries to check each result and the worktree cleanup.
 
 ### Canaries
 
@@ -94,19 +94,21 @@ Results from `just canaries` on 2026-10-30. The run used `main` at c51282d plus 
 
 | Canary | Gate (recipe) | Violation | Expected failure (`expect`) | Result |
 |---|---|---|---|---|
-| `layer-services` | `xtask check-layers` (`just backend-verify-fast`) | `vak-domain` depends on `vak-services` | `vak-domain may not depend on vak-services` | caught |
 | `layer-tokio` | `xtask check-layers` (`just backend-verify-fast`) | `vak-domain` depends on `tokio` | `vak-domain may not use external crate tokio` | caught |
-| `contract-edit` | `contract-check --allow-pending` (`just contracts-verify-fast`) | one assertion in `contract_health.rs`, signed as `contract/health/v1`, is loosened | `contract_health.rs changed since contract/health/v1` | caught |
+| `layer-internal` | `xtask check-layers` (`just backend-verify-fast`) | `vak-api` depends on `vak-repositories-pg`, skipping services | `vak-api may not depend on vak-repositories-pg` | caught |
+| `contract-edit` | `contract-check --allow-pending` (`just contracts-verify-fast`) | one assertion in `contract_health.rs`, signed as `contract/health/v1`, is loosened | `contract_health.rs changed since contract/health/v…` | caught |
 | `clippy` | clippy `-D warnings` (`just backend-verify-fast`) | `unwrap()` in the `GET /health` handler | `clippy::unwrap-used` | caught; also live in [#7](https://github.com/nehmetohme/voice-agent-kitchen/pull/7) |
 | `secret` | gitleaks (`just repo-secrets`) | a fake AWS access key ID in a new tracked file | `leaks found: 1` | caught |
 | `ux-primary` | app-shell contract e2e and `auditScreen()` (`just frontend-verify`) | a second primary `Button` in the app shell's top bar | `2 visible primary actions (max 1)` | caught |
 | `coverage-floor` | `xtask coverage-gate` (`just backend-coverage`) | an untested public function in `vak-domain` | `vak-domain … FAIL` | caught |
-| `vulnerable-dep` | `cargo deny check` (`just backend-verify`) | `vak-audio` depends on `protobuf` 2.28.0 | `RUSTSEC-2024-0437` | caught (`cargo audit` flags it too) |
+| `vulnerable-dep` | `cargo deny check` (`just backend-verify`) | `vak-audio` depends on `protobuf` 2.28.0 (RUSTSEC-2024-0437) | cargo-deny's `error[vulnerability]: … protobuf crate` | caught (`cargo audit`, which runs next, flags it too) |
 | `frontend-boundary` | dependency-cruiser (`just frontend-verify-fast`) | `features/plans` imports `features/agents/views/agents-overview` | `error no-cross-feature` | caught |
 | `openapi-drift` | OpenAPI drift (`just contracts-verify-fast`) | the health response schema changes without `just openapi` | `contracts/openapi.json differs from the Rust API` | caught |
 | `workflow-unpinned` | zizmor (`just ci-verify`) | a new workflow uses `actions/checkout@v4` | `unpinned-uses` | caught |
 | `workflow-write-all` | zizmor (`just ci-verify`) | a new single-job workflow sets `permissions: write-all` | `excessive-permissions` | **missed**: see below |
 | Claude Code hook guards | `tools/tests/hooks` (`just repo-hooks-test`, part of `just verify`) | edits to generated, owner-only and contract-tagged files; Stop and SubagentStop gates; post-edit lint | the hook tests' own assertions | covered there, not by a canary |
+
+The domain's layer rule is proven with `tokio`, not with `vak-services`. `layers.toml` lets `vak-services` depend on `vak-domain`, so once it does, a `vak-domain` → `vak-services` edge is a cycle, and cargo rejects it before check-layers runs. `layer-internal` uses an edge that can never close a cycle.
 
 **Known gap: `workflow-write-all`.** zizmor's default `regular` persona doesn't report workflow-level `permissions: write-all`, or `contents: write`, in a workflow with one job. It does report `write-all` at job level, or at workflow level once a workflow has two or more jobs. `zizmor --persona=auditor` reports the single-job case, and it finds nothing else in `.github/` today. The fix belongs in `tools/ci.just` and is the owner's call. Until then the nightly run stays red on this canary, as it should.
 
