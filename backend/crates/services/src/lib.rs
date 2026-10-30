@@ -3,3 +3,7 @@
 //!
 //! Business rules come from `vak-domain`; the outside world is reached only
 //! through repository and provider ports.
+
+mod agents;
+
+pub use agents::AgentService;
