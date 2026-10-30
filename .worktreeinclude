@@ -1,0 +1,3 @@
+# Gitignored files that Claude Code copies from the main checkout into each new worktree.
+# Local settings: the LLM box address and local passwords (see .env.example).
+.env
