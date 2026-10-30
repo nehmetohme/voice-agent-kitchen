@@ -45,7 +45,7 @@
   "container": {
     "$type": "dimension",
     "sidebar": { "$value": "16rem", "$description": "Width of the app sidebar" },
-    "prose": { "$value": "40rem", "$description": "Maximum width of a text column" }
+    "readable": { "$value": "40rem", "$description": "Maximum width of a text column" }
   },
   "radius": {
     "$type": "dimension",
