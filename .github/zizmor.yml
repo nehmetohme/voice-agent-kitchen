@@ -1,0 +1,12 @@
+# zizmor settings (`just ci-verify`).
+rules:
+  # Every action, GitHub's own included, must be pinned to a full commit SHA.
+  # `just ci-pin` (pinact) does the pinning.
+  unpinned-uses:
+    config:
+      policies:
+        "*": hash-pin
+  # Wants `uses: $/...` (GitHub's self-repository syntax, July 2026) for in-repo actions.
+  # actionlint 1.7.12 rejects that syntax, so keep `./...` until actionlint supports it.
+  self-repository:
+    disable: true
