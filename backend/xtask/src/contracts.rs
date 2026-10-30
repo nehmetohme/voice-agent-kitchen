@@ -395,8 +395,38 @@ impl fmt::Display for Untagged {
     }
 }
 
+/// The allowed-signers text tags are verified with: the base's copy, except while the base
+/// predates the contract system (no manifest and no signers file). There is no trusted
+/// copy yet then, so HEAD's is used and the run says so loudly; the owner's review of the
+/// pull request that adds the file is the only protection in that window.
+fn trusted_signers(
+    repo: &impl Repo,
+    base: &str,
+    head: &str,
+    base_has_manifest: bool,
+    notices: &mut Vec<String>,
+) -> anyhow::Result<String> {
+    if let Some(signers) = repo.read(base, SIGNERS)? {
+        return Ok(signers);
+    }
+    if base_has_manifest {
+        notices.push(format!(
+            "the base has no {SIGNERS}, so no contract tag can verify: the owner adds their \
+             signing key to it on the base branch first"
+        ));
+        return Ok(String::new());
+    }
+    notices.push(format!(
+        "BOOTSTRAP: the base has no {MANIFEST} and no {SIGNERS}, so tags are verified with \
+         HEAD's {SIGNERS}. Only the owner's review of this change protects that file; once the \
+         contract system is on the base branch, only the base's copy counts"
+    ));
+    Ok(repo.read(head, SIGNERS)?.unwrap_or_default())
+}
+
 /// Checks `head` against the signed contract tags, trusting only `base` for signers and
-/// minimum versions. Both are revisions git can resolve (ideally full commit ids).
+/// minimum versions (see [`trusted_signers`] for the one bootstrap exception). Both are
+/// revisions git can resolve, ideally full commit ids.
 pub(crate) fn check(repo: &impl Repo, base: &str, head: &str) -> anyhow::Result<Report> {
     let mut report = Report::default();
     let base_manifest =
@@ -405,16 +435,16 @@ pub(crate) fn check(repo: &impl Repo, base: &str, head: &str) -> anyhow::Result<
         load_manifest(repo, head).with_context(|| format!("parsing {MANIFEST} at the head"))?;
     if base_manifest.is_none() {
         report.notices.push(format!(
-            "the base has no {MANIFEST} (bootstrap): versions are not compared with it"
+            "the base has no {MANIFEST}: versions are not compared with it"
         ));
     }
-    let signers = repo.read(base, SIGNERS)?.unwrap_or_else(|| {
-        report.notices.push(format!(
-            "the base has no {SIGNERS}, so no contract tag can verify: the owner adds their \
-             signing key to it on the base branch first"
-        ));
-        String::new()
-    });
+    let signers = trusted_signers(
+        repo,
+        base,
+        head,
+        base_manifest.is_some(),
+        &mut report.notices,
+    )?;
     let base_manifest = base_manifest.unwrap_or_default();
     let head_manifest = head_manifest.unwrap_or_default();
     let head_files = repo.files(head)?;
