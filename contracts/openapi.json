@@ -1,0 +1,70 @@
+{
+  "components": {
+    "schemas": {
+      "Health": {
+        "description": "Response body of `GET /health`.",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/HealthStatus",
+            "description": "Always `ok` while the process serves HTTP."
+          },
+          "version": {
+            "description": "The server's version (the `vak-api` package version), e.g. `0.1.0`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "type": "object"
+      },
+      "HealthStatus": {
+        "description": "Liveness state. Only `ok` exists: a process that can't serve doesn't answer at all.",
+        "enum": [
+          "ok"
+        ],
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "description": "Provision, plan, test and publish real-time voice agents.",
+    "license": {
+      "identifier": "Apache-2.0",
+      "name": "Apache-2.0"
+    },
+    "title": "Voice Agent Kitchen API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "The process is serving HTTP"
+          }
+        },
+        "summary": "Liveness: answers while the process serves HTTP. Unauthenticated, checks no dependencies.",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Process liveness",
+      "name": "health"
+    }
+  ]
+}
