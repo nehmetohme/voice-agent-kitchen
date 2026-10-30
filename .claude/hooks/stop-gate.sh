@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# Stop hook: the "done" gate. Claude may finish only on a green work tree.
+# Stop and SubagentStop hook: the "done" gate. Claude, or a subagent, may finish only on a
+# green work tree.
+#
+# On SubagentStop the gate checks the subagent's own work tree (its worktree with
+# isolation: worktree), taken from the cwd in its transcript, else the input cwd. It exits 0
+# at once for read-only agent types, and for a subagent whose tree is unchanged since
+# SubagentStart (subagent-start.sh); the parent's own gate covers a shared tree.
 #
 #  1. Inside a reviewer child (CLAUDE_REVIEW_CHILD=1): exit 0 at once, so reviews never recurse.
 #  2. Fingerprint the work tree (tracked and untracked files, as a git tree id). Exit 0 when it
@@ -44,6 +50,9 @@ REVIEWERS_MODE=${VAK_REVIEWERS:-on}
 
 # Run order, and the full set of reviewer agents in .claude/agents/.
 ALL_REVIEWERS="security code-quality hygiene separation testing performance ci-cd dependencies docs ux-cognitive ux-interaction ux-perception ux-memory ux-complexity"
+# Subagent types that can't change the tree. On SubagentStop they exit at once, like the
+# reviewers above and internal agents (empty agent_type).
+READ_ONLY_AGENTS="Explore Plan claude-code-guide statusline-setup"
 
 # Reviewer children: read-only tools, no prompts. Glob and Grep must be named to be available.
 ALLOWED_TOOLS="Read,Grep,Glob,Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git status *),Bash(git ls-files *),Bash(git merge-base *),Bash(git rev-parse *),Bash(git for-each-ref *),Bash(graphify query *),Bash(graphify affected *),Bash(graphify explain *),Bash(graphify path *)"
@@ -103,29 +112,43 @@ else
   input=$(cat)
 fi
 active=$(json_get "$input" stop_hook_active)
-root=$(repo_root "$(json_get "$input" cwd)") || exit 0
+cwd=$(json_get "$input" cwd)
+
+# ---- SubagentStop: gate the subagent's own work tree --------------------------------------
+# Task agents run as subagents, often in their own worktree (Agent tool, isolation: worktree),
+# and Claude Code fires SubagentStop for them, not Stop.
+start_record=""
+if [ "$(json_get "$input" hook_event_name)" = SubagentStop ]; then
+  agent_type=$(json_get "$input" agent_type)
+  # Read-only agents, and internal agents (empty type), never need the gate.
+  [ -n "$agent_type" ] || exit 0
+  case " $READ_ONLY_AGENTS $ALL_REVIEWERS " in *" $agent_type "*) exit 0 ;; esac
+  # The subagent's own transcript records where it worked. Prefer it to the input cwd.
+  worked_in=$(transcript_cwd "$(json_get "$input" agent_transcript_path)")
+  if [ -n "$worked_in" ] && [ -d "$worked_in" ]; then cwd=$worked_in; fi
+  agent_id=$(json_get "$input" agent_id)
+  [ -z "$agent_id" ] || start_record="subagents/$(safe_name "$agent_id").start"
+fi
+
+root=$(repo_root "$cwd") || exit 0
 cd "$root"
 state=$(state_dir "$root")
 run_dir="$state/stop-gate"
+if [ -n "$start_record" ]; then
+  # Forget the subagent's start record once it may stop.
+  trap 'status=$?; [ "$status" -ne 0 ] || rm -f "$state/$start_record"' EXIT
+fi
 
 # ---- 2. Fingerprint -----------------------------------------------------------------------
 
-# The tree id git would commit for the whole work tree, untracked files included.
-tree_fingerprint() {
-  local index git_index
-  index=$(mktemp "$state/fingerprint-index.XXXXXX")
-  git_index=$(git rev-parse --git-path index)
-  if [ -f "$git_index" ]; then cp "$git_index" "$index"; else rm -f "$index"; fi
-  GIT_INDEX_FILE="$index" git add -A -- . ':(exclude).claude/state' ':(exclude)graphify-out' \
-    >/dev/null 2>&1 || true
-  GIT_INDEX_FILE="$index" git write-tree
-  rm -f "$index"
-}
-
 base=$(git merge-base HEAD "$BASE_REF" 2>/dev/null || git rev-parse -q --verify HEAD 2>/dev/null || true)
 [ -n "$base" ] || exit 0
-tree=$(tree_fingerprint)
+tree=$(tree_fingerprint "$state")
 [ "$tree" != "$(git rev-parse "$base^{tree}")" ] || exit 0
+# A subagent that changed nothing since SubagentStart leaves the tree to its parent's gate.
+if [ -n "$start_record" ] && [ "$(cat "$state/$start_record" 2>/dev/null || true)" = "$tree" ]; then
+  exit 0
+fi
 fingerprint="$tree reviewers=$REVIEWERS_MODE"
 last_green=$(cat "$state/last-green" 2>/dev/null || true)
 [ "$last_green" != "$fingerprint" ] || exit 0

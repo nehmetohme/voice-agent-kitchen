@@ -130,6 +130,50 @@ state_dir() {
   printf '%s\n' "$1/.claude/state"
 }
 
+# tree_fingerprint STATE-DIR: the tree id git would commit for the whole work tree in the
+# current folder, untracked files included. Uses a temporary copy of the index.
+tree_fingerprint() {
+  local index git_index
+  index=$(mktemp "$1/fingerprint-index.XXXXXX")
+  git_index=$(git rev-parse --git-path index)
+  if [ -f "$git_index" ]; then cp "$git_index" "$index"; else rm -f "$index"; fi
+  GIT_INDEX_FILE="$index" git add -A -- . ':(exclude).claude/state' ':(exclude)graphify-out' \
+    >/dev/null 2>&1 || true
+  GIT_INDEX_FILE="$index" git write-tree
+  rm -f "$index"
+}
+
+# transcript_cwd FILE: the last working directory recorded in a Claude Code transcript (JSONL).
+# Prints nothing when the file or the field is missing. Partial lines are skipped.
+transcript_cwd() {
+  local file=${1:-}
+  # shellcheck disable=SC2088 # a literal "~/" in the JSON field, expanded by hand
+  case "$file" in "~/"*) file="${HOME:-}/${file#"~/"}" ;; esac
+  [ -n "$file" ] && [ -f "$file" ] || return 0
+  case "$JSON_TOOL" in
+    jq) tail -n 200 "$file" | jq -R -r 'fromjson? | objects | .cwd // empty' 2>/dev/null | tail -n 1 || true ;;
+    python3)
+      tail -n 200 "$file" | python3 -I -c '
+import json, sys
+last = ""
+for line in sys.stdin:
+    try:
+        entry = json.loads(line)
+    except ValueError:
+        continue
+    if isinstance(entry, dict) and isinstance(entry.get("cwd"), str):
+        last = entry["cwd"]
+print(last)
+' 2>/dev/null || true
+      ;;
+  esac
+}
+
+# safe_name TEXT: TEXT reduced to characters safe in a file name.
+safe_name() {
+  printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'
+}
+
 # ---- Processes ----------------------------------------------------------------------------
 
 # run_with_timeout SECONDS CMD ARGS...: run CMD; exit 124 if it outlives SECONDS.
