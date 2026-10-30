@@ -1,0 +1,19 @@
+{
+  "_note": "Only repository admins (the owner) may create, move or delete contract tags `contract/<feature>/vN`. Apply with `just rulesets-apply`; keys starting with `_` are stripped before sending. RepositoryRole 5 is the admin role; the ID is undocumented, so check the bypass list in the ruleset UI after the first apply.",
+  "name": "contract-tags",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/tags/contract/**"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [{ "actor_type": "RepositoryRole", "actor_id": 5, "bypass_mode": "always" }],
+  "rules": [
+    { "type": "creation" },
+    { "type": "update", "parameters": { "update_allows_fetch_and_merge": false } },
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ]
+}
