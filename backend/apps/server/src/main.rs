@@ -119,6 +119,45 @@ mod tests {
         assert!(Cli::try_parse_from(["vak-server"]).is_err());
     }
 
+    #[test]
+    fn openapi_is_a_subcommand_with_an_optional_output_file() {
+        let to_file = Cli::try_parse_from(["vak-server", "openapi", "--output", "out.json"])
+            .expect("parses");
+        let to_stdout = Cli::try_parse_from(["vak-server", "openapi"]).expect("parses");
+
+        assert!(matches!(
+            to_file.command,
+            Command::Openapi { output: Some(ref path) } if path.as_path() == Path::new("out.json")
+        ));
+        assert!(matches!(to_stdout.command, Command::Openapi { output: None }));
+    }
+
+    #[test]
+    fn openapi_writes_the_contract_document_to_the_output_file() {
+        let path = std::env::temp_dir().join(format!(
+            "vak-server-openapi-{}.json",
+            std::process::id()
+        ));
+
+        openapi(Some(&path)).expect("writes the document");
+
+        let written = std::fs::read_to_string(&path).expect("the file exists");
+        std::fs::remove_file(&path).ok();
+        assert_eq!(written, vak_api::openapi_json().expect("renders"));
+    }
+
+    #[test]
+    fn openapi_writes_the_same_bytes_to_any_writer() {
+        let mut out = Vec::new();
+
+        write_openapi(&mut out).expect("writes");
+
+        assert_eq!(
+            String::from_utf8(out).expect("UTF-8"),
+            vak_api::openapi_json().expect("renders")
+        );
+    }
+
     #[tokio::test]
     async fn serves_health_then_shuts_down_gracefully() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
