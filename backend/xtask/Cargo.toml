@@ -1,6 +1,6 @@
 [package]
 name = "vak-xtask"
-description = "Workspace automation: check-layers, coverage-gate"
+description = "Workspace automation: check-layers, coverage-gate, contract-check"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
