@@ -1,0 +1,306 @@
+# CI runs the same `just` recipes as a local `just verify`, one job per area.
+# `gate` is the only required status check (see .github/rulesets/main.json and docs/ci.md).
+name: ci
+
+on:
+  pull_request:
+  # Unused until the repo moves to an organization: personal repos have no merge queue.
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Cancel superseded PR runs. Runs on main and in the merge queue always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists the PR's changed files
+    outputs:
+      # Path filters apply to PRs only; main and merge-queue runs test everything.
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      # The web job also waits until the frontend exists on the commit under test.
+      web: ${{ steps.detect.outputs.frontend == 'true' && (github.event_name != 'pull_request' || steps.filter.outputs.web == 'true') }}
+      # No path filter: any PR could touch a contract file. Runs once contracts.just exists.
+      contracts: ${{ steps.detect.outputs.contracts == 'true' }}
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            rust:
+              - 'backend/**'
+              - 'contracts/**'
+              - 'justfile'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            web:
+              - 'frontend/**'
+              - 'contracts/**'
+              - 'justfile'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+      - id: detect
+        name: Detect the areas present on this commit
+        run: |
+          present() { # output-name file
+            if [ -f "$2" ]; then
+              echo "$1=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$1=false" >> "$GITHUB_OUTPUT"
+              echo "::notice title=$1 skipped::$2 does not exist on this commit"
+            fi
+          }
+          present frontend frontend/package.json
+          present contracts contracts/contracts.just
+
+  rust:
+    name: rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      NEXTEST_PROFILE: ci
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain from backend/rust-toolchain.toml
+        working-directory: backend
+        run: |
+          rustup toolchain install
+          rustc --version
+          cargo --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: backend -> target
+          # PR runs read the cache from main but never write their own.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just,cargo-nextest,cargo-llvm-cov,cargo-deny,cargo-audit,cargo-shear,taplo
+      - run: just backend-verify
+
+  web:
+    name: web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # pnpm from `packageManager`, Node from `devEngines.runtime`, then a frozen install.
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          working-directory: frontend
+          require-lockfile: true
+          cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just
+      - id: playwright
+        name: Read the Playwright version
+        working-directory: frontend
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - name: Install Chromium and its system libraries
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - run: just frontend-verify
+
+  # Contract tags and drift checks (recipes in contracts/contracts.just). The tag check needs
+  # the full history and every tag; the drift checks regenerate the OpenAPI document (Rust) and
+  # the frontend client (pnpm), and oasdiff compares the OpenAPI document with the base branch.
+  contracts:
+    name: contracts
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install the toolchain from backend/rust-toolchain.toml
+        working-directory: backend
+        run: |
+          rustup toolchain install
+          rustc --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: backend -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          working-directory: frontend
+          require-lockfile: true
+          cache: true
+          save-cache: false # the web job saves the same store
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: oasdiff
+          url: https://github.com/oasdiff/oasdiff/releases/download/v1.35.0/oasdiff_1.35.0_linux_amd64.tar.gz
+          sha256: a8023002fcb2eaa7f5758148a9303cb63d33b939886df312268bc0fc7b939140
+      - name: Check contract tags against the base branch
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: just contracts-check-ci "origin/$BASE_REF" HEAD
+      - name: Check contract drift
+        run: just contracts-verify
+
+  repo:
+    name: repo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the secrets scan reads every commit in the range
+          persist-credentials: false
+      # shellcheck is pinned here (taiki-e's manifest at this SHA) rather than taken from the
+      # runner image, so repo-hooks-test lints with the same version every run.
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just,taplo,shellcheck
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: gitleaks
+          url: https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      # The hook tests (repo-hooks-test) need bash, git, jq or python3, and shellcheck.
+      - name: Show the tool versions the hook tests use
+        run: |
+          bash --version | head -n 1
+          git --version
+          jq --version
+          python3 --version
+          shellcheck --version | sed -n 2p
+      # Scans git content: every commit this run adds, not the working tree (no build output).
+      - name: Scan the new commits for secrets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: just ci-secrets "$BASE_SHA" HEAD
+      # Secret scan of git-visible files, TOML format, then the Claude Code hook tests and
+      # shellcheck. Runs on a fresh checkout that never builds.
+      - run: just repo-verify
+
+  workflows:
+    name: workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just,zizmor,shellcheck
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: actionlint
+          url: https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          sha256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      - run: just ci-verify
+        env:
+          # Read-only token: turns on zizmor's online audits (impostor commits, known-vulnerable actions).
+          GH_TOKEN: ${{ github.token }}
+
+  deps:
+    name: deps
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          config-file: ./.github/dependency-review.yml
+
+  # The only required status check. `if: always()` makes it run (and fail) when a needed job
+  # failed or was cancelled; without it, gate would be skipped, and GitHub counts skipped as
+  # passing. Jobs skipped on purpose (path filter, an area not on the commit yet, deps outside
+  # PRs) are fine.
+  gate:
+    name: gate
+    if: always()
+    needs: [changes, rust, web, contracts, repo, workflows, deps]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - name: Fail if a needed job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          bad=$(jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")' <<<"$NEEDS")
+          if [ -n "$bad" ]; then
+            echo "::error title=gate::failed or cancelled: $bad"
+            exit 1
+          fi

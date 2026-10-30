@@ -1,0 +1,39 @@
+{
+  "_note": "Source of truth for the `main` branch ruleset; apply with `just rulesets-apply`. Keys starting with `_` are notes and are stripped before sending. Personal repo, so no merge queue: `gate` is required with strict up-to-date branches, and auto-merge does the rest. After moving to an organization, add a `merge_queue` rule (SQUASH, ALLGREEN) and set strict_required_status_checks_policy to false.",
+  "name": "main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "_note_code_owner_review": "CODE-OWNER REVIEW IS OFF until agents open PRs as a GitHub App: a PR author can't approve their own PR, so turning it on now blocks every PR the owner opens. Then set require_code_owner_review to true and required_approving_review_count to 1.",
+        "require_code_owner_review": false,
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "_note": "integration_id 15368 is the GitHub Actions app, so only Actions can report `gate`.",
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [{ "context": "gate", "integration_id": 15368 }]
+      }
+    }
+  ]
+}

@@ -6,13 +6,14 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 import 'backend/backend.just'
 import 'frontend/frontend.just'
 import 'tools/repo.just'
+import 'tools/ci.just'
 
 # List recipes
 default:
     @just --list
 
 # Every gate: must pass before a task is done (hooks and CI run this)
-verify: backend-verify frontend-verify repo-verify
+verify: backend-verify frontend-verify repo-verify ci-verify
 
 # Quick subset for pre-commit and post-edit checks
-verify-fast: backend-verify-fast frontend-verify-fast repo-verify-fast
+verify-fast: backend-verify-fast frontend-verify-fast repo-verify-fast ci-verify-fast

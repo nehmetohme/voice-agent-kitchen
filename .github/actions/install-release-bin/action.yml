@@ -1,0 +1,39 @@
+# Installs one binary from a pinned release tarball after checking its SHA-256.
+# For tools that taiki-e/install-action doesn't ship (gitleaks, actionlint).
+# Dependabot can't bump these: change the URL and the checksum together, taking the checksum
+# from the release's *_checksums.txt asset.
+name: Install a release binary
+description: Download a release tarball, verify its SHA-256 and install one binary from it into /usr/local/bin.
+inputs:
+  name:
+    description: Name of the binary inside the tarball (also the command name)
+    required: true
+  url:
+    description: HTTPS URL of the release tarball (.tar.gz)
+    required: true
+  sha256:
+    description: Expected SHA-256 of the tarball
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install ${{ inputs.name }}
+      shell: bash
+      env:
+        BIN_NAME: ${{ inputs.name }}
+        BIN_URL: ${{ inputs.url }}
+        BIN_SHA256: ${{ inputs.sha256 }}
+      # Installs into /usr/local/bin, which is already on PATH, instead of writing GITHUB_PATH.
+      run: |
+        set -euo pipefail
+        dir="$RUNNER_TEMP/install-release-bin/$BIN_NAME"
+        mkdir -p "$dir"
+        curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$dir/archive.tar.gz" "$BIN_URL"
+        echo "$BIN_SHA256  $dir/archive.tar.gz" | sha256sum --check --strict
+        tar -xzf "$dir/archive.tar.gz" -C "$dir" "$BIN_NAME"
+        sudo install -m 0755 "$dir/$BIN_NAME" "/usr/local/bin/$BIN_NAME"
+        if [ "$(command -v "$BIN_NAME")" != "/usr/local/bin/$BIN_NAME" ]; then
+          echo "::error::$BIN_NAME resolves to '$(command -v "$BIN_NAME" || true)', not /usr/local/bin/$BIN_NAME"
+          exit 1
+        fi
+        "$BIN_NAME" --version 2>/dev/null || "$BIN_NAME" version
