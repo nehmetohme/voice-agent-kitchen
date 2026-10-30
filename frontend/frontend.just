@@ -23,7 +23,7 @@ frontend-verify: frontend-install
     pnpm run test:coverage
     pnpm run build
     pnpm run size
-    pnpm run storybook:build
+    pnpm run storybook:check
     pnpm run e2e
 
 # Fast frontend gates: format, lint, types, boundaries

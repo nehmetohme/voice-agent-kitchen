@@ -20,6 +20,7 @@
     "tokens": "node tokens/build.ts",
     "storybook": "storybook dev --port 6006 --no-open",
     "storybook:build": "storybook build --quiet",
+    "storybook:check": "storybook build --quiet --test --output-dir node_modules/.cache/storybook-check",
     "api:generate": "orval --config orval.config.ts"
   },
   "dependencies": {
