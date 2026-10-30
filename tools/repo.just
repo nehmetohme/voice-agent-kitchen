@@ -4,7 +4,7 @@
 repo-verify: repo-verify-fast repo-hooks-test
 
 # Fast repo-wide gates
-repo-verify-fast: repo-secrets
+repo-verify-fast: repo-secrets dev-lint
     taplo fmt --check
 
 # Secret scan of tracked and new files only; gitignored build output (dist, target, ...) is skipped

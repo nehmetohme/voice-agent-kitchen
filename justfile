@@ -8,6 +8,7 @@ import 'frontend/frontend.just'
 import 'tools/repo.just'
 import 'tools/ci.just'
 import 'contracts/contracts.just'
+import 'deploy/local/dev.just'
 
 # List recipes
 default:

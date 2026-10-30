@@ -1,0 +1,125 @@
+# The local dev stack, started by `just dev` (deploy/local/dev.just) from the repo root with
+# the environment of deploy/local/env.sh (.env plus defaults) already exported, so
+# process-compose's own .env loading is off. Everything runs natively except Postgres:
+# containers on macOS get no Metal GPU. The LLM is not here: it runs on a LAN GPU box
+# (VAK_LLM_BASE_URL); `just dev-doctor` checks that it answers.
+#
+#   postgres :5433 ─┐
+#   decisions :8081 │ llama-server /v1/systemone, Kev-4B
+#   mlx-audio :8000 ─► speech-warmup ─► model-shim :8001 (Databricks STT/TTS shapes)
+#   postgres ─► vak-server :3000 ─► frontend :5173 (Vite, proxies /api)
+version: "0.5"
+
+processes:
+  postgres:
+    description: Postgres 18 in Docker on 127.0.0.1:${VAK_PG_PORT}
+    command: docker compose -f deploy/local/docker-compose.yml up db
+    shutdown:
+      command: docker compose -f deploy/local/docker-compose.yml stop db
+      timeout_seconds: 30
+    readiness_probe:
+      exec:
+        command: >-
+          docker compose -f deploy/local/docker-compose.yml exec -T db
+          pg_isready --username=vak --dbname=vak --host=127.0.0.1
+      period_seconds: 2
+      timeout_seconds: 5
+      failure_threshold: 30
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  decisions:
+    description: llama-server with Kev-4B for /v1/systemone on :8081
+    # 4 slots of 4096 tokens: one turn's decision fan-out runs in parallel.
+    command: >-
+      llama-server --model "${VAK_DECISION_GGUF}" --alias "${VAK_DECISION_MODEL}"
+      --host 127.0.0.1 --port 8081 --n-gpu-layers 99 --ctx-size 16384 --parallel 4
+      --no-webui
+    readiness_probe:
+      http_get:
+        host: 127.0.0.1
+        port: 8081
+        path: /health
+      period_seconds: 2
+      failure_threshold: 60
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  mlx-audio:
+    description: mlx-audio speech server (Parakeet STT, Kokoro TTS on MLX) on :8000
+    command: deploy/local/mlx-audio.sh
+    readiness_probe:
+      http_get:
+        host: 127.0.0.1
+        port: 8000
+        path: /
+      period_seconds: 2
+      failure_threshold: 90
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  speech-warmup:
+    description: Loads Parakeet and Kokoro into mlx-audio and runs one call of each
+    command: deploy/local/speech-warmup.sh
+    depends_on:
+      mlx-audio:
+        condition: process_healthy
+    availability:
+      restart: "no"
+
+  model-shim:
+    description: vak-model-shim on :8001, Databricks STT/TTS invocations to mlx-audio
+    command: cargo run --quiet --locked -p vak-model-shim
+    working_dir: backend
+    depends_on:
+      speech-warmup:
+        condition: process_completed_successfully
+    readiness_probe:
+      http_get:
+        host: 127.0.0.1
+        port: 8001
+        path: /health
+      period_seconds: 2
+      failure_threshold: 60
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  vak-server:
+    description: vak-server on :3000 (API; the frontend proxies /api to it)
+    command: cargo run --quiet --locked -p vak-server -- serve
+    working_dir: backend
+    depends_on:
+      postgres:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: 127.0.0.1
+        port: 3000
+        path: /health
+      period_seconds: 2
+      failure_threshold: 60
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  frontend:
+    description: Vite dev server on :5173
+    command: pnpm run dev
+    working_dir: frontend
+    depends_on:
+      vak-server:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: 127.0.0.1
+        port: 5173
+        path: /
+      period_seconds: 2
+      failure_threshold: 30
+    availability:
+      restart: on_failure
+      max_restarts: 3
