@@ -4,6 +4,7 @@
 //!
 //! Exit codes: 0 when every check passes, 1 when a check fails, 2 on a usage or I/O error.
 
+mod coverage_gate;
 mod layers;
 mod workspace;
 
