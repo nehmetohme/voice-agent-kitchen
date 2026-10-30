@@ -5,7 +5,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=deploy/local/env.sh
+# shellcheck source=env.sh
 . "$here/env.sh"
 mlx=http://127.0.0.1:8000
 fixture="$VAK_ROOT/backend/fixtures/audio/utterance_book_table_16k.wav"

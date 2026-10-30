@@ -5,7 +5,7 @@
 set -uo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=deploy/local/env.sh
+# shellcheck source=env.sh
 . "$here/env.sh"
 fixture="$VAK_ROOT/backend/fixtures/audio/utterance_book_table_16k.wav"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/vak-smoke.XXXXXX")
@@ -30,8 +30,10 @@ LAT=0
 DETAIL=""
 
 check_llm() {
-  local auth=() start first end text thinking speed
-  [ -z "$VAK_LLM_API_KEY" ] || auth=(-H "Authorization: Bearer $VAK_LLM_API_KEY")
+  local start first end text thinking speed
+  # Headers from a file (in the private temp dir): the key never shows in `ps`.
+  printf 'Content-Type: application/json\n' >"$tmp/llm.headers"
+  [ -z "$VAK_LLM_API_KEY" ] || printf 'Authorization: Bearer %s\n' "$VAK_LLM_API_KEY" >>"$tmp/llm.headers"
   jq -n --arg model "$VAK_LLM_MODEL" --argjson extra "$VAK_LLM_EXTRA_BODY" '{
       model: $model, stream: true, max_tokens: 32,
       messages: [
@@ -41,7 +43,7 @@ check_llm() {
     } + $extra' >"$tmp/llm.json"
   start=$(now_ms)
   # perl stamps the first chunk that carries content: time to first token, client side.
-  curl -sS -N -m 60 ${auth[@]+"${auth[@]}"} -H 'content-type: application/json' \
+  curl -sS -N -m 60 -H @"$tmp/llm.headers" \
     -d @"$tmp/llm.json" "$VAK_LLM_BASE_URL/chat/completions" 2>"$tmp/llm.err" |
     perl -MTime::HiRes=time -ne 'BEGIN { $| = 1 }
       if (!$seen && /"content":"[^"]/) { open(my $f, ">", $ENV{FIRST}); printf $f "%d\n", time * 1000; $seen = 1 }

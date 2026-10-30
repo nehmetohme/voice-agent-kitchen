@@ -66,7 +66,3 @@ dev-doctor:
 # Call every endpoint of the running stack end to end (first and warm) and print latencies
 dev-smoke:
     deploy/local/smoke.sh
-
-# Lint the local stack's scripts (part of `just repo-verify-fast`)
-dev-lint:
-    shellcheck -x deploy/local/*.sh
