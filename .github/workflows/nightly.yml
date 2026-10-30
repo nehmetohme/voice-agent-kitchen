@@ -1,5 +1,6 @@
 # Nightly reports that are too slow for every PR. They report, they don't gate.
-# Skeleton for now: the placeholder jobs get real steps in later milestones
+# `canaries` proves that every gate still fails on a deliberate violation (docs/ci.md, "Gate
+# self-tests"). The placeholder jobs get real steps in later milestones
 # (docs/plan/quality.md §1 and §6).
 name: nightly
 
@@ -15,6 +16,88 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # `just canaries`: each canary makes one violation in a temporary worktree and expects its
+  # gate to fail. A red run names the gate that let a violation through, or a canary that no
+  # longer applies to main. Needs every tool the gates use, so the setup mirrors ci.yml's
+  # rust, web, contracts, repo and workflows jobs.
+  canaries:
+    name: gate canaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    env:
+      # The canary worktrees share the checkout's target dir, which rust-cache restores.
+      VAK_CANARY_TARGET_DIR: ${{ github.workspace }}/backend/target
+      E2E_PORT: "4176"
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      # Full history and tags: the contract canary checks against origin/main and the signed
+      # contract/* tags.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install the toolchain from backend/rust-toolchain.toml
+        working-directory: backend
+        run: |
+          rustup toolchain install
+          rustc --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: backend -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          working-directory: frontend
+          require-lockfile: true
+          cache: true
+          save-cache: false # ci.yml's web job saves the same store
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just,cargo-nextest,cargo-llvm-cov,cargo-deny,cargo-audit,cargo-shear,taplo,zizmor,shellcheck
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: gitleaks
+          url: https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: actionlint
+          url: https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          sha256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      - uses: ./.github/actions/install-release-bin
+        with:
+          name: oasdiff
+          url: https://github.com/oasdiff/oasdiff/releases/download/v1.35.0/oasdiff_1.35.0_linux_amd64.tar.gz
+          sha256: a8023002fcb2eaa7f5758148a9303cb63d33b939886df312268bc0fc7b939140
+      - id: playwright
+        name: Read the Playwright version
+        working-directory: frontend
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - name: Install Chromium and its system libraries
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - run: just canaries
+        env:
+          # Outside the checkout: upload-artifact skips hidden folders such as .claude/.
+          VAK_CANARY_LOG_DIR: ${{ runner.temp }}/canary-logs
+      - name: Upload each canary's full output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: canary-logs
+          path: ${{ runner.temp }}/canary-logs/
+          retention-days: 14
+          if-no-files-found: ignore
+
   mutants:
     name: mutation tests
     runs-on: ubuntu-24.04
