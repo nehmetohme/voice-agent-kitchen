@@ -144,9 +144,9 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - run: just frontend-verify
 
-  # Contract tags and drift checks (recipes in contracts/contracts.just). The tag check needs
-  # the full history and every tag; the drift checks regenerate the OpenAPI document (Rust) and
-  # the frontend client (pnpm), and oasdiff compares the OpenAPI document with the base branch.
+  # Contract drift checks, then the strict tag check (recipes in contracts/contracts.just). The
+  # tag check needs the full history and every tag; the drift checks regenerate the OpenAPI
+  # document (Rust) and the frontend client (pnpm), and oasdiff compares it with the base branch.
   contracts:
     name: contracts
     needs: changes
@@ -187,12 +187,19 @@ jobs:
           name: oasdiff
           url: https://github.com/oasdiff/oasdiff/releases/download/v1.35.0/oasdiff_1.35.0_linux_amd64.tar.gz
           sha256: a8023002fcb2eaa7f5758148a9303cb63d33b939886df312268bc0fc7b939140
-      - name: Check contract tags against the base branch
+      # Local mode first: drift, oasdiff, and HEAD's contract-check with --allow-pending
+      # (contracts awaiting the owner's signature only warn), so their results show even
+      # while a signature is pending.
+      - name: Check contract drift
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: VAK_CONTRACTS_BASE="origin/$BASE_REF" just contracts-verify
+      # Strict, with the base branch's copy of the checker: a contract awaiting the owner's
+      # signature fails here, so `gate` stays red until the owner signs the tag.
+      - name: Check contract tags against the base branch (strict)
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
         run: just contracts-check-ci "origin/$BASE_REF" HEAD
-      - name: Check contract drift
-        run: just contracts-verify
 
   repo:
     name: repo

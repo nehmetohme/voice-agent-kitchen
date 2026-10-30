@@ -8,9 +8,12 @@ This crate builds the `vak-server` binary. It is the only place that:
 - picks implementations (local or Databricks adapters, Postgres repositories) and wires them to ports
 - owns the tokio runtime and process lifecycle
 
-Today the CLI (clap) has one subcommand. `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, binds `settings.http.addr` and serves `vak_api::router()`. On Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+Today the CLI (clap) has two subcommands:
 
-Planned subcommands: `worker` (job queue), `migrate` (runs `vak-repositories-pg` migrations before a deploy) and `openapi` (writes `contracts/openapi.json`, used by `just openapi`).
+- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, binds `settings.http.addr` and serves `vak_api::router()`. On Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- `vak-server openapi [--output FILE]` writes `vak_api::openapi_json()` to the file, or to stdout. It reads no settings or environment. `just openapi` uses it to write `contracts/openapi.json`, and `just contracts-verify` uses it to check that file for drift.
+
+Planned subcommands: `worker` (job queue) and `migrate` (runs `vak-repositories-pg` migrations before a deploy).
 
 ## Dependencies
 

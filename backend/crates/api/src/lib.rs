@@ -3,13 +3,17 @@
 //!
 //! Handlers are thin: parse, validate, call one service, map the result.
 //!
-//! [`router`] builds the whole application router; the composition root (`vak-server`)
-//! serves it.
+//! Routes are registered through utoipa-axum's `OpenApiRouter`, so a route and its OpenAPI
+//! description can't drift apart. [`router`] builds the application router that the
+//! composition root (`vak-server`) serves. [`openapi_json`] renders the same routes as the
+//! OpenAPI 3.1 document committed at `contracts/openapi.json`.
 
 mod health;
+mod openapi;
 
 use axum::Router;
-use axum::routing::get;
+
+pub use openapi::openapi_json;
 
 /// The application router.
 ///
@@ -17,5 +21,5 @@ use axum::routing::get;
 /// |---|---|
 /// | `GET /health` | liveness: `{"status":"ok","version":"<vak-api version>"}` |
 pub fn router() -> Router {
-    Router::new().route("/health", get(health::get))
+    openapi::routes().into()
 }

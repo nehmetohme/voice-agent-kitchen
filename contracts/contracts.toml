@@ -1,0 +1,32 @@
+# Contract-test manifest, checked by `cargo xtask contract-check` (`just contracts-verify`,
+# CI). Workflow: contracts/CLAUDE.md.
+#
+# - HEAD's copy pins each feature's version: tag contract/<feature>/v<version> must exist,
+#   signed by a key in the base branch's .github/contract-signers.
+# - The file set of a version comes from the manifest inside its signed tag, so editing
+#   `paths` here changes nothing until the owner signs a new version.
+# - Versions only go up. To change a contract, bump its version, then edit its files.
+
+# Every file matching one of these is a contract file and must be covered by a signed tag.
+# The base branch's globs apply too, so removing a glob here hides nothing.
+contract_globs = [
+  "**/tests/contract_*.rs",
+  "**/tests/contract_*/**",
+  "**/*.contract.test.ts",
+  "**/*.contract.test.tsx",
+  "**/*.contract.spec.ts",
+  "frontend/e2e/contract/**",
+]
+
+# GET /health answers 200 with {"status":"ok","version":"<vak-api version>"}.
+[features.health]
+version = 1
+paths = ["backend/crates/api/tests/contract_health.rs"]
+
+# The app shell (navigation, layout, landing on Agents) and the shared Button.
+[features.app-shell]
+version = 1
+paths = [
+  "frontend/e2e/contract/app-shell/**",
+  "frontend/src/shared/ui/button.contract.test.tsx",
+]

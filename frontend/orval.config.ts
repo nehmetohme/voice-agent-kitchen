@@ -1,11 +1,12 @@
 import { defineConfig } from 'orval';
 
-// Generates the typed API client from the backend contract. Run it with `just openapi`
-// (or `pnpm api:generate`), never by hand-editing src/shared/api/generated/.
+// Generates the typed API client from the backend contract (contracts/openapi.json, written
+// from Rust by `vak-server openapi`). Run it with `just openapi` (spec and client) or
+// `pnpm api:generate` (client only); never hand-edit src/shared/api/generated/.
+// `just contracts-verify` regenerates it and fails if the committed output differs.
 //
-// contracts/openapi.json does not exist yet (task T0.4 emits it from Rust), so `verify`
-// does not run this. The generated mocks need `msw` and `@faker-js/faker`; T0.4 adds them
-// together with the first generated client.
+// The generated *.msw.ts mocks use the devDependencies `msw` and `@faker-js/faker`;
+// dependency-cruiser treats them as test code.
 export default defineConfig({
   vak: {
     input: { target: '../contracts/openapi.json' },

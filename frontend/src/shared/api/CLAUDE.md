@@ -8,8 +8,16 @@ cannot drift.
 | `generated/` | **orval output** from `contracts/openapi.json`: fetch functions, TanStack Query hooks, Zod schemas, MSW handlers. Never edit; regenerate with `just openapi`. |
 | `http.ts`    | The fetch mutator every generated call goes through                                                                                                           |
 
-`generated/` appears with task T0.4, when the backend first emits `contracts/openapi.json`.
-`verify` never runs orval; CI checks that the committed client matches the contract.
+`generated/` is committed. `frontend-verify` never runs orval; `just contracts-verify`
+regenerates it from `contracts/openapi.json` and fails on any drift. Oxlint, Oxfmt, knip and
+coverage ignore it; `tsc` still type-checks it. Its `*.msw.ts` mocks are test code
+(dependency-cruiser), so production code never imports them.
+
+| Generated file                 | Holds                                                       |
+| ------------------------------ | ----------------------------------------------------------- |
+| `endpoints/<tag>/<tag>.ts`     | fetch function per operation (`getHealth`), Query hooks     |
+| `endpoints/<tag>/<tag>.msw.ts` | MSW handlers and response mocks (`getGetHealthMockHandler`) |
+| `model/<schema>.zod.ts`        | Zod schema and its type, same name (`Health`)               |
 
 ## What `http.ts` guarantees
 
@@ -36,6 +44,8 @@ cannot drift.
 ## Testing
 
 - `http.test.ts` stubs `fetch` and covers success, contract violation and error mapping.
+- `generated-client.test.ts` drives the generated client through `http.ts` with the generated
+  MSW handlers (`msw/node`), including a response that breaks the contract.
 - Feature `api/` tests use the generated MSW handlers.
 - Coverage counts toward the 80 % frontend floor; `generated/` is excluded.
 
