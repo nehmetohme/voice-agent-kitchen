@@ -6,7 +6,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
-export const UX_LIMITS = {
+const UX_LIMITS = {
   /** Von Restorff, Hick: at most one visible primary action. */
   maxPrimaryActions: 1,
   /** Miller: primary navigation stays at 7 items or fewer. */
@@ -20,7 +20,7 @@ export const UX_LIMITS = {
 } as const;
 
 /** axe-core tags for WCAG 2.2 level AA. */
-export const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 export interface UxFinding {
   law: string;

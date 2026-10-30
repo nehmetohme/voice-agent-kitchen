@@ -6,7 +6,7 @@
  * (for example TanStack Router's `activeProps`), and in calls to the class helpers below.
  */
 
-export const CLASS_HELPERS = new Set(['cn', 'cva', 'clsx', 'twMerge']);
+const CLASS_HELPERS = new Set(['cn', 'cva', 'clsx', 'twMerge']);
 
 /** The few AST fields these helpers read. `range` lets a node be passed to `context.report`. */
 export interface AstNode {
