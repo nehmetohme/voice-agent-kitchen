@@ -43,6 +43,7 @@ vak-api = { path = "crates/api" }
 vak-config = { path = "crates/config" }
 vak-domain = { path = "crates/domain" }
 vak-repositories = { path = "crates/repositories" }
+vak-repositories-pg = { path = "crates/repositories-pg" }
 vak-services = { path = "crates/services" }
 vak-telemetry = { path = "crates/telemetry" }
 vak-testkit = { path = "crates/testkit" }
