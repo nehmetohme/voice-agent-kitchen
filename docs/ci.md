@@ -8,7 +8,7 @@ The same `just` recipes run in three places: git hooks (lefthook), Claude Code h
 just setup        # runs `lefthook install`; linked worktrees share the hooks
 ```
 
-Tools on `PATH`, as standalone binaries: `just`, `lefthook`, `gitleaks`, `taplo`, `actionlint`, `zizmor`, `pinact`, `gh`, and Graphify (`uv tool install graphifyy==0.9.97`).
+Tools on `PATH`, as standalone binaries: `just`, `lefthook`, `gitleaks`, `taplo`, `shellcheck`, `jq` (or `python3`), `actionlint`, `zizmor`, `pinact`, `gh`, and Graphify (`uv tool install graphifyy==0.9.97`).
 
 | Hook | Runs | Blocks? |
 |---|---|---|
@@ -45,7 +45,7 @@ To skip hooks for one command, use `LEFTHOOK=0 git commit ...`. CI runs the same
 | `rust` | `just backend-verify` | PR doesn't touch `backend/`, `contracts/`, `justfile` or CI files |
 | `web` | `just frontend-verify` (pnpm 12, Node from `devEngines.runtime`, Playwright Chromium) | PR doesn't touch `frontend/`, `contracts/`, `justfile` or CI files, or there is no `frontend/package.json` |
 | `contracts` | `just contracts-check-ci origin/<base> HEAD`, `just contracts-verify` | no `contracts/contracts.just` |
-| `repo` | `just ci-secrets <base> HEAD` (gitleaks over the new commits), `just repo-verify` | never |
+| `repo` | `just ci-secrets <base> HEAD` (gitleaks over the new commits), then `just repo-verify` (secrets in git-visible files, TOML format, Claude Code hook tests, shellcheck) | never |
 | `workflows` | `just ci-verify` (actionlint, zizmor) | never |
 | `deps` | dependency review (`.github/dependency-review.yml`) | not a PR |
 | `gate` | fails if any job above failed or was cancelled; skipped is fine | never: **the only required check** |
