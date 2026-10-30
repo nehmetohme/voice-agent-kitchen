@@ -4,3 +4,10 @@
 //!
 //! This is the only crate allowed to depend on sqlx (enforced by `deny.toml`).
 //! sqlx types never cross the port boundary.
+
+mod agents;
+mod database;
+mod records;
+
+pub use agents::PgAgentRepo;
+pub use database::{Database, DatabaseConfig, DatabaseError};
