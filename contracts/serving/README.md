@@ -64,6 +64,7 @@ Every non-200 answer has the Databricks REST error body `{"error_code": "...", "
 |---|---|---|---|
 | 400 | `BAD_REQUEST` | the body is not JSON or breaks the schema, bad base64, odd PCM byte count | no: a bug in the caller |
 | 404 | `RESOURCE_DOES_NOT_EXIST` | unknown endpoint name | no: configuration |
+| 413 | `BAD_REQUEST` | the body is over 16 MiB | no |
 | 429 | `REQUEST_LIMIT_EXCEEDED` | Databricks rate limit (never from the shim) | yes, with backoff, within the turn's budget |
 | 500 | `INTERNAL_ERROR` | the model failed or answered something unusable (the shim never relabels audio it didn't ask for) | no |
 | 503 | `TEMPORARILY_UNAVAILABLE` | the model server can't be reached (scale-from-zero, mlx-audio down) | yes, within the budget |
