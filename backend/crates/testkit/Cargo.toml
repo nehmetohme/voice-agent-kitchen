@@ -8,5 +8,14 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+jiff = { workspace = true }
+uuid = { workspace = true, features = ["v7"] }
+vak-domain = { workspace = true }
+vak-repositories = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
 [lints]
 workspace = true

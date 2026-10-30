@@ -11,10 +11,12 @@ This crate holds test support shared across the workspace:
 - **Postgres:** the test container (testcontainers `postgres` module) for `vak-repositories-pg`.
 - **Fake WebSocket server:** it replays recorded provider sessions for adapter tests.
 
+Today: `repositories::InMemoryAgentRepo` (with `audit_events()`, `set_unavailable(bool)` and `fail_next_updates_with_conflict(n)` for error paths) and `repositories::agent_repo_conformance(repo, audit_trail)`, which the fake passes here and `PgAgentRepo` passes in `vak-repositories-pg`. Postgres for tests comes from `backend/tools/test-db.sh` through a nextest setup script, not from a testcontainers helper: nextest runs each test in its own process, and one shared container per worktree is faster than one per test.
+
 ## Dependencies
 
 - **May depend on:** `vak-domain`, `vak-audio`, `vak-repositories`, `vak-providers`.
-- **External crates:** test crates: `tokio` (test-util), `hound`, `testcontainers`, `testcontainers-modules`, `proptest`, `wiremock`.
+- **External crates:** test crates: `tokio` (test-util), `hound`, `testcontainers`, `testcontainers-modules`, `proptest`, `wiremock`; `jiff` and `uuid` (v7) to build domain fixtures.
 - **Must not depend on:** repositories-pg, adapters, pipeline, services, api, server.
 - **Dev-only:** this crate may only ever be a `[dev-dependencies]` entry. `cargo xtask check-layers` fails if any crate lists it under `[dependencies]` or `[build-dependencies]`. Only crates whose `layers.toml` entry has it in `dev-deps` may use it.
 

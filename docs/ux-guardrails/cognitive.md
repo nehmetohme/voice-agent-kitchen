@@ -10,7 +10,7 @@ Every extra choice slows the decision, so each step offers few choices and one o
 |---|---|---|---|
 | HICK-1 | At most 1 visible primary action per screen. | `auditScreen(page)` counts visible `[data-variant="primary"]` | A |
 | HICK-2 | At most 4 actions (1 primary + 3 secondary) per action group. More actions go into a "More" menu. | `auditScreen` counts buttons and links in each `[data-region="actions"]` | A for marked groups; R that groups are marked |
-| HICK-3 | A choice list with more than 7 options is a searchable Combobox, not a Select or radio group. | Lint rule on `<Select>` with > 7 static options | R today; lint planned, M2 |
+| HICK-3 | A choice list with more than 7 options is a searchable Combobox, not a Select or radio group. | Lint rule on `<Select>` with > 7 static options; today the agent-provisioning contracts check the purpose list and the voice catalog (≤ 7 each) | P: contract checks; lint still planned |
 | HICK-4 | Each step of Provision → Plan → Test → Publish asks one main question at a time. | Reading the screen | R |
 
 Reviewer checklist:

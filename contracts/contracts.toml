@@ -23,6 +23,17 @@ contract_globs = [
 version = 1
 paths = ["backend/crates/api/tests/contract_health.rs"]
 
+# M2 Provision: create an agent with only name, purpose and voice (defaults for the rest),
+# list, get, autosave edits, archive, 25 % setup progress, forwarded identity, audit events;
+# end to end against the real server and Postgres.
+[features.agent-provisioning]
+version = 1
+paths = [
+  "backend/crates/domain/tests/contract_agent_provisioning.rs",
+  "backend/crates/api/tests/contract_agent_provisioning_api.rs",
+  "frontend/e2e/contract/agent-provisioning/**",
+]
+
 # The app shell (navigation, layout, landing on Agents) and the shared Button.
 [features.app-shell]
 version = 1

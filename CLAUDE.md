@@ -53,6 +53,10 @@ The graph lives in `graphify-out/`, and hooks keep it current.
 | `just dev` / `just dev-light` | Local stack with the full or light LLM profile |
 | `just task <name>` / `just task-done <name>` | Create or remove a task worktree |
 | `just openapi` | Regenerate the OpenAPI contract and frontend client |
+| `just db-prepare` | Regenerate the sqlx offline query cache after a query or migration change |
+| `just db-test-stop` | Remove this worktree's test Postgres container |
+
+`just verify` needs **Docker**: the Postgres tests and the Playwright run start their own throwaway Postgres containers, one per worktree.
 
 ## Status
 

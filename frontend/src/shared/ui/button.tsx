@@ -34,6 +34,15 @@ const buttonVariants = cva(
 
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>['variant']>;
 
+/**
+ * The look of a Button for a link that navigates (Base UI: links keep link semantics, so they
+ * are styled, not rendered through Button). Spread it on the router's link:
+ * `<Link to="/agents/new" {...buttonLook('primary')}>Create agent</Link>`.
+ */
+export function buttonLook(variant: ButtonVariant = 'secondary') {
+  return { 'data-variant': variant, className: buttonVariants({ variant }) };
+}
+
 export interface ButtonProps extends Omit<ComponentProps<typeof ButtonPrimitive>, 'className'> {
   variant?: ButtonVariant;
   className?: string;
