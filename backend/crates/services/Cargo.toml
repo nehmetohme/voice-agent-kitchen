@@ -9,7 +9,16 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+jiff = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+uuid = { workspace = true, features = ["v7"] }
+vak-domain = { workspace = true }
 vak-repositories = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
+vak-testkit = { workspace = true }
 
 [lints]
 workspace = true
