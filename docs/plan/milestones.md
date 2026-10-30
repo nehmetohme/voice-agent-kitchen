@@ -15,7 +15,7 @@ Goal: an empty but fully gated repo. Each gate is proven to fail when it should.
 | T0.5 Claude Code gates | `.claude/settings.json` hooks, hook scripts, 14 reviewer agents, verdict schema, path-scoped rules, `/verify` skill |
 | T0.6 Git hooks + Graphify | `lefthook.yml`, gitleaks, Graphify pinned and wired to hooks, `.graphifyignore` |
 | T0.7 CI + GitHub | Workflows, rulesets as code, Dependabot, dependency review, CodeQL, CODEOWNERS, merge queue, bot identity |
-| T0.8 Local dev | Postgres in Docker, process-compose, `just dev` / `just dev-light`, model setup script (llama-server, mlx-audio, Kev-4B, Bolt E4B), STT/TTS shim |
+| T0.8 Local dev | Postgres in Docker, process-compose, `just dev` / `just dev-light`, `dev-doctor`, `dev-smoke`, model setup script (Parakeet, Kokoro and Kev-4B; the LLM is KAT-Coder on a LAN GPU box), STT/TTS serving contracts and shim |
 
 **Contract tests first:** `contract/health/v1`, a test that `GET /health` returns 200 with the version.
 

@@ -50,7 +50,8 @@ The graph lives in `graphify-out/`, and hooks keep it current.
 |---|---|
 | `just verify` | Every gate: format, lint, types, architecture, tests, coverage, security, contracts |
 | `just verify-fast` | The quick subset, run on commit |
-| `just dev` / `just dev-light` | Local stack with the full or light LLM profile |
+| `just dev` / `just dev-light` | Local stack, or only Postgres + server + frontend (`deploy/CLAUDE.md`) |
+| `just dev-doctor` / `just dev-smoke` | Check the local setup; call every endpoint of the running stack |
 | `just task <name>` / `just task-done <name>` | Create or remove a task worktree |
 | `just openapi` | Regenerate the OpenAPI contract and frontend client |
 
