@@ -59,3 +59,25 @@ uuid_v7_id!(
     /// Identifies an audit event.
     AuditEventId
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const V7: &str = "01920000-0000-7000-8000-000000000001";
+
+    #[test]
+    fn accepts_only_version_7() {
+        let id = AgentId::parse(V7).expect("v7");
+
+        assert_eq!(id.to_string(), V7);
+        assert_eq!(AgentId::from_uuid(id.as_uuid()), Ok(id));
+        assert_eq!(AgentId::parse(&format!(" {} ", V7.to_uppercase())), Ok(id));
+        assert_eq!(
+            AuditEventId::parse("67e55044-10b1-426f-9247-bb680e5fe0c8"),
+            Err(IdError::NotV7)
+        );
+        assert_eq!(AgentId::parse("not-a-uuid"), Err(IdError::Malformed));
+        assert_eq!(AgentId::from_uuid(Uuid::nil()), Err(IdError::NotV7));
+    }
+}
