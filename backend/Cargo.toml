@@ -1,0 +1,89 @@
+# Voice Agent Kitchen backend: virtual workspace manifest.
+# Layer rules: layers.toml (checked by `cargo xtask check-layers`). Bans: deny.toml.
+[workspace]
+resolver = "3"
+members = [
+  "crates/domain",
+  "crates/audio",
+  "crates/providers",
+  "crates/repositories",
+  "crates/repositories-pg",
+  "crates/adapters/llm-openai",
+  "crates/adapters/stt-serving",
+  "crates/adapters/tts-serving",
+  "crates/adapters/decision-systemone",
+  "crates/databricks-auth",
+  "crates/pipeline",
+  "crates/services",
+  "crates/api",
+  "crates/config",
+  "crates/telemetry",
+  "crates/testkit",
+  "crates/contract-tests",
+  "apps/server",
+  "apps/model-shim",
+  "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# Equals the pinned toolchain (rust-toolchain.toml); resolver 3 then prefers compatible deps.
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/nehmetohme/voice-agent-kitchen"
+publish = false
+
+# Every version is declared once, here. Members use `{ workspace = true }`.
+# Add an entry only together with the first crate that uses it (cargo-shear and
+# cargo-deny reject unused workspace dependencies).
+[workspace.dependencies]
+# Internal crates
+vak-api = { path = "crates/api" }
+vak-config = { path = "crates/config" }
+vak-telemetry = { path = "crates/telemetry" }
+
+# External crates
+anyhow = "1.0.104"
+axum = { version = "0.8.9", default-features = false, features = [
+  "http1",
+  "json",
+  "tokio",
+  "tracing",
+] }
+cargo_metadata = "0.23.1"
+clap = { version = "4.6.7", features = ["derive"] }
+http-body-util = "0.1.5"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+# >= 1.54.1: RUSTSEC-2026-0384 (use-after-free in `Interval`) affects 1.54.0.
+tokio = { version = "1.54.1", default-features = false }
+toml = "1.1.8"
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = [
+  "ansi",
+  "env-filter",
+  "fmt",
+  "std",
+] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+allow_attributes_without_reason = "deny"
+large_futures = "warn"
+# Audio math: force explicit, documented casts.
+cast_possible_truncation = "warn"

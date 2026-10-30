@@ -1,0 +1,12 @@
+[package]
+name = "vak-services"
+description = "Use cases: agents, plans, versions and publish, test runs, sessions, audit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

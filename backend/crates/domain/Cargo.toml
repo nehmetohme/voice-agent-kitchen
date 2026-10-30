@@ -1,0 +1,12 @@
+[package]
+name = "vak-domain"
+description = "Pure domain types and rules for Voice Agent Kitchen (no I/O, no async)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

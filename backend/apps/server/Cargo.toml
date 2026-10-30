@@ -1,0 +1,16 @@
+[package]
+name = "vak-server"
+description = "Voice Agent Kitchen server binary (composition root)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vak-server"
+path = "src/main.rs"
+
+[lints]
+workspace = true

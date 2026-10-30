@@ -1,0 +1,12 @@
+[package]
+name = "vak-databricks-auth"
+description = "Databricks OAuth M2M token cache and Lakebase credentials"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
