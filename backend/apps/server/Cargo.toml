@@ -12,5 +12,18 @@ publish.workspace = true
 name = "vak-server"
 path = "src/main.rs"
 
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }
+tracing = { workspace = true }
+vak-api = { workspace = true }
+vak-config = { workspace = true }
+vak-telemetry = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "sync", "time"] }
+
 [lints]
 workspace = true
