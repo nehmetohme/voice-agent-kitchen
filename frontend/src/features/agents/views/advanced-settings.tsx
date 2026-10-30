@@ -1,3 +1,5 @@
+import { ChevronRight } from 'lucide-react';
+
 import { CheckboxField } from '../../../shared/ui/checkbox-field';
 import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
@@ -18,9 +20,11 @@ interface AdvancedSettingsProps {
 export function AdvancedSettings({ draft, edit, errors }: AdvancedSettingsProps) {
   const turn = draft.turnDetection;
   return (
-    <details className="rounded-md border border-line">
-      <summary className="flex min-h-target cursor-pointer items-center rounded-md px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+    <details className="group rounded-md border border-line">
+      <summary className="flex min-h-target cursor-pointer items-center gap-2 rounded-md px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+        <ChevronRight aria-hidden className="size-4 transition-transform group-open:rotate-90" />
         Advanced
+        <span className="text-sm font-normal text-muted">Model and timing</span>
       </summary>
       <fieldset className="flex flex-col gap-4 px-4 pb-4">
         <legend className="sr-only">Model and timing</legend>
