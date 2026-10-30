@@ -8,6 +8,7 @@ import 'frontend/frontend.just'
 import 'tools/repo.just'
 import 'tools/ci.just'
 import 'contracts/contracts.just'
+import 'tools/canaries/canaries.just'
 
 # List recipes
 default:

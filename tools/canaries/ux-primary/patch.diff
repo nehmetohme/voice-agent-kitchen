@@ -1,0 +1,27 @@
+diff --git a/frontend/src/shared/ui/app-shell.tsx b/frontend/src/shared/ui/app-shell.tsx
+index a3188c83f952b60144dfda83f06da8c7488c875e..96b3a09b7711c272f7685377a830e0a4f7cba8c5 100644
+--- a/frontend/src/shared/ui/app-shell.tsx
++++ b/frontend/src/shared/ui/app-shell.tsx
+@@ -1,6 +1,7 @@
+ import type { ReactNode } from 'react';
+ 
+ import { cn } from '../lib/cn';
++import { Button } from './button';
+ 
+ interface AppShellProps {
+   /** Product name or logo at the top of the sidebar. */
+@@ -24,7 +25,13 @@ export function AppShell({ brand, navigation, topBar, children }: AppShellProps)
+         {navigation}
+       </aside>
+       <div className="flex min-w-0 flex-1 flex-col">
+-        <header className="flex min-h-16 items-center border-b border-line px-6">{topBar}</header>
++        <header className="flex min-h-16 items-center gap-2 border-b border-line px-6">
++          {topBar}
++          <Button variant="primary" className="ml-auto">
++            New agent
++          </Button>
++          <Button variant="primary">Publish</Button>
++        </header>
+         <main className="flex-1 px-6 py-8">{children}</main>
+       </div>
+     </div>
