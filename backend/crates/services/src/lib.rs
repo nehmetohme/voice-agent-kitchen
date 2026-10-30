@@ -5,5 +5,9 @@
 //! through repository and provider ports.
 
 mod agents;
+pub mod catalog;
 
-pub use agents::AgentService;
+pub use agents::{
+    AgentService, AgentSummary, CreateAgent, CreateAgentError, FindAgentError, LIST_LIMIT,
+    ListAgentsError, UpdateDraftError,
+};

@@ -1082,6 +1082,7 @@ version = "1.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
 dependencies = [
+ "getrandom",
  "js-sys",
  "wasm-bindgen",
 ]
@@ -1189,7 +1190,13 @@ dependencies = [
 name = "vak-services"
 version = "0.1.0"
 dependencies = [
+ "jiff",
+ "thiserror",
+ "tokio",
+ "uuid",
+ "vak-domain",
  "vak-repositories",
+ "vak-testkit",
 ]
 
 [[package]]
@@ -1204,6 +1211,9 @@ dependencies = [
 name = "vak-testkit"
 version = "0.1.0"
 dependencies = [
+ "jiff",
+ "tokio",
+ "uuid",
  "vak-domain",
  "vak-repositories",
 ]
