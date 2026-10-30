@@ -23,7 +23,7 @@ backend-verify-fast:
 # Run the backend tests: nextest, then doctests. Extra args go to nextest, e.g. `-p vak-api`
 [working-directory: 'backend']
 backend-test *args:
-    cargo nextest run --workspace --all-features {{ args }}
+    cargo nextest run --all-features {{ args }}
     cargo test --workspace --all-features --doc
 
 # Format Rust code and backend TOML files
