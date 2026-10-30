@@ -1,0 +1,24 @@
+# Paths Graphify never indexes (gitignore syntax). Graphify also honours .gitignore; these
+# entries hold even when it doesn't (`--no-gitignore`) and keep the graph to source code.
+
+# Build output and dependencies
+target/
+node_modules/
+dist/
+coverage/
+storybook-static/
+playwright-report/
+test-results/
+
+# Generated code: regenerate it, never read it as source
+frontend/src/shared/api/generated/
+contracts/openapi.json
+**/.sqlx/
+*.tsbuildinfo
+
+# Graphify's own output
+graphify-out/
+
+# Other checkouts nested in the main one, and local tool state
+.claude/worktrees/
+.claude/state/

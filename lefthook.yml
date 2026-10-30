@@ -1,0 +1,39 @@
+# Git hooks (lefthook 2.x, installed as a standalone binary). Install once per clone with
+# `just setup` (runs `lefthook install`); linked worktrees share the hooks and each reads its
+# own copy of this file. Skip all hooks for one command with `LEFTHOOK=0 git ...`.
+# Every check is a `just` recipe, so git hooks, Claude Code hooks and CI run the same commands.
+min_version: 2.0.0
+
+pre-commit:
+  piped: true # in order; stop at the first failure
+  jobs:
+    - name: gitleaks
+      run: gitleaks git --pre-commit --staged --redact --no-banner --verbose
+    - name: verify-fast
+      run: just verify-fast
+
+pre-push:
+  jobs:
+    - name: verify
+      run: just verify
+
+# Graphify refresh. The script detaches and returns at once, so these never block git.
+post-commit:
+  jobs:
+    - name: graph-refresh
+      run: tools/hooks/graph-refresh.sh
+
+post-checkout:
+  jobs:
+    - name: graph-refresh
+      run: tools/hooks/graph-refresh.sh
+
+post-merge:
+  jobs:
+    - name: graph-refresh
+      run: tools/hooks/graph-refresh.sh
+
+post-rewrite:
+  jobs:
+    - name: graph-refresh
+      run: tools/hooks/graph-refresh.sh
