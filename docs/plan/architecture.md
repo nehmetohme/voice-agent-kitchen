@@ -28,18 +28,19 @@ Sources: research reports [01](../research/01-voice-pipeline-providers.md), [02]
 
 ```
  Browser ──► Vite dev server :5173 ──proxy──► vak-server :3000 (cargo run, native)
-                                                ├─► llama-server :8080   LLM, OpenAI-compatible chat
-                                                │     profile "full":  Qwen3.6-35B-A3B Q4 (~20 GB)
-                                                │     profile "light": Nemotron 3.5 Bolt E4B (~5 GB)
-                                                ├─► llama-server :8081   decisions, /v1/systemone, Kev-4B (~3 GB)
+                                                ├─► LAN GPU box          LLM: KAT-Coder (KAT-Coder-V2.5-Dev) on llama-server,
+                                                │     VAK_LLM_BASE_URL   OpenAI-compatible chat, streaming, tools; thinking off
+                                                ├─► llama-server :8081   decisions, /v1/systemone, Kev-4B Q4_K_M (~3 GB)
                                                 ├─► model shim :8001     same request shapes as Databricks
                                                 │     /serving-endpoints/{stt,tts}/invocations
-                                                │     → mlx-audio :8000  Parakeet (STT), Kokoro (TTS)
-                                                └─► Postgres 18 in Docker :5432
+                                                │     → mlx-audio :8000  Parakeet TDT 0.6B v2 (STT), Kokoro-82M (TTS)
+                                                └─► Postgres 18 in Docker :5433
 ```
 
-- Models run natively, because Docker on macOS can't use the GPU. Only Postgres runs in Docker.
-- `just dev` starts everything with process-compose. `just dev-light` uses the light LLM profile.
+- **The LLM doesn't run on the Mac.** It's KAT-Coder on a LAN GPU box, set in the gitignored `.env` (`VAK_LLM_BASE_URL`, `VAK_LLM_MODEL`, `VAK_LLM_EXTRA_BODY`). The box has one slot, so requests run one at a time, and voice turns send `chat_template_kwargs.enable_thinking=false`.
+- **Speech and decisions run natively on the Mac**, because Docker on macOS can't use the GPU. Only Postgres runs in Docker, on host port 5433 since a Homebrew Postgres often holds 5432.
+- The models (5.4 GiB) live in `VAK_MODELS_DIR` (default `~/.cache/vak/models`), outside the repo, so every worktree shares them. `just models-pull` downloads them, pinned and checksummed.
+- `just dev` starts everything with process-compose. `just dev-light` starts only Postgres, `vak-server` and the frontend. `just dev-doctor` checks the setup, the LLM box included, and `just dev-smoke` calls every endpoint. See `deploy/CLAUDE.md`.
 - CI uses fakes for unit tests, Postgres in a container for repository tests, and tiny CPU models only for adapter smoke tests.
 
 ## 2. Backend: crates and layers

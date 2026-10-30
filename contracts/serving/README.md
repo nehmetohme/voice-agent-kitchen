@@ -75,11 +75,11 @@ Databricks itself may also answer 400 `BAD_REQUEST` when a pyfunc raises; adapte
 ## Example
 
 ```sh
-# STT through the local shim: 1 s of silence (16,000 zero samples = 32,000 bytes).
-audio=$(head -c 32000 /dev/zero | base64)
+# STT through the local shim (`just dev`): the fixture's PCM is everything after its 44-byte header.
+audio=$(tail -c +45 backend/fixtures/audio/utterance_book_table_16k.wav | base64)
 curl -s localhost:8001/serving-endpoints/stt/invocations -H 'content-type: application/json' \
   -d "{\"dataframe_records\":[{\"audio_b64\":\"$audio\",\"encoding\":\"pcm_s16le\",\"sample_rate\":16000}]}"
-# {"predictions":[{"text":""}]}
+# {"predictions":[{"text":"Hi, I would like to book a table for two tomorrow at seven."}]}
 ```
 
 ## Sources
