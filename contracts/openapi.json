@@ -1,6 +1,203 @@
 {
   "components": {
     "schemas": {
+      "Agent": {
+        "description": "A voice agent and its current draft.",
+        "properties": {
+          "archivedAt": {
+            "description": "When the agent was archived; `null` while it is active.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "draftHash": {
+            "description": "SHA-256 of the draft: what a test run tested and what a version froze.",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "description": "Region code, e.g. `US`, `US-CA` or `UK`.",
+            "example": "US",
+            "type": "string"
+          },
+          "language": {
+            "description": "A language code from `GET /api/v1/catalog/languages`.",
+            "example": "en-US",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelProfile"
+          },
+          "name": {
+            "example": "Front desk",
+            "type": "string"
+          },
+          "rulePack": {
+            "$ref": "#/components/schemas/RulePack"
+          },
+          "turnDetection": {
+            "$ref": "#/components/schemas/TurnDetection"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "useCase": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "voice": {
+            "description": "A voice ID from `GET /api/v1/catalog/voices`.",
+            "example": "af_heart",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "useCase",
+          "voice",
+          "language",
+          "jurisdiction",
+          "rulePack",
+          "model",
+          "turnDetection",
+          "draftHash",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ],
+        "type": "object"
+      },
+      "AgentList": {
+        "description": "Active agents, most recently updated first (at most 200).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSummary"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "AgentSummary": {
+        "description": "An agent as lists show it.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "progressPercent": {
+            "description": "Setup progress: 0, 25, 50, 75 or 100.",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "useCase": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "voice": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "useCase",
+          "voice",
+          "updatedAt",
+          "progressPercent"
+        ],
+        "type": "object"
+      },
+      "CreateAgentRequest": {
+        "description": "Create an agent. Only `name`, `useCase` and `voice` are required; every other field has\na default the server fills in.",
+        "properties": {
+          "jurisdiction": {
+            "default": "US",
+            "description": "Region code, e.g. `US`, `US-CA` or `UK`. Picks the rule-pack variant.",
+            "example": "US",
+            "type": "string"
+          },
+          "language": {
+            "default": "en-US",
+            "description": "A language code from `GET /api/v1/catalog/languages`.",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelProfile",
+            "default": "balanced"
+          },
+          "name": {
+            "description": "Display name, 1 to 80 characters.",
+            "example": "Front desk",
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "turnDetection": {
+            "$ref": "#/components/schemas/TurnDetection",
+            "default": {
+              "bargeIn": true,
+              "silenceMs": 500
+            }
+          },
+          "useCase": {
+            "$ref": "#/components/schemas/UseCase",
+            "description": "What the agent is for (any case is accepted)."
+          },
+          "voice": {
+            "description": "A voice ID from `GET /api/v1/catalog/voices`.",
+            "example": "af_heart",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "useCase",
+          "voice"
+        ],
+        "type": "object"
+      },
+      "FieldError": {
+        "description": "An invalid request field and how to fix it.",
+        "properties": {
+          "field": {
+            "description": "The field's name in the request body, e.g. `useCase`.",
+            "type": "string"
+          },
+          "message": {
+            "description": "What to change, e.g. `Enter a name.`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "type": "object"
+      },
       "Health": {
         "description": "Response body of `GET /health`.",
         "properties": {
@@ -21,11 +218,291 @@
           "version"
         ],
         "type": "object"
+      },
+      "Language": {
+        "description": "A language the agent can speak and understand.",
+        "properties": {
+          "code": {
+            "description": "The language code to send as `language`.",
+            "example": "en-US",
+            "type": "string"
+          },
+          "name": {
+            "description": "Friendly name.",
+            "example": "English (United States)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
+      "LanguageList": {
+        "description": "Every language, the default first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Language"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "ModelProfile": {
+        "description": "Which LLM profile answers: `balanced` (the main voice model) or `fast` (quicker first\nwords, simpler answers).",
+        "enum": [
+          "balanced",
+          "fast"
+        ],
+        "type": "string"
+      },
+      "Problem": {
+        "description": "An RFC 9457 problem. `type` is always `about:blank`, so `title` is the HTTP status phrase;\n`detail` says what went wrong and how to fix it.",
+        "properties": {
+          "detail": {
+            "description": "What went wrong, for people.",
+            "type": "string"
+          },
+          "errors": {
+            "description": "One entry per invalid field (validation errors only).",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "The HTTP status code.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "description": "The HTTP status phrase, e.g. `Unprocessable Content`.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Always `about:blank`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "RulePack": {
+        "description": "The compliance rule pack the agent pins: `<jurisdiction>-<use case>` and its version.",
+        "properties": {
+          "id": {
+            "example": "us-support",
+            "type": "string"
+          },
+          "version": {
+            "example": 1,
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "SetupProgress": {
+        "description": "Setup progress: four steps, 25 % each, derived from the agent's state.",
+        "properties": {
+          "nextStep": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SetupStep",
+                "description": "The first step not done yet; `null` when setup is complete."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "percent": {
+            "description": "0, 25, 50, 75 or 100.",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "steps": {
+            "description": "Provision, Plan, Test and Publish, in order.",
+            "items": {
+              "$ref": "#/components/schemas/SetupStepStatus"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "percent",
+          "steps",
+          "nextStep"
+        ],
+        "type": "object"
+      },
+      "SetupStep": {
+        "description": "A step of the setup flow.",
+        "enum": [
+          "provision",
+          "plan",
+          "test",
+          "publish"
+        ],
+        "type": "string"
+      },
+      "SetupStepStatus": {
+        "description": "One setup step and whether it is done.",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "step": {
+            "$ref": "#/components/schemas/SetupStep"
+          }
+        },
+        "required": [
+          "step",
+          "done"
+        ],
+        "type": "object"
+      },
+      "TurnDetection": {
+        "description": "When the caller has finished speaking, and whether they may interrupt the agent.",
+        "properties": {
+          "bargeIn": {
+            "description": "Whether the caller can interrupt the agent while it speaks.",
+            "type": "boolean"
+          },
+          "silenceMs": {
+            "description": "Milliseconds of caller silence that end a turn, 200 to 2000.",
+            "example": 500,
+            "format": "int32",
+            "maximum": 2000,
+            "minimum": 200,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "silenceMs",
+          "bargeIn"
+        ],
+        "type": "object"
+      },
+      "UpdateAgentRequest": {
+        "description": "Change the agent's draft (autosave). Send only the fields that changed.",
+        "properties": {
+          "jurisdiction": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelProfile"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "turnDetection": {
+            "$ref": "#/components/schemas/TurnDetection"
+          },
+          "useCase": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "voice": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UseCase": {
+        "description": "What the agent is for. It picks the starting template and the default rule pack.",
+        "enum": [
+          "support",
+          "service",
+          "booking",
+          "survey",
+          "telemarketing",
+          "custom"
+        ],
+        "type": "string"
+      },
+      "Voice": {
+        "description": "A voice the agent can speak with.",
+        "properties": {
+          "description": {
+            "description": "Accent and gender.",
+            "example": "American English, female",
+            "type": "string"
+          },
+          "id": {
+            "description": "The voice ID to send as `voice`.",
+            "example": "af_heart",
+            "type": "string"
+          },
+          "language": {
+            "description": "The language the voice speaks.",
+            "example": "en-US",
+            "type": "string"
+          },
+          "name": {
+            "description": "Friendly name.",
+            "example": "Heart",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "language"
+        ],
+        "type": "object"
+      },
+      "VoiceList": {
+        "description": "Every voice, recommended first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Voice"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "databricksApps": {
+        "description": "Set by the Databricks Apps proxy after sign-on, together with X-Forwarded-User. Clients never send them themselves.",
+        "in": "header",
+        "name": "X-Forwarded-Email",
+        "type": "apiKey"
       }
     }
   },
   "info": {
-    "description": "Provision, plan, test and publish real-time voice agents.",
+    "description": "Provision, plan, test and publish real-time voice agents. Every `/api/v1` route needs the operator identity Databricks Apps forwards; errors are RFC 9457 `application/problem+json`.",
     "license": {
       "identifier": "Apache-2.0",
       "name": "Apache-2.0"
@@ -35,6 +512,507 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/agents": {
+      "get": {
+        "operationId": "listAgents",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentList"
+                }
+              }
+            },
+            "description": "Active agents, newest first (at most 200)"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "List active agents, most recently updated first, with their setup progress.",
+        "tags": [
+          "agents"
+        ]
+      },
+      "post": {
+        "operationId": "createAgent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            },
+            "description": "The agent, with every default filled in",
+            "headers": {
+              "Location": {
+                "description": "The new agent's URL",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid fields, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Create an agent with only a name, a purpose and a voice; every other field gets a default.",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/v1/agents/{id}": {
+      "delete": {
+        "operationId": "archiveAgent",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The agent is archived"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Archive the agent: lists hide it and its draft can't change. Archiving twice is fine.",
+        "tags": [
+          "agents"
+        ]
+      },
+      "get": {
+        "operationId": "getAgent",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            },
+            "description": "The agent"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Get one agent, archived or not.",
+        "tags": [
+          "agents"
+        ]
+      },
+      "patch": {
+        "operationId": "updateAgent",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            },
+            "description": "The agent after the change"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived, or kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid fields, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Change the agent's draft (autosave). Send only the fields that changed; a change that\nchanges nothing is stored nowhere and audited nowhere.",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/v1/agents/{id}/progress": {
+      "get": {
+        "operationId": "getAgentProgress",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupProgress"
+                }
+              }
+            },
+            "description": "Setup progress, derived from the agent's state"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The agent's setup progress: Provision, Plan, Test and Publish, 25 % each.",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/v1/catalog/languages": {
+      "get": {
+        "operationId": "listLanguages",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageList"
+                }
+              }
+            },
+            "description": "Every language, the default first"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "List the languages an agent can speak.",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/voices": {
+      "get": {
+        "operationId": "listVoices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceList"
+                }
+              }
+            },
+            "description": "Every voice, recommended first"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "List the voices an agent can use.",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -61,6 +1039,14 @@
     {
       "description": "Process liveness",
       "name": "health"
+    },
+    {
+      "description": "Create, list, edit (autosave) and archive agents",
+      "name": "agents"
+    },
+    {
+      "description": "The voices and languages an agent can use",
+      "name": "catalog"
     }
   ]
 }

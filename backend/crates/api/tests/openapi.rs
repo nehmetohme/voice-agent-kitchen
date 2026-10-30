@@ -64,7 +64,56 @@ fn documents_exactly_the_routes_the_router_serves() {
         .keys()
         .map(String::as_str)
         .collect();
-    assert_eq!(paths, ["/health"]);
+    assert_eq!(
+        paths,
+        [
+            "/api/v1/agents",
+            "/api/v1/agents/{id}",
+            "/api/v1/agents/{id}/progress",
+            "/api/v1/catalog/languages",
+            "/api/v1/catalog/voices",
+            "/health",
+        ]
+    );
+}
+
+#[test]
+fn every_api_route_requires_the_forwarded_identity_and_health_does_not() {
+    let document = document();
+
+    let scheme = &document["components"]["securitySchemes"]["databricksApps"];
+    assert_eq!(scheme["type"], "apiKey");
+    assert_eq!(scheme["in"], "header");
+    assert_eq!(scheme["name"], "X-Forwarded-Email");
+    for (path, item) in document["paths"].as_object().expect("paths") {
+        for (method, operation) in item.as_object().expect("path item") {
+            let security = &operation["security"];
+            if path == "/health" {
+                assert!(security.is_null(), "{method} {path} is public");
+            } else {
+                assert_eq!(
+                    security,
+                    &json!([{ "databricksApps": [] }]),
+                    "{method} {path}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn errors_are_documented_as_problem_json() {
+    let document = document();
+
+    let operation = &document["paths"]["/api/v1/agents/{id}"]["patch"];
+    for status in ["400", "401", "404", "409", "422", "503"] {
+        let content = &operation["responses"][status]["content"];
+        let schema = &content["application/problem+json"]["schema"];
+        assert_eq!(
+            schema["$ref"], "#/components/schemas/Problem",
+            "PATCH {status}"
+        );
+    }
 }
 
 #[test]

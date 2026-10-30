@@ -1,26 +1,70 @@
-//! The OpenAPI document, built from the same `OpenApiRouter` the server serves.
+//! The OpenAPI document, built from the same `OpenApiRouter`s the server serves.
 
 use serde_json::{Map, Value};
-use utoipa::OpenApi;
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::health;
+use crate::state::AppState;
+use crate::{agents, catalog, health};
 
 /// Document-level metadata. Paths and schemas come from the routes themselves.
 #[derive(OpenApi)]
 #[openapi(
     info(
         title = "Voice Agent Kitchen API",
-        description = "Provision, plan, test and publish real-time voice agents."
+        description = "Provision, plan, test and publish real-time voice agents. Every \
+            `/api/v1` route needs the operator identity Databricks Apps forwards; errors are \
+            RFC 9457 `application/problem+json`."
     ),
-    tags((name = "health", description = "Process liveness"))
+    tags(
+        (name = "health", description = "Process liveness"),
+        (name = "agents", description = "Create, list, edit (autosave) and archive agents"),
+        (name = "catalog", description = "The voices and languages an agent can use"),
+    ),
+    modifiers(&ForwardedIdentity)
 )]
 struct ApiDoc;
 
+/// The `databricksApps` security scheme: the identity headers the Databricks Apps proxy
+/// sets after single sign-on.
+struct ForwardedIdentity;
+
+impl Modify for ForwardedIdentity {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        let components = openapi.components.get_or_insert_with(Default::default);
+        components.add_security_scheme(
+            "databricksApps",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+                "X-Forwarded-Email",
+                "Set by the Databricks Apps proxy after sign-on, together with \
+                 X-Forwarded-User. Clients never send them themselves.",
+            ))),
+        );
+    }
+}
+
+/// The unauthenticated routes: `GET /health`.
+pub(crate) fn public<S: Clone + Send + Sync + 'static>() -> OpenApiRouter<S> {
+    OpenApiRouter::new().routes(routes!(health::get))
+}
+
+/// The `/api/v1` routes, before identity and state are applied.
+pub(crate) fn v1() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(agents::create, agents::list))
+        .routes(routes!(agents::get, agents::update, agents::archive))
+        .routes(routes!(agents::progress))
+        .routes(routes!(catalog::voices))
+        .routes(routes!(catalog::languages))
+}
+
 /// Every route, each registered together with its OpenAPI description.
-pub(crate) fn routes() -> OpenApiRouter {
-    OpenApiRouter::with_openapi(ApiDoc::openapi()).routes(routes!(health::get))
+fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .merge(public())
+        .nest(crate::API_PREFIX, v1())
 }
 
 /// The OpenAPI 3.1 document as pretty JSON with every object's keys sorted and a trailing
