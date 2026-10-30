@@ -1,0 +1,26 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 11,
+  "result": "",
+  "session_id": "00000000-0000-0000-0000-000000000004",
+  "total_cost_usd": 0.31,
+  "structured_output": {
+    "verdict": "fail",
+    "findings": [
+      {
+        "severity": "blocker",
+        "file": "backend/crates/api/src/routes.rs",
+        "line": 42,
+        "message": "SQL built with format!() from request input. Fix: use a bound sqlx parameter."
+      },
+      {
+        "severity": "minor",
+        "file": "backend/crates/api/src/routes.rs",
+        "line": 50,
+        "message": "Error message repeats the input. Fix: return a fixed problem title."
+      }
+    ]
+  }
+}

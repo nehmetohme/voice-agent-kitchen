@@ -1,0 +1,20 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 8,
+  "result": "",
+  "session_id": "00000000-0000-0000-0000-000000000002",
+  "total_cost_usd": 0.15,
+  "structured_output": {
+    "verdict": "pass",
+    "findings": [
+      {
+        "severity": "minor",
+        "file": "backend/crates/domain/src/lib.rs",
+        "line": 3,
+        "message": "Name `f` says nothing. Fix: rename it to what it computes."
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Fake `claude` for the hook tests. It never calls the API.
+# - Logs "claude<TAB>cwd<TAB>child=<CLAUDE_REVIEW_CHILD> agent=<name> <args>" to $STUB_LOG.
+# - Saves the prompt (stdin) to $STUB_CLAUDE_DIR/prompt-<agent>.txt.
+# - Prints $STUB_CLAUDE_DIR/<agent>.json if present, else default.json, else a pass verdict.
+# - Exits with the number in $STUB_CLAUDE_DIR/<agent>.rc if present, else 0.
+set -u
+dir=${STUB_CLAUDE_DIR:?STUB_CLAUDE_DIR must be set}
+agent=none
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "--agent" ] && agent=$arg
+  prev=$arg
+done
+cat >"$dir/prompt-$agent.txt"
+printf 'claude\t%s\tchild=%s agent=%s %s\n' "$PWD" "${CLAUDE_REVIEW_CHILD:-}" "$agent" "$*" \
+  | tr -d '\r' >>"${STUB_LOG:-/dev/null}"
+if [ -f "$dir/$agent.json" ]; then
+  cat "$dir/$agent.json"
+elif [ -f "$dir/default.json" ]; then
+  cat "$dir/default.json"
+else
+  printf '%s\n' '{"type":"result","subtype":"success","is_error":false,"result":"","total_cost_usd":0.1,"structured_output":{"verdict":"pass","findings":[]}}'
+fi
+rc=0
+[ -f "$dir/$agent.rc" ] && rc=$(cat "$dir/$agent.rc")
+exit "$rc"

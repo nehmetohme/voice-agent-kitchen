@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "required": ["verdict", "findings"],
+  "properties": {
+    "verdict": { "enum": ["pass", "fail"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "file", "message"],
+        "properties": {
+          "severity": { "enum": ["blocker", "major", "minor"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(git tag *)",
+      "Bash(git push --tags *)",
+      "Bash(git push * --tags)",
+      "Bash(git push * --tags *)",
+      "Bash(git push --follow-tags *)",
+      "Bash(git push * --follow-tags)",
+      "Bash(git push * --follow-tags *)",
+      "Bash(git push --mirror *)",
+      "Bash(git push * --mirror)",
+      "Bash(git push * --mirror *)",
+      "Bash(git push * tag *)",
+      "Bash(git push * refs/tags/*)",
+      "Bash(git push * :refs/tags/*)",
+      "Bash(git push * contract/*)",
+      "Bash(git update-ref refs/tags/*)",
+      "Bash(git update-ref * refs/tags/*)",
+      "Bash(gh release create *)",
+      "Bash(gh api *refs/tags*)",
+      "Bash(gh api *git/tags*)",
+      "Bash(just contract-approve *)",
+      "Edit(/contracts/openapi.json)",
+      "Edit(/frontend/src/shared/api/generated/**)",
+      "Edit(/frontend/src/app/routeTree.gen.ts)",
+      "Edit(/frontend/src/shared/ui/tokens.css)",
+      "Edit(/backend/**/.sqlx/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/pre-edit-guard.sh",
+            "timeout": 15,
+            "statusMessage": "Checking protected files"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/post-edit-lint.sh",
+            "timeout": 60,
+            "statusMessage": "Formatting and linting"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/graph-update.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/stop-gate.sh",
+            "timeout": 1800,
+            "statusMessage": "Running just verify and the reviewer agents"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/subagent-start.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/stop-gate.sh",
+            "timeout": 1800,
+            "statusMessage": "Running just verify and the reviewer agents"
+          }
+        ]
+      }
+    ]
+  }
+}

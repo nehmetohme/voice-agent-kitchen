@@ -84,6 +84,8 @@ just task <name>         → git worktree at .claude/worktrees/<name>, branch ta
 | After an edit | `PostToolUse` on `Edit\|Write` (sync, ~60 s) | Formats the file, lints its package | Feeds errors back |
 | After an edit | `PostToolUse` on `Edit\|Write` (async) | `graphify update .`, debounced with a lock file | No |
 | Task done | `Stop` | If the tree changed since the last green run: `just verify`, then the relevant reviewers in parallel; exit 2 with findings on failure | Yes |
+| Subagent starts | `SubagentStart` | Records the subagent's work-tree fingerprint, so a subagent that changes nothing can stop at once | No |
+| Subagent done | `SubagentStop` | The same gate as `Stop`, on the subagent's own work tree (task agents run in worktrees). Read-only agent types, and subagents that changed nothing, exit at once | Yes |
 | Outside Claude | lefthook `pre-commit` / `pre-push` | `verify-fast` on commit, full `verify` on push, gitleaks on staged files | Yes |
 | Outside Claude | lefthook `post-commit/checkout/merge/rewrite` | Graphify refresh | No |
 

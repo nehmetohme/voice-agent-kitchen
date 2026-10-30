@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fake executable for the hook tests (just, rustfmt, cargo, taplo, oxfmt, oxlint, ...).
+# The test links it under the tool's name. It logs "name<TAB>cwd<TAB>args" to $STUB_LOG,
+# then prints $STUB_<NAME>_OUT, sleeps $STUB_<NAME>_SLEEP seconds and exits $STUB_<NAME>_RC.
+# <NAME> is the tool name upper-cased, with "-" as "_" (oxlint -> STUB_OXLINT_RC).
+set -u
+name=$(basename "$0")
+var=$(printf '%s' "$name" | tr 'a-z-' 'A-Z_')
+printf '%s\t%s\t%s\n' "$name" "$PWD" "$*" >>"${STUB_LOG:-/dev/null}"
+out=$(printenv "STUB_${var}_OUT" || true)
+nap=$(printenv "STUB_${var}_SLEEP" || true)
+rc=$(printenv "STUB_${var}_RC" || true)
+[ -n "$out" ] && printf '%s\n' "$out"
+[ -n "$nap" ] && sleep "$nap"
+exit "${rc:-0}"
