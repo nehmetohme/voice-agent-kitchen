@@ -2558,6 +2558,7 @@ version = "0.1.0"
 name = "vak-config"
 version = "0.1.0"
 dependencies = [
+ "secrecy",
  "thiserror",
 ]
 
@@ -2641,6 +2642,9 @@ dependencies = [
  "tracing",
  "vak-api",
  "vak-config",
+ "vak-domain",
+ "vak-repositories-pg",
+ "vak-services",
  "vak-telemetry",
 ]
 
