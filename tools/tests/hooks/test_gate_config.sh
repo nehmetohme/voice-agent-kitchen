@@ -67,6 +67,12 @@ test_config_settings_wire_executable_hooks() {
   assert_contains "$(jq -r '.hooks.Stop[0].hooks[0].command' "$settings")" "stop-gate.sh"
   [ "$(jq -r '.hooks.Stop[0].hooks[0].timeout' "$settings")" -gt 1700 ] \
     || fail "the Stop hook timeout must exceed the gate's 1700 s deadline"
+  # Task agents are subagents: SubagentStop runs the same gate with the same timeout.
+  assert_eq "$(jq -c '.hooks.Stop' "$settings")" "$(jq -c '.hooks.SubagentStop' "$settings")" \
+    "SubagentStop runs the same gate as Stop"
+  assert_contains "$(jq -r '.hooks.SubagentStart[0].hooks[0].command' "$settings")" "subagent-start.sh"
+  assert_eq "null" "$(jq -r '.hooks.SubagentStart[0].hooks[0].async' "$settings")" \
+    "SubagentStart is synchronous, so the fingerprint is taken before the subagent works"
   for script in $(jq -r '.. | .command? // empty' "$settings" | sed 's#.*/\.claude/hooks/##'); do
     [ -x "$HOOKS_DIR/$script" ] || fail "hook script not executable: $script"
   done
