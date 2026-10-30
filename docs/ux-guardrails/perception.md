@@ -89,7 +89,7 @@ The one item that differs is the one remembered, so the main action stands out a
 | VR-1 | At most 1 visible primary call to action; exactly 1 when the screen has a main action. | `auditScreen` (≤ 1); app shell contract | A for ≤ 1; R for "exactly 1" |
 | VR-2 | The primary colour is reserved for the primary `Button` (focus uses its own `focus` token). | Oxlint `vak-ux/primary-colour-only-in-button` (allowed only in `frontend/src/shared/ui/button.tsx`) | A |
 | VR-3 | `Button` is not primary by default. | `button.contract.test.tsx` | A |
-| VR-4 | Destructive actions use the `danger` variant and confirm in a `role=alertdialog`. | Playwright: delete and rollback open `role=alertdialog` | R today; planned, M6 |
+| VR-4 | Destructive actions use the `danger` variant and confirm in a `role=alertdialog`. | Archive opens a `role=alertdialog` (`ConfirmDialog`; Testing Library in `features/agents/views`); Playwright for rollback | P: archive tested; rollback planned, M6 |
 
 Reviewer checklist:
 - [ ] The primary action is the one most users want next.

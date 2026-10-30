@@ -13,6 +13,11 @@ This crate holds the application use cases:
 
 It orchestrates repositories, providers and the pipeline, and re-exports the few port types `vak-api` needs, such as `MediaTransport` for WebSocket bridging.
 
+Today (M2):
+
+- `AgentService::new(Arc<dyn AgentRepo>)`: `create` (defaults from the domain), `list` (active agents with their `SetupProgress`, newest first, at most `LIST_LIMIT` = 200), `get`, `progress`, `update_draft` (autosave; a no-op patch stores and audits nothing; retries up to 3 times on a stale revision) and `archive` (idempotent). Errors: `CreateAgentError`, `ListAgentsError`, `FindAgentError`, `UpdateDraftError`.
+- `catalog::voices()` and `catalog::languages()`: the domain's static catalog.
+
 ## Dependencies
 
 - **May depend on:** `vak-repositories`, `vak-providers`, `vak-pipeline`, `vak-domain`. Dev-only: `vak-testkit`.
@@ -23,10 +28,11 @@ It orchestrates repositories, providers and the pipeline, and re-exports the few
 
 - **One public function per use case,** such as `publish_version(&self, cmd: PublishVersion) -> Result<PublishedVersion, PublishError>`. Inputs are command structs of domain types, not DTOs.
 - **Business rules live in `vak-domain`.** Services load, call domain rules, persist and emit audit events. If you're writing an `if` about business policy here, move it to the domain.
-- **The outside world is reached only through ports.** Use generics over port traits, and `dyn` only where the provider is chosen at runtime.
+- **The outside world is reached only through ports.** Repository ports are dyn-compatible and held as `Arc<dyn …>`, so `vak-api` stays free of generics and `vak-server` picks the implementation. Use generics over provider ports on hot paths (the pipeline).
+- **IDs and time:** services generate UUID v7 IDs and read the clock (`now()` rounds to microseconds, Postgres precision); the domain never does.
 - **Errors:** a `ServiceError` per use case (`thiserror`), built from domain, `RepoError` and `ProviderError`. Don't stringify errors.
-- **Timeouts:** every port call that can block on I/O has a deadline. Transactions are port methods, not service code.
-- **Audit:** every state change (publish, rollback, plan edit) writes an audit event through `AuditRepo`.
+- **Timeouts:** every port call runs under a deadline (`AgentService` default 5 s, `with_deadline` to change it). Transactions are port methods, not service code.
+- **Audit:** every state change writes an audit event. Build it with the domain's `AuditEvent` and pass it to the same repository call that stores the change, so both commit in one transaction.
 - **No HTTP concepts** such as status codes or headers. The API maps errors.
 - **Visibility:** `pub(crate)` is the default; use-case functions and their commands and errors are `pub`.
 
@@ -43,18 +49,17 @@ It orchestrates repositories, providers and the pipeline, and re-exports the few
 
 ## Example
 
-This shows the pattern:
+The shape of `AgentService::archive` (`src/agents.rs`):
 
 ```rust
-pub async fn rename_agent<R: AgentRepo, A: AuditRepo>(
-    agents: &R,
-    audit: &A,
-    cmd: RenameAgent,
-) -> Result<Agent, RenameAgentError> {
-    let mut agent = agents.get(cmd.id).await?;
-    agent.rename(AgentName::parse(&cmd.name)?); // rule lives in vak-domain
-    agents.update(&agent, cmd.expected_revision).await?;
-    audit.record(AuditEvent::agent_renamed(&agent, cmd.actor)).await?;
-    Ok(agent)
+pub async fn archive(&self, actor: &Actor, id: AgentId) -> Result<(), FindAgentError> {
+    let stored = self.within(self.repo.get(id)).await?;
+    let Some(archived) = stored.value.archive(now()) else {
+        return Ok(()); // the rule lives in vak-domain: archiving twice changes nothing
+    };
+    let event = audit_event(actor, &archived, AuditAction::AgentArchived)?;
+    // One port call: the change and its audit event commit together.
+    self.save(&archived, stored.revision, &event).await?;
+    Ok(())
 }
 ```

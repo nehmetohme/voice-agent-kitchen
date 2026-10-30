@@ -4,13 +4,17 @@ The app's UI kit: shadcn-style components we own, built on Base UI primitives an
 the token theme. **The only folder that may import `@base-ui/react`** or render a raw
 `<button>`.
 
-| File              | What                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| `button.tsx`      | `Button`: variants `primary`, `secondary` (default), `ghost`, `danger`                      |
-| `app-shell.tsx`   | `AppShell` (sidebar, top bar, main), `SidebarNav`, `SidebarNavItem`, `sidebarLinkClassName` |
-| `empty-state.tsx` | `EmptyState`: title, description, optional icon and action                                  |
-| `tokens.css`      | **Generated** Tailwind `@theme` from `tokens/vak.tokens.json`; run `pnpm tokens`            |
-| `*.stories.tsx`   | Storybook stories, next to their component                                                  |
+| File                                                       | What                                                                                                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `button.tsx`                                               | `Button`: variants `primary`, `secondary` (default), `ghost`, `danger`; `buttonLook(variant)` styles a router link as a button (Base UI: links keep link semantics) |
+| `field.tsx`                                                | `Field` (label, control, help and error text tied by IDs) and `controlClassName`                                                                                    |
+| `text-field.tsx`, `select-field.tsx`, `checkbox-field.tsx` | Labelled native controls; selects are for short fixed lists (≤ 7, HICK-3)                                                                                           |
+| `progress-bar.tsx`                                         | `ProgressBar`: Base UI Progress, a named `role=progressbar` with `aria-valuenow`                                                                                    |
+| `confirm-dialog.tsx`                                       | `ConfirmDialog`: a danger trigger and a Base UI `role=alertdialog` (VR-4)                                                                                           |
+| `app-shell.tsx`                                            | `AppShell` (sidebar, top bar, main), `SidebarNav`, `SidebarNavItem`, `sidebarLinkClassName`                                                                         |
+| `empty-state.tsx`                                          | `EmptyState`: title, description, optional icon and action                                                                                                          |
+| `tokens.css`                                               | **Generated** Tailwind `@theme` from `tokens/vak.tokens.json`; run `pnpm tokens`                                                                                    |
+| `*.stories.tsx`                                            | Storybook stories, next to their component                                                                                                                          |
 
 ## May import
 

@@ -71,12 +71,16 @@ Run these from the repo root:
 | `just backend-test` | nextest + doctests |
 | `just backend-fmt` | `cargo fmt --all`, `taplo fmt` |
 | `just backend-coverage` | instrumented nextest run, then `cargo xtask coverage-gate` |
+| `just db-prepare` | regenerate the sqlx offline cache (`crates/repositories-pg/.sqlx`) against a freshly migrated database; commit the result |
+| `just db-test-stop` | remove this worktree's test Postgres container (tests restart it on demand) |
 
 ## Testing
 
 - **Write contract tests first.** They match `**/tests/contract_*.rs`. Once a file is tagged `contract/<feature>/vN`, never edit it; bump the version instead.
 - **Unit tests** cover every layer, using fakes from `vak-testkit` for the layer below.
 - **nextest profiles** (`.config/nextest.toml`): `default` locally, `ci` in CI (JUnit, no retries). Audio fixtures: `fixtures/audio/README.md`.
+- **Postgres tests** need Docker and nothing else. A nextest setup script (`tools/test-db.sh`) starts, or reuses, this worktree's Postgres 18 container on a port derived from the worktree path (25200–25999) and hands `DATABASE_URL` to the `vak-repositories-pg` tests only; `#[sqlx::test]` creates and drops one database per test inside it.
+- **sqlx offline:** `.cargo/config.toml` sets `SQLX_OFFLINE=true`, so builds check queries against the committed `.sqlx/` cache and never a live database, even when `DATABASE_URL` is set. After changing a query or a migration, run `just db-prepare`.
 
 ## Coverage floors
 
