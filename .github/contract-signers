@@ -1,0 +1,13 @@
+# Allowed signers for contract tags (contract/<feature>/v<N>), in OpenSSH "allowed signers"
+# format (`man ssh-keygen`, section ALLOWED SIGNERS). One key per line:
+#
+#   <principal> namespaces="git" <key-type> <base64-public-key> [comment]
+#
+# - <principal> names the signer: the owner's GitHub login (an email works too). git finds
+#   it with `ssh-keygen -Y find-principals`, so it need not match the tagger's email.
+# - namespaces="git" limits the key to git signatures.
+#
+# Trust: `cargo xtask contract-check` verifies contract tags only against the BASE branch's
+# copy of this file, so a pull request can't approve its own contract by adding a key here.
+# Only the owner edits this file (CODEOWNERS). Public keys only, never private keys.
+nehmetohme namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINEr49hmLvWBtXD4ukvtsLFLQIzz6clu4NzlQfKQgPvX
