@@ -23,6 +23,16 @@ contract_globs = [
 version = 1
 paths = ["backend/crates/api/tests/contract_health.rs"]
 
+# The dev-only model shim serves the Databricks STT/TTS invocation shapes (the two serving
+# schemas, pinned here too) and forwards them to mlx-audio, with Databricks-shaped errors.
+[features.model-shim]
+version = 1
+paths = [
+  "backend/apps/model-shim/tests/contract_model_shim.rs",
+  "contracts/serving/stt.json",
+  "contracts/serving/tts.json",
+]
+
 # The app shell (navigation, layout, landing on Agents) and the shared Button.
 [features.app-shell]
 version = 1
