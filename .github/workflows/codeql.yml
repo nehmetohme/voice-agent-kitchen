@@ -1,0 +1,76 @@
+# CodeQL advanced setup: Rust, JavaScript/TypeScript and GitHub Actions, all with build-mode
+# `none` (the only mode CodeQL supports for Rust; it needs rustup and cargo on the runner).
+# Keep the repo's CodeQL *default* setup off, or GitHub rejects these uploads.
+name: codeql
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "27 4 * * 1" # Mondays 04:27 UTC
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  languages:
+    name: languages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # CodeQL fails a language that has no source files, so only analyze what exists.
+      - id: pick
+        name: Pick the languages present on this commit
+        run: |
+          langs=(actions)
+          [ -f backend/Cargo.toml ] && langs+=(rust)
+          [ -f frontend/package.json ] && langs+=(javascript-typescript)
+          matrix=$(jq -cn '{language: $ARGS.positional}' --args "${langs[@]}")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "CodeQL languages: ${langs[*]}"
+
+  analyze:
+    name: analyze (${{ matrix.language }})
+    needs: languages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # upload the results to code scanning
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.languages.outputs.matrix) }}
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain from backend/rust-toolchain.toml
+        if: matrix.language == 'rust'
+        working-directory: backend
+        run: rustup toolchain install
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}

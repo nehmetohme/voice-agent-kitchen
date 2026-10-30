@@ -1,0 +1,44 @@
+# Nightly reports that are too slow for every PR. They report, they don't gate.
+# Skeleton for now: the placeholder jobs get real steps in later milestones
+# (docs/plan/quality.md §1 and §6).
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 2 * * *" # every day 02:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  mutants:
+    name: mutation tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - name: Placeholder
+        run: |
+          echo "::notice title=mutants::Placeholder. Planned: cargo mutants --in-diff on vak-domain and vak-services, as a report."
+
+  benchmarks:
+    name: benchmarks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+      - name: Placeholder
+        run: |
+          echo "::notice title=benchmarks::Placeholder. Planned: criterion benchmarks (trend only) and Lighthouse user flows."
