@@ -19,7 +19,9 @@ jobs:
   # `just canaries`: each canary makes one violation in a temporary worktree and expects its
   # gate to fail. A red run names the gate that let a violation through, or a canary that no
   # longer applies to main. Needs every tool the gates use, so the setup mirrors ci.yml's
-  # rust, web, contracts, repo and workflows jobs.
+  # rust, web, contracts, repo and workflows jobs, minus Swatinem/rust-cache: it is LGPL-3.0,
+  # which .github/dependency-review.yml doesn't allow for new uses. The canaries share one
+  # cargo target dir, so a cold build happens once per run.
   canaries:
     name: gate canaries
     runs-on: ubuntu-24.04
@@ -27,8 +29,6 @@ jobs:
     permissions:
       contents: read
     env:
-      # The canary worktrees share the checkout's target dir, which rust-cache restores.
-      VAK_CANARY_TARGET_DIR: ${{ github.workspace }}/backend/target
       E2E_PORT: "4176"
     steps:
       - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
@@ -46,10 +46,6 @@ jobs:
         run: |
           rustup toolchain install
           rustc --version
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: backend -> target
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
         with:
           working-directory: frontend
