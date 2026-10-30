@@ -28,6 +28,9 @@ allow-licenses:
   - Unicode-3.0
   - Unlicense
   - Zlib
+# Exceptions by package URL, for tools that only run in CI and are never distributed.
+allow-dependencies-licenses:
+  - pkg:githubactions/trufflesecurity/trufflehog # AGPL-3.0; secrets-deep-scan.yml
 
 # Show OpenSSF Scorecard data for changed dependencies and warn below level 3.
 show-openssf-scorecard: true
