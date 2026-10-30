@@ -5,8 +5,11 @@
         "description": "Response body of `GET /health`.",
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/HealthStatus",
-            "description": "Always `ok` while the process serves HTTP."
+            "description": "Always `ok` while the process serves HTTP: a process that can't serve doesn't answer.",
+            "enum": [
+              "ok"
+            ],
+            "type": "string"
           },
           "version": {
             "description": "The server's version (the `vak-api` package version), e.g. `0.1.0`.",
@@ -18,13 +21,6 @@
           "version"
         ],
         "type": "object"
-      },
-      "HealthStatus": {
-        "description": "Liveness state. Only `ok` exists: a process that can't serve doesn't answer at all.",
-        "enum": [
-          "ok"
-        ],
-        "type": "string"
       }
     }
   },

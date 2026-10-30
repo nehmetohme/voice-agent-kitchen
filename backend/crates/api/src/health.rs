@@ -8,13 +8,16 @@ use utoipa::ToSchema;
 /// Response body of `GET /health`.
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct Health {
-    /// Always `ok` while the process serves HTTP.
+    // Inlined: a one-use enum needs no schema component, and orval's mocks pick from the
+    // values of an inline enum. Its description lives on the enum: utoipa wraps an inlined
+    // field that has its own doc comment in an invalid `allOf`.
+    #[schema(inline)]
     status: HealthStatus,
     /// The server's version (the `vak-api` package version), e.g. `0.1.0`.
     version: &'static str,
 }
 
-/// Liveness state. Only `ok` exists: a process that can't serve doesn't answer at all.
+/// Always `ok` while the process serves HTTP: a process that can't serve doesn't answer.
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum HealthStatus {
