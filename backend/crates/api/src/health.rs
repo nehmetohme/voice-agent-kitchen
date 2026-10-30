@@ -35,6 +35,6 @@ pub(crate) enum HealthStatus {
 pub(crate) async fn get() -> Json<Health> {
     Json(Health {
         status: HealthStatus::Ok,
-        version: env!("CARGO_PKG_VERSION"),
+        version: env!("CARGO_PKG_VERSION").split('+').next().unwrap(),
     })
 }
