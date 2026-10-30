@@ -15,6 +15,8 @@ use crate::wav;
 /// Connecting to a local server is instant; failing fast tells "down" from "slow".
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// The mlx-audio client: one reqwest client with the configured timeouts, and the models
+/// to ask for.
 pub(crate) struct MlxAudio {
     client: reqwest::Client,
     transcriptions_url: String,

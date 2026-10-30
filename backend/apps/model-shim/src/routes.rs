@@ -125,3 +125,65 @@ fn body_error(rejection: &BytesRejection) -> ServingError {
         ServingError::bad_request("the body could not be read")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use axum::http::{Method, Request};
+    use http_body_util::BodyExt as _;
+    use tower::ServiceExt as _;
+
+    use super::*;
+    use crate::config::Config;
+
+    /// Sends one request to a router whose mlx-audio is never reached.
+    async fn send(method: Method, uri: &str, body: Vec<u8>) -> (StatusCode, Value) {
+        let mlx_audio = MlxAudio::new(&Config::default()).expect("client builds");
+        let request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .body(Body::from(body))
+            .expect("valid request");
+        let response = router(Arc::new(mlx_audio))
+            .oneshot(request)
+            .await
+            .expect("the router never fails");
+        let status = response.status();
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("readable body")
+            .to_bytes();
+        (status, serde_json::from_slice(&bytes).expect("a JSON body"))
+    }
+
+    #[tokio::test]
+    async fn a_body_over_16_mib_is_413_bad_request() {
+        let (status, body) = send(
+            Method::POST,
+            "/serving-endpoints/stt/invocations",
+            vec![b' '; MAX_BODY_BYTES + 1],
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+        assert_eq!(body["error_code"], "BAD_REQUEST");
+    }
+
+    #[tokio::test]
+    async fn an_unknown_route_is_a_databricks_404() {
+        let (status, body) = send(Method::GET, "/v1/models", Vec::new()).await;
+
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["error_code"], "RESOURCE_DOES_NOT_EXIST");
+    }
+
+    #[tokio::test]
+    async fn health_answers_ok() {
+        let (status, body) = send(Method::GET, "/health", Vec::new()).await;
+
+        assert_eq!((status, body), (StatusCode::OK, json!({ "status": "ok" })));
+    }
+}

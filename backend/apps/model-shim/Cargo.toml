@@ -30,8 +30,10 @@ tracing = { workspace = true }
 vak-telemetry = { workspace = true }
 
 [dev-dependencies]
+http-body-util = { workspace = true }
 jsonschema = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "process", "time"] }
+tower = { workspace = true }
 wiremock = { workspace = true }
 
 [lints]

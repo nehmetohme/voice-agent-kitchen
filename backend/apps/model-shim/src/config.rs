@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::{Context as _, bail};
 
-/// Listen address, `IP:port`. Default `127.0.0.1:8001`.
+/// Listen address, `IP:port`, loopback only (the shim has no auth). Default `127.0.0.1:8001`.
 pub(crate) const ADDR_VAR: &str = "VAK_SHIM_ADDR";
 /// mlx-audio base URL (`http://` only). Default `http://127.0.0.1:8000`.
 pub(crate) const MLX_AUDIO_URL_VAR: &str = "VAK_SHIM_MLX_AUDIO_URL";
@@ -61,6 +61,12 @@ impl Config {
             config.addr = addr
                 .parse()
                 .with_context(|| format!("{ADDR_VAR} is not IP:port, e.g. 127.0.0.1:8001"))?;
+            if !config.addr.ip().is_loopback() {
+                bail!(
+                    "{ADDR_VAR} must be a loopback address (127.0.0.1 or [::1]): the shim has \
+                     no auth, so it never listens on the network"
+                );
+            }
         }
         if let Some(url) = value(MLX_AUDIO_URL_VAR) {
             let url = url.trim_end_matches('/');
@@ -118,7 +124,7 @@ mod tests {
     #[test]
     fn every_setting_is_overridden_and_trimmed() {
         let config = Config::from_lookup(lookup(&[
-            (ADDR_VAR, " 0.0.0.0:9001 "),
+            (ADDR_VAR, " 127.0.0.1:9001 "),
             (MLX_AUDIO_URL_VAR, "http://10.0.0.5:8000/"),
             (STT_MODEL_VAR, "/models/parakeet"),
             (TTS_MODEL_VAR, "/models/kokoro"),
@@ -127,7 +133,7 @@ mod tests {
         ]))
         .expect("valid");
 
-        assert_eq!(config.addr.to_string(), "0.0.0.0:9001");
+        assert_eq!(config.addr.to_string(), "127.0.0.1:9001");
         assert_eq!(config.mlx_audio_url, "http://10.0.0.5:8000");
         assert_eq!(config.stt_model, "/models/parakeet");
         assert_eq!(config.tts_model, "/models/kokoro");
@@ -147,6 +153,8 @@ mod tests {
     fn invalid_values_name_the_variable() {
         for (var, value) in [
             (ADDR_VAR, "localhost"),
+            (ADDR_VAR, "0.0.0.0:8001"),
+            (ADDR_VAR, "192.168.1.5:8001"),
             (MLX_AUDIO_URL_VAR, "https://127.0.0.1:8000"),
             (MLX_AUDIO_URL_VAR, "http://"),
             (MLX_AUDIO_URL_VAR, "http://127.0.0.1:8000/v1"),

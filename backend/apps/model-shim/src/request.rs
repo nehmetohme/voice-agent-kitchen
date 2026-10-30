@@ -45,74 +45,75 @@ impl TtsRecord {
 }
 
 pub(crate) fn stt_records(body: &[u8]) -> Result<Vec<SttRecord>, ServingError> {
-    records(body)?
-        .into_iter()
-        .map(|mut fields| {
-            let audio = fields.required_string("audio_b64")?;
-            fields.require("encoding", &Value::from(PCM_S16LE), "must be \"pcm_s16le\"")?;
-            fields.require(
-                "sample_rate",
-                &Value::from(STT_SAMPLE_RATE),
-                "must be 16000",
-            )?;
-            let language = fields.optional_string("language")?;
-            if language
-                .as_deref()
-                .is_some_and(|l| l.len() != 2 || !l.bytes().all(|b| b.is_ascii_lowercase()))
-            {
-                return Err(fields.invalid("language", "must be an ISO 639-1 code, e.g. \"en\""));
-            }
-            fields.finish()?;
-
-            if audio.len() > MAX_STT_AUDIO_B64 {
-                return Err(fields.invalid("audio_b64", "is longer than 30 s"));
-            }
-            let pcm = BASE64
-                .decode(&audio)
-                .map_err(|_| fields.invalid("audio_b64", "is not standard padded base64"))?;
-            if pcm.is_empty() || pcm.len() % 2 != 0 {
-                return Err(fields.invalid(
-                    "audio_b64",
-                    "must hold whole 16-bit samples (an even, non-zero byte count)",
-                ));
-            }
-            Ok(SttRecord { pcm, language })
-        })
-        .collect()
+    records(body)?.into_iter().map(stt_record).collect()
 }
 
 pub(crate) fn tts_records(body: &[u8]) -> Result<Vec<TtsRecord>, ServingError> {
-    records(body)?
-        .into_iter()
-        .map(|mut fields| {
-            let text = fields.required_string("text")?;
-            fields.require("encoding", &Value::from(PCM_S16LE), "must be \"pcm_s16le\"")?;
-            fields.require(
-                "sample_rate",
-                &Value::from(TTS_SAMPLE_RATE),
-                "must be 24000",
-            )?;
-            let voice = fields
-                .optional_string("voice")?
-                .unwrap_or_else(|| DEFAULT_VOICE.to_owned());
-            let speed = fields.optional_number("speed")?.unwrap_or(1.0);
-            fields.finish()?;
+    records(body)?.into_iter().map(tts_record).collect()
+}
 
-            if text.trim().is_empty() || text.chars().count() > MAX_TEXT_CHARS {
-                return Err(fields.invalid(
-                    "text",
-                    "must have 1 to 1000 characters, not only whitespace",
-                ));
-            }
-            if !is_kokoro_voice(&voice) {
-                return Err(fields.invalid("voice", "must be a Kokoro voice ID, e.g. \"af_heart\""));
-            }
-            if !SPEEDS.contains(&speed) {
-                return Err(fields.invalid("speed", "must be from 0.5 to 2.0"));
-            }
-            Ok(TtsRecord { text, voice, speed })
-        })
-        .collect()
+/// One STT record: reads every field, rejects unknown ones, then checks the audio.
+fn stt_record(mut fields: Fields) -> Result<SttRecord, ServingError> {
+    let audio = fields.required_string("audio_b64")?;
+    fields.require("encoding", &Value::from(PCM_S16LE), "must be \"pcm_s16le\"")?;
+    fields.require(
+        "sample_rate",
+        &Value::from(STT_SAMPLE_RATE),
+        "must be 16000",
+    )?;
+    let language = fields.optional_string("language")?;
+    fields.finish()?;
+
+    if language
+        .as_deref()
+        .is_some_and(|l| l.len() != 2 || !l.bytes().all(|b| b.is_ascii_lowercase()))
+    {
+        return Err(fields.invalid("language", "must be an ISO 639-1 code, e.g. \"en\""));
+    }
+    if audio.len() > MAX_STT_AUDIO_B64 {
+        return Err(fields.invalid("audio_b64", "is longer than 30 s"));
+    }
+    let pcm = BASE64
+        .decode(&audio)
+        .map_err(|_| fields.invalid("audio_b64", "is not standard padded base64"))?;
+    if pcm.is_empty() || pcm.len() % 2 != 0 {
+        return Err(fields.invalid(
+            "audio_b64",
+            "must hold whole 16-bit samples (an even, non-zero byte count)",
+        ));
+    }
+    Ok(SttRecord { pcm, language })
+}
+
+/// One TTS record: reads every field, rejects unknown ones, applies the defaults, then
+/// checks the values.
+fn tts_record(mut fields: Fields) -> Result<TtsRecord, ServingError> {
+    let text = fields.required_string("text")?;
+    fields.require("encoding", &Value::from(PCM_S16LE), "must be \"pcm_s16le\"")?;
+    fields.require(
+        "sample_rate",
+        &Value::from(TTS_SAMPLE_RATE),
+        "must be 24000",
+    )?;
+    let voice = fields
+        .optional_string("voice")?
+        .unwrap_or_else(|| DEFAULT_VOICE.to_owned());
+    let speed = fields.optional_number("speed")?.unwrap_or(1.0);
+    fields.finish()?;
+
+    if text.trim().is_empty() || text.chars().count() > MAX_TEXT_CHARS {
+        return Err(fields.invalid(
+            "text",
+            "must have 1 to 1000 characters, not only whitespace",
+        ));
+    }
+    if !is_kokoro_voice(&voice) {
+        return Err(fields.invalid("voice", "must be a Kokoro voice ID, e.g. \"af_heart\""));
+    }
+    if !SPEEDS.contains(&speed) {
+        return Err(fields.invalid("speed", "must be from 0.5 to 2.0"));
+    }
+    Ok(TtsRecord { text, voice, speed })
 }
 
 /// `^[a-z][fm]_[a-z]+$`
