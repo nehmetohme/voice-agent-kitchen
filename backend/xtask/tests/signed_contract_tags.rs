@@ -396,6 +396,45 @@ fn fails_when_the_base_has_no_signers_file() {
 }
 
 #[test]
+fn a_base_from_before_the_contract_system_trusts_heads_signers_with_a_warning() {
+    let sandbox = Sandbox::new("bootstrap");
+    sandbox.write(LIB, "pub fn a() {}\n");
+    let base = sandbox.commit("before contracts existed");
+    sandbox.branch("work", &base);
+    let head = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &head);
+
+    let run = sandbox.check(&base, &head);
+
+    run.assert_passed();
+    assert!(
+        run.stderr
+            .contains("BOOTSTRAP: the base has no contracts/contracts.toml"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("HEAD's .github/contract-signers"),
+        "{}",
+        run.stderr
+    );
+}
+
+#[test]
+fn bootstrap_still_rejects_a_key_heads_signers_file_does_not_list() {
+    let sandbox = Sandbox::new("bootstrap-stranger");
+    sandbox.write(LIB, "pub fn a() {}\n");
+    let base = sandbox.commit("before contracts existed");
+    sandbox.branch("work", &base);
+    let head = sandbox.alpha_v1();
+    sandbox.sign("stranger", "contract/alpha/v1", &head);
+
+    sandbox
+        .check(&base, &head)
+        .assert_failed_with("contract/alpha/v1 is not signed by an allowed key");
+}
+
+#[test]
 fn fails_when_the_version_goes_down() {
     let sandbox = Sandbox::new("version-down");
     let v1 = sandbox.alpha_v1();
