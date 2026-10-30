@@ -246,6 +246,18 @@ impl Sandbox {
     fn check(&self, base: &str, head: &str) -> Run {
         self.xtask(&["contract-check", "--base", base, "--head", head])
     }
+
+    /// The local mode: contracts awaiting the owner's signature warn instead of failing.
+    fn check_allowing_pending(&self, base: &str, head: &str) -> Run {
+        self.xtask(&[
+            "contract-check",
+            "--allow-pending",
+            "--base",
+            base,
+            "--head",
+            head,
+        ])
+    }
 }
 
 impl Drop for Sandbox {
@@ -581,6 +593,168 @@ fn an_unknown_ref_is_a_usage_error() {
 
     assert_eq!(run.code, Some(2), "{}", run.stderr);
     assert!(run.stderr.contains("no-such-branch"), "{}", run.stderr);
+}
+
+// --allow-pending (local gates): contracts awaiting the owner's signature warn and pass;
+// violations of signed contracts still fail. Without the flag (CI), both fail.
+
+#[test]
+fn allow_pending_passes_with_a_warning_while_a_new_contract_awaits_its_signature() {
+    let sandbox = Sandbox::new("pending-new");
+    let head = sandbox.alpha_v1();
+
+    let strict = sandbox.check(&head, &head);
+    let local = sandbox.check_allowing_pending(&head, &head);
+
+    strict.assert_failed_with("untagged contract file");
+    local.assert_passed();
+    assert!(
+        local.stderr.contains(&format!(
+            "awaiting owner signature: untagged contract file {ALPHA_TEST}: ask the owner to run \
+             `just contract-approve alpha 1`"
+        )),
+        "{}",
+        local.stderr
+    );
+    assert!(
+        local
+            .stderr
+            .contains("awaiting owner signature: contract/alpha/v1: tag not found"),
+        "{}",
+        local.stderr
+    );
+    assert!(!local.stderr.contains("error:"), "{}", local.stderr);
+}
+
+#[test]
+fn allow_pending_passes_while_a_bumped_version_awaits_its_signature() {
+    let sandbox = Sandbox::new("pending-bump");
+    let base = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &base);
+    sandbox.branch("work", &base);
+    sandbox.write("contracts/contracts.toml", MANIFEST_V2);
+    sandbox.write(ALPHA_TEST, "// alpha v2\n");
+    let head = sandbox.commit("alpha v2 contract, awaiting review");
+
+    sandbox
+        .check(&base, &head)
+        .assert_failed_with("`just contract-approve alpha 2`");
+    let local = sandbox.check_allowing_pending(&base, &head);
+    local.assert_passed();
+    assert!(
+        local.stderr.contains("awaiting owner signature"),
+        "{}",
+        local.stderr
+    );
+}
+
+#[test]
+fn allow_pending_still_fails_when_a_tagged_file_changed() {
+    let sandbox = Sandbox::new("pending-modified");
+    let base = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &base);
+    sandbox.branch("work", &base);
+    sandbox.write(ALPHA_TEST, "// alpha v1, quietly relaxed\n");
+    let head = sandbox.commit("relax the contract");
+
+    sandbox
+        .check_allowing_pending(&base, &head)
+        .assert_failed_with(&format!(
+            "error: {ALPHA_TEST} changed since contract/alpha/v1"
+        ));
+}
+
+#[test]
+fn allow_pending_still_fails_when_a_tagged_file_was_deleted() {
+    let sandbox = Sandbox::new("pending-deleted");
+    let base = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &base);
+    sandbox.branch("work", &base);
+    sandbox.remove(ALPHA_SPEC);
+    let head = sandbox.commit("drop a contract spec");
+
+    sandbox
+        .check_allowing_pending(&base, &head)
+        .assert_failed_with(&format!(
+            "error: {ALPHA_SPEC} was deleted since contract/alpha/v1"
+        ));
+}
+
+#[test]
+fn allow_pending_still_fails_on_an_unknown_signer() {
+    let sandbox = Sandbox::new("pending-unknown-key");
+    let base = sandbox.alpha_v1();
+    sandbox.sign("stranger", "contract/alpha/v1", &base);
+
+    sandbox
+        .check_allowing_pending(&base, &base)
+        .assert_failed_with("error: contract/alpha/v1 is not signed by an allowed key");
+}
+
+#[test]
+fn allow_pending_still_fails_on_an_unsigned_tag() {
+    let sandbox = Sandbox::new("pending-unsigned");
+    let base = sandbox.alpha_v1();
+    sandbox.git(&["tag", "-a", "-m", "alpha v1", "contract/alpha/v1", &base]);
+
+    sandbox
+        .check_allowing_pending(&base, &base)
+        .assert_failed_with("error: contract/alpha/v1 is not signed by an allowed key");
+}
+
+#[test]
+fn allow_pending_still_fails_on_a_signer_added_only_in_head() {
+    let sandbox = Sandbox::new("pending-signer-in-head");
+    sandbox.signers(&["owner"]);
+    sandbox.write("contracts/contracts.toml", MANIFEST_EMPTY);
+    sandbox.write(LIB, "pub fn a() {}\n");
+    let base = sandbox.commit("main");
+    sandbox.branch("work", &base);
+    sandbox.signers(&["owner", "stranger"]);
+    sandbox.write("contracts/contracts.toml", MANIFEST_V1);
+    sandbox.write(ALPHA_TEST, "// alpha v1\n");
+    sandbox.write(ALPHA_SPEC, "// alpha flow v1\n");
+    let head = sandbox.commit("add my own key and approve my own contract");
+    sandbox.sign("stranger", "contract/alpha/v1", &head);
+
+    sandbox
+        .check_allowing_pending(&base, &head)
+        .assert_failed_with("error: contract/alpha/v1 is not signed by an allowed key");
+}
+
+#[test]
+fn allow_pending_still_fails_when_the_version_goes_down() {
+    let sandbox = Sandbox::new("pending-version-down");
+    let v1 = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &v1);
+    sandbox.write("contracts/contracts.toml", MANIFEST_V2);
+    sandbox.write(ALPHA_TEST, "// alpha v2\n");
+    let base = sandbox.commit("alpha v2 contract");
+    sandbox.sign("owner", "contract/alpha/v2", &base);
+    sandbox.branch("work", &base);
+    sandbox.write("contracts/contracts.toml", MANIFEST_V1);
+    sandbox.write(ALPHA_TEST, "// alpha v1\n");
+    let head = sandbox.commit("back to the old contract");
+
+    sandbox
+        .check_allowing_pending(&base, &head)
+        .assert_failed_with("error: alpha: contract version went down from 2 to 1");
+}
+
+#[test]
+fn allow_pending_still_fails_when_a_contract_is_removed() {
+    let sandbox = Sandbox::new("pending-removed");
+    let base = sandbox.alpha_v1();
+    sandbox.sign("owner", "contract/alpha/v1", &base);
+    sandbox.branch("work", &base);
+    sandbox.write("contracts/contracts.toml", MANIFEST_EMPTY);
+    sandbox.remove(ALPHA_TEST);
+    sandbox.remove(ALPHA_SPEC);
+    let head = sandbox.commit("delete the whole contract");
+
+    sandbox
+        .check_allowing_pending(&base, &head)
+        .assert_failed_with("error: alpha: removed from contracts/contracts.toml");
 }
 
 #[test]

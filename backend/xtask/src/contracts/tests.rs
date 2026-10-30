@@ -166,6 +166,109 @@ fn rejects_invalid_manifests() {
     }
 }
 
+fn every_kind_of_problem() -> (Vec<Problem>, Vec<Problem>) {
+    let (f, path) = ("x".to_owned(), "p.rs".to_owned());
+    let pending = vec![
+        Problem::TagMissing {
+            feature: f.clone(),
+            version: 1,
+        },
+        Problem::Untagged {
+            path: path.clone(),
+            hint: Untagged::Unregistered,
+        },
+        Problem::Untagged {
+            path: path.clone(),
+            hint: Untagged::AwaitingTag {
+                feature: f.clone(),
+                version: 1,
+            },
+        },
+        Problem::Untagged {
+            path: path.clone(),
+            hint: Untagged::NotInTag {
+                feature: f.clone(),
+                version: 1,
+            },
+        },
+    ];
+    let violations = vec![
+        Problem::TagUnverified {
+            feature: f.clone(),
+            version: 1,
+            reason: "no principal matched".to_owned(),
+        },
+        Problem::TagMisnamed {
+            feature: f.clone(),
+            version: 1,
+            object_name: None,
+        },
+        Problem::TagManifestMismatch {
+            feature: f.clone(),
+            version: 1,
+            found: None,
+        },
+        Problem::TagCoversNothing {
+            feature: f.clone(),
+            version: 1,
+        },
+        Problem::VersionDown {
+            feature: f.clone(),
+            base: 2,
+            head: 1,
+        },
+        Problem::Removed {
+            feature: f.clone(),
+            base: 1,
+        },
+        Problem::Changed {
+            path: path.clone(),
+            feature: f.clone(),
+            version: 1,
+        },
+        Problem::Deleted {
+            path,
+            feature: f,
+            version: 1,
+        },
+    ];
+    (pending, violations)
+}
+
+#[test]
+fn only_missing_tags_and_untagged_files_await_approval() {
+    let (pending, violations) = every_kind_of_problem();
+
+    for problem in &pending {
+        assert!(problem.is_pending(), "should await approval: {problem}");
+    }
+    for problem in &violations {
+        assert!(!problem.is_pending(), "should be a violation: {problem}");
+    }
+}
+
+#[test]
+fn pending_findings_pass_only_when_allowed_and_violations_never_pass() {
+    let (pending, violations) = every_kind_of_problem();
+    let only_pending = Report {
+        problems: pending,
+        ..Report::default()
+    };
+
+    assert!(only_pending.passed(true));
+    assert!(!only_pending.passed(false));
+    for violation in violations {
+        let mut report = Report {
+            problems: vec![violation],
+            ..Report::default()
+        };
+        assert!(!report.passed(true), "{:?}", report.problems);
+        report.problems.extend(every_kind_of_problem().0);
+        assert!(!report.passed(true), "{:?}", report.problems);
+    }
+    assert!(Report::default().passed(false));
+}
+
 #[test]
 fn messages_tell_the_reader_what_to_do() {
     let untagged = Problem::Untagged {
@@ -277,7 +380,7 @@ fn check_passes_and_counts_pinned_files() {
 
     let report = check(&repo, "base", "base").expect("check runs");
 
-    assert!(report.passed(), "{:?}", report.problems);
+    assert!(report.passed(false), "{:?}", report.problems);
     assert_eq!(report.pinned, 1);
     assert_eq!(report.features.len(), 1);
     assert_eq!(report.features[0].state, "signed, 1 file(s) unchanged");
@@ -336,7 +439,7 @@ fn check_without_any_manifest_passes_with_a_notice() {
 
     let report = check(&repo, "base", "base").expect("check runs");
 
-    assert!(report.passed());
+    assert!(report.passed(false));
     assert_eq!(report.notices.len(), 2, "{:?}", report.notices);
 }
 
