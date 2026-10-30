@@ -1,0 +1,99 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y",
+    "import",
+    "promise",
+    "vitest"
+  ],
+  "jsPlugins": ["./tools/lint-rules/vak-ux.ts"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "env": { "browser": true, "es2024": true },
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "storybook-static/**",
+    "src/app/routeTree.gen.ts",
+    "src/shared/api/generated/**"
+  ],
+  "rules": {
+    "max-lines": ["error", { "max": 200, "skipBlankLines": true, "skipComments": true }],
+    "complexity": ["error", 10],
+    "max-params": ["error", 4],
+    "no-console": "error",
+    "eqeqeq": "error",
+
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/no-deprecated": "error",
+
+    "react/react-in-jsx-scope": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/jsx-key": "error",
+    "react/no-array-index-key": "error",
+    "react/self-closing-comp": "error",
+
+    "import/no-default-export": "error",
+    "import/no-unassigned-import": [
+      "error",
+      { "allow": ["**/*.css", "@testing-library/jest-dom/vitest"] }
+    ],
+
+    "vak-ux/no-raw-button": "error",
+    "vak-ux/no-arbitrary-values": "error",
+    "vak-ux/primary-colour-only-in-button": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/shared/ui/**"],
+      "rules": { "vak-ux/no-raw-button": "off" }
+    },
+    {
+      "files": ["src/shared/ui/button.tsx"],
+      "rules": { "vak-ux/primary-colour-only-in-button": "off" }
+    },
+    {
+      "files": ["*.config.ts", ".storybook/**", "tools/lint-rules/vak-ux.ts", "**/*.stories.tsx"],
+      "rules": { "import/no-default-export": "off" }
+    },
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "tools/**",
+        "tokens/**",
+        "*.config.ts"
+      ],
+      "env": { "node": true },
+      "rules": { "max-lines": "off" }
+    }
+  ]
+}

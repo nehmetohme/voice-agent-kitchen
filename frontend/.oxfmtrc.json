@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "singleQuote": true,
+  "sortImports": {
+    "groups": [
+      "builtin",
+      "external",
+      ["internal", "subpath"],
+      ["parent", "sibling", "index"],
+      "style",
+      "unknown"
+    ],
+    "newlinesBetween": true
+  },
+  "sortTailwindcss": {
+    "stylesheet": "./src/app/index.css",
+    "functions": ["cn", "cva"]
+  },
+  "ignorePatterns": [
+    "pnpm-lock.yaml",
+    "src/app/routeTree.gen.ts",
+    "src/shared/api/generated/**",
+    "src/shared/ui/tokens.css"
+  ]
+}
