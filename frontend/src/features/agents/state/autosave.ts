@@ -4,6 +4,7 @@
  * runs them.
  */
 import type { AgentSettings, FieldErrors } from '../api/agents-api';
+import { checkSettings } from '../api/request-checks';
 
 /** Quiet time after the last edit before saving: well inside the 1 s budget. */
 export const AUTOSAVE_DELAY_MS = 500;
@@ -49,27 +50,13 @@ export function changedSettings(
   return changes;
 }
 
-const JURISDICTION = /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/;
-const CONTROL_CHARACTER = /\p{Cc}/u;
-
 /**
- * The checks the server makes on free-text fields, so an obvious mistake is caught on the
- * page and never sent. Input stays liberal: case and separators are normalised first (Postel).
+ * What must be fixed before the draft can be sent: the contract's request schema, so an
+ * obvious mistake (an empty name, a pause out of range) never leaves the page. The server
+ * checks the rest and names the field in its answer.
  */
 export function validateSettings(draft: AgentSettings): FieldErrors {
-  const errors: FieldErrors = {};
-  const name = draft.name.trim();
-  // The input's maxLength caps the length; the server checks it again.
-  if (name === '') errors.name = 'Enter a name.';
-  else if (CONTROL_CHARACTER.test(name)) errors.name = 'Remove line breaks and control characters.';
-  if (!JURISDICTION.test(draft.jurisdiction.trim().toUpperCase().replaceAll('_', '-'))) {
-    errors.jurisdiction = 'Use a region code such as US, US-CA or UK.';
-  }
-  const { silenceMs } = draft.turnDetection;
-  if (!Number.isInteger(silenceMs) || silenceMs < 200 || silenceMs > 2000) {
-    errors.turnDetection = 'Use a pause between 200 and 2000 ms.';
-  }
-  return errors;
+  return checkSettings(draft);
 }
 
 interface StatusInput {

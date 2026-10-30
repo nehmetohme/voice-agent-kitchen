@@ -27,7 +27,9 @@ dependency-cruiser rules: `no-cross-feature`, `feature-public-api-only`, `views-
 `features-not-to-app-or-routes`, `base-ui-only-in-shared-ui`, `no-circular`.
 
 **Types for views:** views may not import `api/`, even for types. A feature re-exports the view
-models and pure error readers its views need from `state/` (agents: `state/models.ts`).
+models, contract limits and pure error readers its views need from `state/` (agents:
+`state/models.ts`). Request rules come from the generated schemas (agents: `api/request-checks.ts`),
+never from hand-copied numbers.
 
 Two features never import each other. If both need something, move it to `shared/` or compose
 them in a route.

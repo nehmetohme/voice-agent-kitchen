@@ -4,7 +4,7 @@ import { CheckboxField } from '../../../shared/ui/checkbox-field';
 import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { MODELS, toModel } from '../state/choices';
-import type { AgentSettings, FieldErrors } from '../state/models';
+import { LIMITS, type AgentSettings, type FieldErrors } from '../state/models';
 import type { Autosave } from '../state/use-autosave';
 
 interface AdvancedSettingsProps {
@@ -41,8 +41,8 @@ export function AdvancedSettings({ draft, edit, errors }: AdvancedSettingsProps)
           label="Pause before replying (ms)"
           type="number"
           inputMode="numeric"
-          min={200}
-          max={2000}
+          min={LIMITS.silenceMinMs}
+          max={LIMITS.silenceMaxMs}
           step={50}
           value={Number.isNaN(turn.silenceMs) ? '' : String(turn.silenceMs)}
           onValueChange={(value) => {

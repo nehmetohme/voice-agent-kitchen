@@ -16,6 +16,8 @@ Today the CLI (clap) has three subcommands:
 
 Planned subcommand: `worker` (job queue).
 
+**Deployment assumption.** The API trusts `X-Forwarded-User` and `X-Forwarded-Email` because, on Databricks Apps, the app is reachable only through the platform proxy, which signs the user in and sets them. Never expose `vak-server` directly (for example a public `VAK_HTTP_ADDR` outside Databricks Apps) without a proxy that strips and sets those headers. The local dev operator is refused outside the `local` profile.
+
 ## Dependencies
 
 - **May depend on:** every workspace crate. `layers.toml` lists all of them. Dev-only: `vak-testkit`.

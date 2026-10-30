@@ -10,7 +10,7 @@ Every system has complexity that cannot be removed; the system absorbs it so the
 |---|---|---|---|
 | TES-1 | Creating an agent requires at most 3 fields (name, purpose, voice). Every other field has a server default (language, model, turn-detection timings). | `backend/crates/api/tests/contract_agent_provisioning_api.rs` checks the OpenAPI `POST /api/v1/agents` body: ≤ 3 `required` properties, a `default` on every other one | A |
 | TES-2 | An agent can be created with only the required fields. | `frontend/e2e/golden/create-agent.golden.spec.ts` and the agent-provisioning contract spec, against the real server | A |
-| TES-3 | At most 1 "Advanced" disclosure per form. | `auditScreen` disclosure count | R today; planned, M2 |
+| TES-3 | At most 1 "Advanced" disclosure per form. | `auditScreen` disclosure count (planned); the agent settings form has one (`features/agents/views/advanced-settings.tsx`) | R; count planned |
 | TES-4 | The system derives what it can (defaults, normalisation, inferred settings) instead of asking. | Reading the screen and the API | R |
 
 Reviewer checklist:
@@ -28,7 +28,7 @@ Be liberal in what you accept and strict in what you send: forgiving input, vali
 | POS-1 | Accept any phone format and normalise to E.164; trim and case-fold enum input; accept pasted scripts with mixed line endings. | Property-based tests (fast-check) on the normalisers in `frontend/src/shared/lib` | Planned with the first normaliser, M2 |
 | POS-2 | Malformed URL search params fall back to defaults; the page renders without the error boundary. | TanStack Router `validateSearch` with a schema fallback; Playwright visits routes with bad params | Planned with the first route that takes search params |
 | POS-3 | Every response is Zod-parsed on receipt; a body that breaks the contract fails loudly. | `frontend/src/shared/api/http.ts` raises `ContractViolationError`; `http.test.ts` | A (applies to generated calls once orval passes schemas, T0.4) |
-| POS-4 | Every request body is Zod-parsed before it is sent. | Unit test that `http.ts` rejects an invalid payload | Gap: not wired yet; planned, T0.4 |
+| POS-4 | Every request body is Zod-parsed before it is sent. | The agents API layer parses each body with its generated request schema before sending (`features/agents/api/agents-api.ts`, tested in `agents-api.test.ts`); `http.ts` does not enforce it for every call yet | P: agents bodies parsed; `http.ts` gate planned |
 | POS-5 | An unknown address shows a not-found page with a way back, not a crash. | `frontend/src/app/app.test.tsx` | A |
 
 Reviewer checklist:

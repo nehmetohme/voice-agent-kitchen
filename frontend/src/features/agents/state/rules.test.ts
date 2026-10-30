@@ -45,27 +45,24 @@ describe('changedSettings', () => {
 });
 
 describe('validateSettings', () => {
-  it('accepts the saved settings and liberal jurisdiction input', () => {
+  it('accepts the saved settings, and leaves free text the schema allows to the server', () => {
     expect(validateSettings(saved)).toEqual({});
     expect(validateSettings({ ...saved, jurisdiction: ' us_ca ' })).toEqual({});
+    expect(validateSettings({ ...saved, jurisdiction: 'Mars' })).toEqual({});
   });
 
-  it('names each field to fix', () => {
+  it("names each field that breaks the contract's request schema", () => {
     expect(
       validateSettings({
         ...saved,
-        name: '   ',
-        jurisdiction: 'Mars',
+        name: '',
         turnDetection: { silenceMs: 100, bargeIn: true },
       }),
     ).toEqual({
-      name: 'Enter a name.',
-      jurisdiction: 'Use a region code such as US, US-CA or UK.',
+      name: 'Enter a name of up to 80 characters.',
       turnDetection: 'Use a pause between 200 and 2000 ms.',
     });
-    expect(validateSettings({ ...saved, name: 'Front\ndesk' }).name).toBe(
-      'Remove line breaks and control characters.',
-    );
+    expect(validateSettings({ ...saved, name: 'a'.repeat(81) })).toHaveProperty('name');
     expect(
       validateSettings({ ...saved, turnDetection: { silenceMs: Number.NaN, bargeIn: true } }),
     ).toHaveProperty('turnDetection');
