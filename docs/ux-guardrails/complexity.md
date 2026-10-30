@@ -8,8 +8,8 @@ Every system has complexity that cannot be removed; the system absorbs it so the
 
 | # | Rule (measurable) | Check | Checked by |
 |---|---|---|---|
-| TES-1 | Creating an agent requires at most 3 fields (name, purpose, voice). Every other field has a server default (language, model, turn-detection timings). | Test that the OpenAPI `CreateAgent` schema has ≤ 3 `required` properties and every optional property has a `default` | Planned, T0.4 / M2 |
-| TES-2 | An agent can be created with only the required fields. | Playwright `@golden` create-agent spec | Planned, M2 |
+| TES-1 | Creating an agent requires at most 3 fields (name, purpose, voice). Every other field has a server default (language, model, turn-detection timings). | `backend/crates/api/tests/contract_agent_provisioning_api.rs` checks the OpenAPI `POST /api/v1/agents` body: ≤ 3 `required` properties, a `default` on every other one | A |
+| TES-2 | An agent can be created with only the required fields. | `frontend/e2e/golden/create-agent.golden.spec.ts` and the agent-provisioning contract spec, against the real server | A |
 | TES-3 | At most 1 "Advanced" disclosure per form. | `auditScreen` disclosure count | R today; planned, M2 |
 | TES-4 | The system derives what it can (defaults, normalisation, inferred settings) instead of asking. | Reading the screen and the API | R |
 
@@ -43,8 +43,8 @@ Work expands to fill the time it is given, so tasks are short, defaults are smar
 
 | # | Rule (measurable) | Check | Checked by |
 |---|---|---|---|
-| PARK-1 | Drafts autosave within 1 s of the last edit and show a visible "Saved" status; no Save button is needed. | Playwright: edit → "Saved" within 2 s → reload → value persists | Planned, M2 |
-| PARK-2 | The create-agent golden path takes at most 8 interactions and 60 s. | Interaction counter in the `@golden` create-agent spec | Planned, M2 |
+| PARK-1 | Drafts autosave within 1 s of the last edit and show a visible "Saved" status; no Save button is needed. | `frontend/e2e/contract/agent-provisioning/`: edit → not "Saved" → "Saved" within 2 s → reload → value persists; no Save button | A |
+| PARK-2 | The create-agent golden path takes at most 8 interactions and 60 s. | Interaction counter and clock in the `@golden` create-agent spec and the agent-provisioning contract spec | A |
 | PARK-3 | Templates exist for common jobs: support, booking, survey, outbound. | Domain tests that each template produces a valid plan; usefulness is R | Planned, M3 |
 | PARK-4 | A task can end as soon as its required parts are done; optional work does not block. | Reading the flow | R |
 

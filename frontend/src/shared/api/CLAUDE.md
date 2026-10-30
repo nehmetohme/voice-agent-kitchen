@@ -25,7 +25,8 @@ coverage ignore it; `tsc` still type-checks it. Its `*.msw.ts` mocks are test co
 - Non-2xx → `ApiError` with RFC 9457 `problem` details (`status`, `title`, `detail`).
 - 2xx → the body is parsed with the Zod schema orval passes (`includeZodSchemaInArguments`).
   A mismatch throws `ContractViolationError` (Postel: strict about what we accept from code,
-  loud when the backend breaks the contract).
+  loud when the backend breaks the contract). A call without a response body (`204`,
+  `archiveAgent`) passes no schema and returns `undefined`.
 
 ## May import / be imported by
 

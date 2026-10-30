@@ -3,6 +3,17 @@
 Playwright tests against the production build (`pnpm build`, then `pnpm e2e`; `just
 frontend-verify` does both). Chromium only. The web server is `vite preview`.
 
+**The real backend.** `/api` is never mocked here. Playwright starts two web servers:
+`support/backend-server.ts` (Postgres 18 in Docker with a throwaway in-memory database, then
+`vak-server migrate` and `vak-server serve` in the local profile with the dev operator
+`e2e@example.com`) and `vite preview`, whose `/api` proxy points at it (`VAK_API_URL`). So
+`pnpm e2e` needs Docker and the Rust toolchain; the first run builds `vak-server`. Stopping
+the run removes the container.
+
+**Order.** The `contract` project runs first and every other spec waits for it
+(`dependencies`): the agent-provisioning contract starts from an empty agent list, so nothing
+else may create agents while it runs.
+
 **Ports.** Parallel worktrees run their own servers, so each worktree derives its ports from a
 hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, database 24200–24999.
 `E2E_PORT`, `E2E_API_PORT` and `E2E_DB_PORT` override them, e.g. `E2E_PORT=4175 just verify`.
@@ -11,7 +22,7 @@ hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, datab
 | --------------------- | --------------------------------------------------------------------------------- | ----------------------------------- |
 | `contract/<feature>/` | Contract specs, pinned by signed `contract/<feature>/vN` tags                     | **Never** after tagging; add `vN+1` |
 | `golden/`             | One `<id>.golden.spec.ts` per golden path in `docs/ux-guardrails/golden-paths.md` | Yes                                 |
-| `support/`            | Shared helpers: `ux-audit.ts` (`auditScreen`), fixtures, page helpers             | Yes                                 |
+| `support/`            | Shared helpers: `ux-audit.ts` (`auditScreen`), `ports.ts`, `backend-server.ts`    | Yes                                 |
 
 ## Rules
 

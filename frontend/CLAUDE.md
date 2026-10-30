@@ -29,7 +29,9 @@ Run from the repo root (recipes `cd` into `frontend/`):
 | `just frontend-verify`            | Plus knip, Vitest + coverage, build, size-limit, Storybook build, Playwright |
 | `just frontend-check-file <path>` | Format and lint one file (post-edit hook)                                    |
 
-Inside `frontend/`: `pnpm test`, `pnpm e2e` (after `pnpm build`), `pnpm tokens`, `pnpm storybook`.
+Inside `frontend/`: `pnpm test`, `pnpm e2e` (after `pnpm build`; needs Docker and the Rust
+toolchain, because it serves the real backend: `e2e/CLAUDE.md`), `pnpm tokens`, `pnpm storybook`.
+`pnpm dev` proxies `/api` to `VAK_API_URL` (default `http://127.0.0.1:3000`).
 Always go through `pnpm`: it runs the Node version pinned in `package.json` (`devEngines.runtime`).
 
 ## Toolchain

@@ -8,12 +8,13 @@ This crate builds the `vak-server` binary. It is the only place that:
 - picks implementations (local or Databricks adapters, Postgres repositories) and wires them to ports
 - owns the tokio runtime and process lifecycle
 
-Today the CLI (clap) has two subcommands:
+Today the CLI (clap) has three subcommands:
 
-- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, binds `settings.http.addr` and serves `vak_api::router()`. On Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` → `vak_api::app`. If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- `vak-server migrate` applies the pending `vak-repositories-pg` migrations and exits. Run it before each deploy (and before `serve` on a fresh database).
 - `vak-server openapi [--output FILE]` writes `vak_api::openapi_json()` to the file, or to stdout. It reads no settings or environment. `just openapi` uses it to write `contracts/openapi.json`, and `just contracts-verify` uses it to check that file for drift.
 
-Planned subcommands: `worker` (job queue) and `migrate` (runs `vak-repositories-pg` migrations before a deploy).
+Planned subcommand: `worker` (job queue).
 
 ## Dependencies
 
@@ -32,7 +33,8 @@ Planned subcommands: `worker` (job queue) and `migrate` (runs `vak-repositories-
 
 ## Testing
 
-- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers and that serve returns after shutdown.
+- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers, that `/api/v1` needs an identity unless a dev operator is set, and that serve returns after shutdown. The pool connects lazily, so these need no database.
+- **End-to-end with Postgres:** the frontend's Playwright run builds this binary, migrates a throwaway database and serves it (`frontend/e2e/support/backend-server.ts`).
 - **End-to-end:** a caller bot against the full Compose stack. These don't run here.
 
 ## Coverage floor
@@ -43,6 +45,9 @@ Planned subcommands: `worker` (job queue) and `migrate` (runs `vak-repositories-
 
 ```sh
 cd backend
-VAK_HTTP_ADDR=127.0.0.1:3000 VAK_LOG=debug cargo run -p vak-server -- serve
-curl -s localhost:3000/health   # {"status":"ok","version":"0.1.0"}
+export DATABASE_URL="$(tools/test-db.sh url)"   # or your local Postgres
+cargo run -p vak-server -- migrate
+VAK_DEV_OPERATOR_EMAIL=dev@localhost VAK_LOG=debug cargo run -p vak-server -- serve
+curl -s localhost:3000/health            # {"status":"ok","version":"0.1.0"}
+curl -s localhost:3000/api/v1/agents     # {"items":[]} as the dev operator
 ```

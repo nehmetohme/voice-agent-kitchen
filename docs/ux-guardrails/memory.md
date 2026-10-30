@@ -10,7 +10,7 @@ People remember the first and last items best, so the most important items go fi
 |---|---|---|---|
 | SP-1 | Primary navigation: Agents first, Settings last. | `e2e/contract/app-shell/app-shell.contract.spec.ts` | A |
 | SP-2 | Forms: required fields first, the commit action last. | Reading the screen | R |
-| SP-3 | Lists default to "recently edited first". | Unit test on the default sort | R today; planned with the agent list, M2 |
+| SP-3 | Lists default to "recently edited first". | `GET /api/v1/agents` returns newest first: HTTP contract test and the repository conformance suite (fake and Postgres) | A |
 | SP-4 | Summaries open with the outcome and end with the next step. | Reading the screen | R |
 
 Reviewer checklist:
@@ -41,9 +41,9 @@ People remember unfinished tasks, so setup progress stays visible until the agen
 
 | # | Rule (measurable) | Check | Checked by |
 |---|---|---|---|
-| ZEIG-1 | Each agent shows a 4-step setup checklist (Provision, Plan, Test, Publish) with `role=progressbar` and `aria-valuenow` at 0, 25, 50, 75 or 100 %. | Playwright: new agent → 0 %; after Provision → 25 %; reload → unchanged | Planned, M2 |
-| ZEIG-2 | Progress comes from the server and survives a reload. | Same Playwright test; `GET /agents/{id}/progress` API test | Planned, M2 |
-| ZEIG-3 | The progress calculation is a pure, unit-tested function. | Unit test in `features/agents/state` | Planned, M2 |
+| ZEIG-1 | Each agent shows a 4-step setup checklist (Provision, Plan, Test, Publish) with `role=progressbar` and `aria-valuenow` at 0, 25, 50, 75 or 100 %. | Agent-provisioning contract spec: a new agent shows 25 % (an agent exists only once Provision is done), the four steps in order, and the same after a reload | A |
+| ZEIG-2 | Progress comes from the server and survives a reload. | Same spec; the HTTP contract checks `GET /api/v1/agents/{id}/progress` | A |
+| ZEIG-3 | The progress calculation is a pure, unit-tested function. | `SetupProgress::derive` in `vak-domain` (unit, property and contract tests); `toChecklist` in `features/agents/state` (`rules.test.ts`) | A |
 | ZEIG-4 | An agent with changes not yet published shows an "Unpublished changes" badge. | E2E test on the badge | Planned, M6 |
 
 Reviewer checklist:
