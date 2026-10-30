@@ -15,7 +15,9 @@ import {
   listVoices as listVoicesRequest,
 } from '../../../shared/api/generated/endpoints/catalog/catalog';
 import {
+  CreateAgentBody,
   Problem,
+  UpdateAgentBody,
   type Agent as AgentDto,
   type ModelProfile,
   type SetupStep,
@@ -109,7 +111,11 @@ export async function getAgent(id: string): Promise<AgentDetails> {
   return toDetails(await getAgentRequest(id));
 }
 
+// Request bodies are checked against the contract before they leave (Postel, POS-4): a body
+// the schema rejects throws here instead of reaching the server.
+
 export async function createAgent(agent: NewAgent): Promise<AgentDetails> {
+  CreateAgentBody.parse(agent);
   return toDetails(await createAgentRequest(agent));
 }
 
@@ -117,6 +123,7 @@ export async function updateAgent(
   id: string,
   changes: Partial<AgentSettings>,
 ): Promise<AgentDetails> {
+  UpdateAgentBody.parse(changes);
   return toDetails(await updateAgentRequest(id, changes));
 }
 

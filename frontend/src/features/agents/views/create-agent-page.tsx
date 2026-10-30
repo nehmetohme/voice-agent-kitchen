@@ -6,7 +6,7 @@ import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { useCreateAgent } from '../state/agent-mutations';
 import { PURPOSES } from '../state/choices';
-import { fieldErrorsOf, type FieldErrors } from '../state/models';
+import { LIMITS, fieldErrorsOf, type FieldErrors } from '../state/models';
 import { checkNewAgent } from '../state/new-agent';
 import { useVoiceChoice } from '../state/use-voice-choice';
 
@@ -55,7 +55,7 @@ export function CreateAgentPage() {
           value={name}
           onValueChange={setName}
           error={errors.name}
-          maxLength={80}
+          maxLength={LIMITS.nameMax}
           autoComplete="off"
           required
         />

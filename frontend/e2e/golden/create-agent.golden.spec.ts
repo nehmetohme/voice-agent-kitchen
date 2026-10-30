@@ -17,8 +17,8 @@ test('create an agent from the Agents page', { tag: '@golden' }, async ({ page }
   };
 
   await page.goto('/agents');
-  const create = page.locator('[data-variant="primary"]:visible');
-  await expect(create).toHaveAccessibleName('Create agent');
+  const create = page.getByRole('link', { name: 'Create agent', exact: true });
+  await expect(create).toHaveAttribute('data-variant', 'primary');
   await auditScreen(page);
 
   await act(() => create.click());

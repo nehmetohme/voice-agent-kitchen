@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { http } from 'msw';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AGENT_ID, agentBody, fakeAgentsApi, problemResponse } from '../../../test/agents-api';
 import { startMswServer } from '../../../test/msw-server';
@@ -102,21 +102,26 @@ describe('useAutosave', () => {
     expect(result.current.draft.name).toBe('After hours');
   });
 
-  it('never sends an invalid field', async () => {
-    const { Wrapper } = wrapper();
-    const sent = api.patches.length;
-    const { result } = renderHook(() => useAutosave(agent, 10), { wrapper: Wrapper });
+  it('never sends an invalid field', () => {
+    vi.useFakeTimers();
+    try {
+      const { Wrapper } = wrapper();
+      const sent = api.patches.length;
+      const { result } = renderHook(() => useAutosave(agent, 10), { wrapper: Wrapper });
 
-    act(() => {
-      result.current.edit('name', '  ');
-    });
-    await new Promise((resolve) => {
-      setTimeout(resolve, 50);
-    });
+      act(() => {
+        result.current.edit('name', '');
+      });
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
 
-    expect(result.current.status).toBe('invalid');
-    expect(result.current.errors.name).toBe('Enter a name.');
-    expect(api.patches).toHaveLength(sent);
+      expect(result.current.status).toBe('invalid');
+      expect(result.current.errors.name).toBe('Enter a name of up to 80 characters.');
+      expect(api.patches).toHaveLength(sent);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports a failed save with the server field errors, and retries on request', async () => {

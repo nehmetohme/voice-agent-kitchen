@@ -35,6 +35,7 @@ import {
   listVoices,
   updateAgent,
 } from './agents-api';
+import { LIMITS, checkSettings } from './request-checks';
 
 const server = startMswServer();
 
@@ -142,6 +143,40 @@ describe('agents API', () => {
       { value: 'en-US', label: 'English (United States)' },
       { value: 'en-GB', label: 'English (United Kingdom)' },
     ]);
+  });
+});
+
+describe('request checks (POS-4)', () => {
+  it("takes the limits from the contract's request schema", () => {
+    expect(LIMITS).toEqual({ nameMax: 80, silenceMinMs: 200, silenceMaxMs: 2000 });
+  });
+
+  it('names each field the schema rejects', () => {
+    expect(checkSettings({ name: 'Front desk' })).toEqual({});
+    expect(checkSettings({ name: '', turnDetection: { silenceMs: 50, bargeIn: true } })).toEqual({
+      name: 'Enter a name of up to 80 characters.',
+      turnDetection: 'Use a pause between 200 and 2000 ms.',
+    });
+  });
+
+  it('never sends a body the schema rejects', async () => {
+    let requests = 0;
+    server.use(
+      http.post('*/api/v1/agents', () => {
+        requests += 1;
+        return HttpResponse.json(agentBody(), { status: 201 });
+      }),
+      http.patch('*/api/v1/agents/:id', () => {
+        requests += 1;
+        return HttpResponse.json(agentBody());
+      }),
+    );
+
+    await expect(createAgent({ name: '', useCase: 'support', voice: 'af_heart' })).rejects.toThrow(
+      /too_small/,
+    );
+    await expect(updateAgent(AGENT_ID, { name: 'a'.repeat(81) })).rejects.toThrow(/too_big/);
+    expect(requests).toBe(0);
   });
 });
 

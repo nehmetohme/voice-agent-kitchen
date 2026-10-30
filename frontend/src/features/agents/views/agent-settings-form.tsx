@@ -5,7 +5,7 @@ import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { languagesQueryOptions, voicesQueryOptions } from '../state/agents-queries';
 import { PURPOSES, toUseCase, withCurrent } from '../state/choices';
-import type { AgentDetails } from '../state/models';
+import { LIMITS, type AgentDetails } from '../state/models';
 import { useAutosave } from '../state/use-autosave';
 import { AdvancedSettings } from './advanced-settings';
 import { SaveStatus } from './save-status';
@@ -39,7 +39,7 @@ export function AgentSettingsForm({ agent }: { agent: AgentDetails }) {
             edit('name', name);
           }}
           error={errors.name}
-          maxLength={80}
+          maxLength={LIMITS.nameMax}
           autoComplete="off"
         />
         <SelectField
