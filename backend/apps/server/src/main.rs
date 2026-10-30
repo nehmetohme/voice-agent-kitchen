@@ -2,10 +2,14 @@
 //! that reads the environment and wires implementations to ports.
 //!
 //! ```text
-//! vak-server serve    # HTTP API on VAK_HTTP_ADDR (default 127.0.0.1:3000)
+//! vak-server serve                    # HTTP API on VAK_HTTP_ADDR (default 127.0.0.1:3000)
+//! vak-server openapi [--output FILE]  # the OpenAPI document (`just openapi` writes
+//!                                     # contracts/openapi.json with it)
 //! ```
 
 use std::future::Future;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use clap::{Parser, Subcommand};
@@ -23,17 +27,43 @@ struct Cli {
 enum Command {
     /// Serve the HTTP API until Ctrl-C or SIGTERM, then drain in-flight requests.
     Serve,
+    /// Write the OpenAPI 3.1 document of the HTTP API. Reads no settings or environment.
+    Openapi {
+        /// Output file [default: stdout]
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
-    let settings = Settings::from_lookup(|name| std::env::var(name).ok())?;
-    vak_telemetry::init(&settings.log.filter)?;
-
-    match cli.command {
-        Command::Serve => serve(&settings).await,
+    match Cli::parse().command {
+        Command::Serve => {
+            let settings = Settings::from_lookup(|name| std::env::var(name).ok())?;
+            vak_telemetry::init(&settings.log.filter)?;
+            serve(&settings).await
+        }
+        Command::Openapi { output } => openapi(output.as_deref()),
     }
+}
+
+/// Writes the OpenAPI document to `output`, or to stdout.
+fn openapi(output: Option<&Path>) -> anyhow::Result<()> {
+    match output {
+        Some(path) => {
+            let mut file = std::fs::File::create(path)
+                .with_context(|| format!("creating {}", path.display()))?;
+            write_openapi(&mut file).with_context(|| format!("writing {}", path.display()))
+        }
+        None => write_openapi(&mut std::io::stdout().lock()).context("writing to stdout"),
+    }
+}
+
+fn write_openapi(out: &mut impl Write) -> anyhow::Result<()> {
+    let document = vak_api::openapi_json().context("rendering the OpenAPI document")?;
+    out.write_all(document.as_bytes())?;
+    out.flush()?;
+    Ok(())
 }
 
 async fn serve(settings: &Settings) -> anyhow::Result<()> {
@@ -121,23 +151,24 @@ mod tests {
 
     #[test]
     fn openapi_is_a_subcommand_with_an_optional_output_file() {
-        let to_file = Cli::try_parse_from(["vak-server", "openapi", "--output", "out.json"])
-            .expect("parses");
+        let to_file =
+            Cli::try_parse_from(["vak-server", "openapi", "--output", "out.json"]).expect("parses");
         let to_stdout = Cli::try_parse_from(["vak-server", "openapi"]).expect("parses");
 
         assert!(matches!(
             to_file.command,
             Command::Openapi { output: Some(ref path) } if path.as_path() == Path::new("out.json")
         ));
-        assert!(matches!(to_stdout.command, Command::Openapi { output: None }));
+        assert!(matches!(
+            to_stdout.command,
+            Command::Openapi { output: None }
+        ));
     }
 
     #[test]
     fn openapi_writes_the_contract_document_to_the_output_file() {
-        let path = std::env::temp_dir().join(format!(
-            "vak-server-openapi-{}.json",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("vak-server-openapi-{}.json", std::process::id()));
 
         openapi(Some(&path)).expect("writes the document");
 
