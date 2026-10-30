@@ -37,7 +37,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 ## Conventions
 
 - **No secrets in files.** `.env` is gitignored; `.env.example` holds placeholders only.
-- **Pin everything:** container images by digest, model files by commit and SHA-256, Python packages by `uv.lock`.
+- **Pin everything:** container images by digest, model files by commit and SHA-256, Python packages by `uv.lock`. CI's dependency review scans `uv.lock` too: `mlx-audio/pyproject.toml` overrides setuptools to a patched version and swaps webrtcvad for `webrtcvad-wheels` (same module, no `pkg_resources`).
 - **Native models, Docker only for Postgres:** containers on macOS get no Metal GPU.
 - **Bind to 127.0.0.1.** Nothing local listens on the LAN.
 - **Scripts:** `bash` with `set -euo pipefail` (doctor and smoke collect failures with `-uo`). Every network call has a timeout (`curl -m`). They must be shellcheck-clean: `just repo-hooks-test` (in `just verify` and CI) checks `local/*.sh` with `--source-path=SCRIPTDIR`, so write `# shellcheck source=env.sh`.
@@ -56,6 +56,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `just dev-setup` | syncs the mlx-audio environment |
 | `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models, `/v1/systemone` support and ports, with fix hints |
 | `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server` and Vite |
+
 ## Testing
 
 - `vak-model-shim` has its own contract tests (`backend/apps/model-shim`), against wiremock.

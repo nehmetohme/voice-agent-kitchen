@@ -19,7 +19,16 @@ dependencies = [
   # spaCy's small English model; spaCy would otherwise pip-install it at runtime, and a uv
   # venv has no pip.
   "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+  # The same `webrtcvad` module as mlx-audio's webrtcvad 2.0.10, without pkg_resources.
+  "webrtcvad-wheels==2.0.14.post1",
 ]
 
 [tool.uv]
 package = false
+# mlx-audio's server extra caps setuptools below 81 only because webrtcvad 2.0.10 imports
+# pkg_resources, and every setuptools below 83 has GHSA-h35f-9h28-mq5c. Take a patched
+# setuptools and swap webrtcvad for webrtcvad-wheels (the never-true marker drops it).
+override-dependencies = [
+  "setuptools>=83",
+  "webrtcvad ; sys_platform == 'never'",
+]
