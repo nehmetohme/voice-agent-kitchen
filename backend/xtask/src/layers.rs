@@ -97,13 +97,175 @@ pub(crate) struct Location {
     pub(crate) section: String,
 }
 
+impl Dep {
+    /// The manifest table this dependency is declared in, e.g. `[dev-dependencies]`.
+    fn section(&self) -> String {
+        let table = match self.kind {
+            Kind::Normal => "dependencies",
+            Kind::Dev => "dev-dependencies",
+            Kind::Build => "build-dependencies",
+        };
+        match &self.target {
+            Some(target) => format!("[target.'{target}'.{table}]"),
+            None => format!("[{table}]"),
+        }
+    }
+}
+
 impl fmt::Display for Violation {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unlisted { krate, manifest } => write!(
+                f,
+                "{manifest}: {krate} has no [crates.{krate}] entry in layers.toml (ask the owner to add one)"
+            ),
+            Self::UnknownCrate { entry, name } => {
+                write!(f, "layers.toml {entry}: {name} is not a workspace member")
+            }
+            Self::DevOnlyInDeps { krate, dep } => write!(
+                f,
+                "layers.toml [crates.{krate}] deps: {dep} is dev-only; list it under dev-deps"
+            ),
+            Self::Disallowed { at, allowed } => write!(
+                f,
+                "{at}: {krate} may not depend on {dep} (layers.toml allows: {list})",
+                krate = at.krate,
+                dep = at.dep,
+                list = list(allowed),
+            ),
+            Self::DevOnly { at } => write!(
+                f,
+                "{at}: {dep} is dev-only; {krate} may use it only under [dev-dependencies]",
+                krate = at.krate,
+                dep = at.dep,
+            ),
+            Self::External { at, allowed } => write!(
+                f,
+                "{at}: {krate} may not use external crate {dep} (layers.toml allows: {list})",
+                krate = at.krate,
+                dep = at.dep,
+                list = list(allowed),
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {}", self.manifest, self.section, self.dep)
+    }
+}
+
+fn list(names: &[String]) -> String {
+    if names.is_empty() {
+        "none".to_owned()
+    } else {
+        names.join(", ")
     }
 }
 
 /// Every violation of `config` in `crates`, in a stable order.
-pub(crate) fn check(_config: &Config, _crates: &[Crate]) -> Vec<Violation> {
-    Vec::new()
+pub(crate) fn check(config: &Config, crates: &[Crate]) -> Vec<Violation> {
+    let members: BTreeSet<&str> = crates.iter().map(|c| c.name.as_str()).collect();
+    let mut found = check_config(config, &members);
+
+    for krate in crates {
+        let Some(rule) = config.crates.get(&krate.name) else {
+            found.push(Violation::Unlisted {
+                krate: krate.name.clone(),
+                manifest: krate.manifest.clone(),
+            });
+            continue;
+        };
+        for dep in &krate.deps {
+            if let Some(violation) = check_dep(config, rule, krate, dep) {
+                found.push(violation);
+            }
+        }
+    }
+
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// Problems in `layers.toml` itself: names that are not workspace members, and dev-only
+/// crates listed as normal deps.
+fn check_config(config: &Config, members: &BTreeSet<&str>) -> Vec<Violation> {
+    let mut found = Vec::new();
+    let mut unknown = |entry: String, name: &String| {
+        if !members.contains(name.as_str()) {
+            found.push(Violation::UnknownCrate {
+                entry,
+                name: name.clone(),
+            });
+        }
+    };
+
+    for name in &config.dev_only {
+        unknown("dev-only".to_owned(), name);
+    }
+    for (krate, rule) in &config.crates {
+        unknown(format!("[crates.{krate}]"), krate);
+        for name in &rule.deps {
+            unknown(format!("[crates.{krate}] deps"), name);
+        }
+        for name in &rule.dev_deps {
+            unknown(format!("[crates.{krate}] dev-deps"), name);
+        }
+    }
+    for (krate, rule) in &config.crates {
+        for dep in rule.deps.intersection(&config.dev_only) {
+            found.push(Violation::DevOnlyInDeps {
+                krate: krate.clone(),
+                dep: dep.clone(),
+            });
+        }
+    }
+    found
+}
+
+fn check_dep(config: &Config, rule: &Rule, krate: &Crate, dep: &Dep) -> Option<Violation> {
+    let at = || Location {
+        krate: krate.name.clone(),
+        dep: dep.name.clone(),
+        manifest: krate.manifest.clone(),
+        section: dep.section(),
+    };
+    let is_dev = dep.kind == Kind::Dev;
+
+    if dep.internal {
+        if !is_dev && config.dev_only.contains(&dep.name) {
+            return Some(Violation::DevOnly { at: at() });
+        }
+        let allowed =
+            rule.deps.contains(&dep.name) || (is_dev && rule.dev_deps.contains(&dep.name));
+        if allowed {
+            return None;
+        }
+        let mut names: Vec<String> = rule.deps.iter().cloned().collect();
+        if is_dev {
+            names.extend(rule.dev_deps.iter().cloned());
+            names.sort();
+        }
+        return Some(Violation::Disallowed {
+            at: at(),
+            allowed: names,
+        });
+    }
+
+    let external = rule.external.as_ref()?;
+    let allowed = external.contains(&dep.name) || (is_dev && rule.external_dev.contains(&dep.name));
+    if allowed {
+        return None;
+    }
+    let mut names: Vec<String> = external.iter().cloned().collect();
+    if is_dev {
+        names.extend(rule.external_dev.iter().cloned());
+        names.sort();
+    }
+    Some(Violation::External {
+        at: at(),
+        allowed: names,
+    })
 }
