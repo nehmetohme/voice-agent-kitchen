@@ -1,0 +1,22 @@
+# Code owners. GitHub reads the copy on the PR's base branch, so a PR can't weaken this file.
+# The LAST matching pattern wins, so the sensitive paths stay at the bottom: if the default
+# line is ever narrowed to layer or team owners, these still go to the owner.
+#
+# Required code-owner review is OFF in .github/rulesets/main.json until agents open PRs
+# under a GitHub App: a PR author can't approve their own PR.
+
+# Default owner
+*                         @nehmetohme
+
+# Sensitive paths: always the owner
+/.github/                 @nehmetohme
+/.claude/                 @nehmetohme
+/contracts/               @nehmetohme
+**/tests/contract_*       @nehmetohme
+**/*.contract.test.ts     @nehmetohme
+**/e2e/contract/          @nehmetohme
+/backend/layers.toml      @nehmetohme
+/backend/deny.toml        @nehmetohme
+/justfile                 @nehmetohme
+/lefthook.yml             @nehmetohme
+/tools/                   @nehmetohme

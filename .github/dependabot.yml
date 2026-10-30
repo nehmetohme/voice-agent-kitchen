@@ -1,0 +1,82 @@
+# Dependabot version updates: weekly, grouped, with a cooldown so brand-new releases (the usual
+# window for a hijacked package) wait before they are proposed. Security updates are turned on
+# in the repo settings, skip the cooldown and are grouped separately.
+# Not covered: tools pinned in .github/actions/install-release-bin callers (gitleaks,
+# actionlint) and the trufflehog image digest; bump those by hand (docs/ci.md).
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      cargo:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Also covers pnpm (frontend/pnpm-lock.yaml). The frontend lands in M0; until then this entry
+  # finds no manifest and Dependabot reports that in its logs.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      npm:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Bumps the pinned SHA together with its `# vX.Y.Z` comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+
+  # Dockerfiles and compose files arrive with deploy/ (M0 local stack, M7 deploy).
+  - package-ecosystem: docker
+    directories: ["/deploy/**"]
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope

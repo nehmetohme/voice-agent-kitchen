@@ -1,0 +1,35 @@
+# Config for actions/dependency-review-action (the `deps` job in ci.yml, on PRs only).
+# It checks only the dependencies a PR adds or changes.
+
+# Fail on a known vulnerability of moderate severity or higher, in any dependency scope.
+fail-on-severity: moderate
+fail-on-scopes: [runtime, development, unknown]
+vulnerability-check: true
+
+# Licenses compatible with distributing this Apache-2.0 project. Keep in sync with
+# backend/deny.toml [licenses].allow; the extra entries are needed by the frontend toolchain.
+license-check: true
+allow-licenses:
+  - 0BSD # tslib
+  - Apache-2.0
+  - Apache-2.0 WITH LLVM-exception
+  - BlueOak-1.0.0 # glob, lru-cache, minipass
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - BSL-1.0
+  - CC-BY-4.0 # data only: caniuse-lite
+  - CC0-1.0
+  - CDLA-Permissive-2.0
+  - ISC
+  - MIT
+  - MIT-0
+  - MPL-2.0 # file-level copyleft, used unmodified: lightningcss, axe-core
+  - Python-2.0 # argparse
+  - Unicode-3.0
+  - Unlicense
+  - Zlib
+
+# Show OpenSSF Scorecard data for changed dependencies and warn below level 3.
+show-openssf-scorecard: true
+warn-on-openssf-scorecard-level: 3
+comment-summary-in-pr: never
