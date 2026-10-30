@@ -16,7 +16,7 @@ Related: `.github/contract-signers` holds the SSH public keys allowed to sign co
 ## The contract workflow (TDD with signed tags)
 
 1. **Write the contract tests first** in paths matching `contract_globs`: `**/tests/contract_*.rs`, `**/tests/contract_*/**`, `**/*.contract.test.ts(x)`, `**/*.contract.spec.ts` or `frontend/e2e/contract/**`.
-2. **Register them** in `contracts.toml` under `[features.<name>]` with `version = 1`, then commit. `contract-check` now fails with "untagged contract file …: ask the owner to run `just contract-approve <name> 1`". That failure is the approval gate.
+2. **Register them** in `contracts.toml` under `[features.<name>]` with `version = 1`, then commit and push for review. Local gates warn "awaiting owner signature: untagged contract file …: ask the owner to run `just contract-approve <name> 1`" and pass. CI's strict check fails, so the PR can't merge: that is the approval gate.
 3. **The owner reviews and signs:** `just contract-approve <name> 1` creates the signed tag `contract/<name>/v1` at HEAD and pushes it. Agents never create, move or push tags.
 4. **Implement.** The check stays green while every file in the tag's file set is byte-identical at HEAD. Never edit a tagged file.
 5. **To change a contract,** bump `version` in `contracts.toml` first, then edit the files, commit, and ask the owner to sign `contract/<name>/v<N+1>`.
@@ -29,6 +29,15 @@ Run as `cargo xtask contract-check --base <trusted ref> --head <ref>`. For each 
 - The file set comes from the **tag's own** manifest (which must pin that version), and every file in it is blob-identical at HEAD. Blobs are compared, not ancestry, so squash merges pass.
 - Every file at HEAD matching the base's or HEAD's `contract_globs` is covered by a valid tag.
 
+**Two modes.** Findings fall into two classes:
+
+| Class | Findings | Strict (CI: `contracts-check-ci`) | `--allow-pending` (local: `verify`, `verify-fast`, git hooks, Stop gate) |
+|---|---|---|---|
+| **Pending approval** | the tag for HEAD's version doesn't exist yet; an untagged contract file | fails | warns "awaiting owner signature: … `just contract-approve <f> <v>`" and passes |
+| **Violation** | a tagged file changed or deleted; an unsigned tag, or one signed by a key not in the base's signers (including a key added only in HEAD); a lower version; a removed feature; a tag with the wrong name, a manifest that doesn't pin its version, or no files | fails | fails |
+
+So an agent can commit and push contract tests for review, but nothing merges until the owner signs, and no gate ever tolerates a change to a signed contract.
+
 Defence in depth: CI runs the **base branch's copy** of the checker (`just contracts-check-ci`), tags are verified against the base's signers, CODEOWNERS covers these paths, and Claude Code hooks deny `git tag` and edits to tagged or generated files.
 
 **Bootstrap:** a base from before the contract system (no `contracts.toml` and no signers file) has no trusted keys and no checker. Then the run trusts HEAD's signers file and checker copy, and says so with a loud `BOOTSTRAP` warning. From the next PR on, only the base's copies count.
@@ -39,12 +48,12 @@ Run them from the repo root.
 
 | Recipe | Does |
 |---|---|
-| `just contracts-verify` | OpenAPI drift, client drift (regenerates orval), `oasdiff breaking` against the base, then `contract-check` **last**, reported on its own |
+| `just contracts-verify` | OpenAPI drift, client drift (regenerates orval), `oasdiff breaking` against the base, then `contract-check --allow-pending` **last** |
 | `just contracts-verify-fast` | The same without regenerating the frontend client |
 | `just openapi` | Regenerate `openapi.json` and `frontend/src/shared/api/generated/` |
 | `just contract-status` | Each feature with its version and tag state, plus untagged files |
 | `just contract-approve <feature> <version>` | **Owner only.** Interactive: clean tree, version matches HEAD's manifest, then `git tag -s` + `git push origin <tag>` |
-| `just contracts-check-ci <base> <head>` | CI: builds and runs the base ref's checker from a temporary worktree |
+| `just contracts-check-ci <base> <head>` | CI: builds and runs the base ref's checker from a temporary worktree, **strict** |
 
 The base defaults to `origin/main`. Set `VAK_CONTRACTS_BASE` to override it, and run `git fetch origin main` first so the base is current. CI needs the base commit and the `contract/*` tags fetched.
 

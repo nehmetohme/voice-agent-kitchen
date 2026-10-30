@@ -57,7 +57,8 @@ contract-approve feature version:
     git push origin "$tag"
     echo "contract-approve: pushed $tag" >&2
 
-# CI: run the BASE ref's copy of contract-check (from a temporary worktree) against HEAD
+# CI: run the BASE ref's copy of contract-check (from a temporary worktree) against HEAD, strict
+# (no --allow-pending): a contract awaiting the owner's signature blocks the merge
 [positional-arguments]
 contracts-check-ci base head:
     #!/usr/bin/env bash
@@ -151,9 +152,11 @@ _contracts-breaking:
 _contracts-check:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "== contract-check: contract files vs. signed contract tags (base {{ contracts_base }}) =="
-    if ! (cd backend && cargo xtask contract-check --base '{{ contracts_base }}' --head HEAD); then
-        echo "contracts: every other contract gate passed; contract-check failed (above)." >&2
-        echo "contracts: untagged files wait for the owner's signature: see \`just contract-status\`." >&2
+    echo "== contract-check (local: awaiting-signature findings warn; CI is strict) =="
+    # --allow-pending: an agent must be able to commit and push contract tests for the owner
+    # to review, so findings that only await the owner's signature warn here. Violations of
+    # signed contracts still fail. CI (`contracts-check-ci`) runs strict and blocks the merge.
+    if ! (cd backend && cargo xtask contract-check --allow-pending --base '{{ contracts_base }}' --head HEAD); then
+        echo "contracts: every other contract gate passed; contract-check found a violation of a signed contract (above)." >&2
         exit 1
     fi

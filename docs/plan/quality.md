@@ -50,10 +50,17 @@ For every feature:
    - `**/*.contract.test.ts`
    - `e2e/contract/**`
 
-   Register them in `contracts/contracts.toml`, then commit. CI fails with "untagged contract file", and that failure is the approval gate.
+   Register them in `contracts/contracts.toml`, then commit and push. Local gates only warn ("awaiting owner signature"), so the agent can push the tests for review. CI fails with "untagged contract file", and that failure is the approval gate.
 2. **You review and sign.** `just contract-approve <feature> 1` creates and pushes the signed tag `contract/<feature>/v1`. Only admins can create these tags (tag ruleset).
 3. **Implement.** CI stays green only while every contract file is byte-identical to its tag.
 4. **To change a contract**, bump the version in `contracts.toml` and sign `contract/<feature>/v2`.
+
+`cargo xtask contract-check` runs in two modes:
+
+| Mode | Where | Pending approval (tag not signed yet, untagged contract file) | Violation (tagged file changed or deleted, bad or unknown signature, signer added only in HEAD, lower version, removed contract) |
+|---|---|---|---|
+| strict | CI: `just contracts-check-ci`, the base branch's copy of the checker | fails, so the PR can't merge | fails |
+| `--allow-pending` | local: `just verify`, `just verify-fast`, git hooks, the Stop gate | warns and passes | fails |
 
 Defence layers:
 - signature checked against the base branch's `.github/contract-signers` file
