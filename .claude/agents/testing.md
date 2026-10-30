@@ -25,7 +25,7 @@ Only read-only commands: `git diff|log|show|status|ls-files|for-each-ref`, and t
 
 ## Checklist
 
-- **Contract tests first.** A new feature has contract tests in the contract paths (`**/tests/contract_*.rs`, `**/*.contract.test.ts`, `e2e/contract/**`), registered in `contracts/contracts.toml`. They were committed before the implementation: compare `git log --format='%h %s' -- <test file>` with the implementation's commits.
+- **Contract tests first.** A new feature has contract tests in the contract paths (`**/tests/contract_*.rs`, `**/*.contract.test.ts`, `**/*.contract.test.tsx`, `**/*.contract.spec.ts`, `e2e/contract/**`), registered in `contracts/contracts.toml`. They were committed before the implementation: compare `git log --format='%h %s' -- <test file>` with the implementation's commits.
 - **Contract tests untouched.** For each feature, find its version in `contracts/contracts.toml` and the tag `contract/<feature>/v<N>` (`git for-each-ref refs/tags/contract/`). Every file the tag pins is byte-identical: `git diff refs/tags/contract/<feature>/v<N> -- <path>` is empty. Changing a contract requires a version bump in `contracts/contracts.toml`.
 - **Right level.** Changed behavior has tests at the level that owns it. Unit tests per layer, with the layer below faked using `vak-testkit`. Repositories run against real Postgres (`#[sqlx::test]`, testcontainers). Routers are tested over HTTP. Golden paths have Playwright tests, and the voice pipeline has simulated calls.
 - **Meaningful assertions.** Tests check outcomes and values, not only "no panic" or "was called". Error paths and edges are covered: empty, maximum, invalid input, timeout, barge-in, opt-out. No snapshot-only tests for logic.

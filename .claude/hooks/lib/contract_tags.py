@@ -8,7 +8,8 @@ Tags look like contract/<feature>/v<N>. A file is pinned when:
      the manifest doesn't list the feature. A bumped, not yet signed version pins nothing,
      so a contract can be changed by bumping its version first.
   2. the file exists in that tag's tree and a path (git-style glob) listed for the feature
-     in the tag's own contracts/contracts.toml matches it.
+     in the tag's own contracts/contracts.toml matches it. A feature that lists no paths
+     falls back to the manifest's contract_globs, else to DEFAULT_CONTRACT_GLOBS.
 
 Works on Python 3.9+: uses tomllib, then tomli, then a small parser for the manifest
 shape (VAK_HOOK_TOML=mini forces the small parser).
@@ -20,6 +21,16 @@ import subprocess
 import sys
 
 TAG = re.compile(r"contract/(.+)/v([0-9]+)")
+
+# Where contract tests live (docs/plan/quality.md section 2, frontend PR #2).
+DEFAULT_CONTRACT_GLOBS = [
+    "**/tests/contract_*.rs",
+    "**/tests/contract_*/**",
+    "**/*.contract.test.ts",
+    "**/*.contract.test.tsx",
+    "**/*.contract.spec.ts",
+    "**/e2e/contract/**",
+]
 
 
 def git(root, *args):
@@ -158,9 +169,12 @@ def main():
     for (feature, tag, entry), exists in zip(candidates, present):
         if not exists:
             continue
-        tagged_entry = features_of(git(root, "show", f"refs/tags/{tag}:contracts/contracts.toml")).get(feature)
+        tagged = parse_toml(git(root, "show", f"refs/tags/{tag}:contracts/contracts.toml"))
+        features = tagged.get("features") if isinstance(tagged.get("features"), dict) else {}
+        tagged_entry = features.get(feature)
         tagged_entry = tagged_entry if isinstance(tagged_entry, dict) else {}
-        paths = tagged_entry.get("paths") or entry.get("paths") or []
+        paths = (tagged_entry.get("paths") or entry.get("paths")
+                 or tagged.get("contract_globs") or DEFAULT_CONTRACT_GLOBS)
         paths = [p for p in paths if isinstance(p, str) and p]
         # The file exists in the tag, so it is pinned if a manifest path matches it.
         # (git ls-tree rejects :(glob) pathspecs, so match here.)

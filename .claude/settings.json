@@ -24,6 +24,8 @@
       "Bash(just contract-approve *)",
       "Edit(/contracts/openapi.json)",
       "Edit(/frontend/src/shared/api/generated/**)",
+      "Edit(/frontend/src/app/routeTree.gen.ts)",
+      "Edit(/frontend/src/shared/ui/tokens.css)",
       "Edit(/backend/**/.sqlx/**)"
     ]
   },

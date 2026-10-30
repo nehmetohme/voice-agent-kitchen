@@ -4,6 +4,8 @@ paths:
   - "**/tests/contract_*.rs"
   - "**/tests/contract_*/**"
   - "**/*.contract.test.ts"
+  - "**/*.contract.test.tsx"
+  - "**/*.contract.spec.ts"
   - "**/e2e/contract/**"
 ---
 
