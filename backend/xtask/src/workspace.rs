@@ -7,6 +7,7 @@ use std::path::Path;
 use anyhow::Context as _;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 
+use crate::coverage_gate::Package;
 use crate::layers::{Crate, Dep, Kind};
 
 /// `cargo metadata --no-deps` for the workspace that owns `manifest` (or the current
@@ -41,6 +42,21 @@ pub(crate) fn crates(metadata: &Metadata) -> Vec<Crate> {
                     internal: members.contains(dep.name.as_str()),
                 })
                 .collect(),
+        })
+        .collect()
+}
+
+/// Every workspace member with its absolute package directory.
+pub(crate) fn packages(metadata: &Metadata) -> Vec<Package> {
+    metadata
+        .workspace_packages()
+        .iter()
+        .filter_map(|package| {
+            let dir = package.manifest_path.parent()?;
+            Some(Package {
+                name: package.name.to_string(),
+                dir: dir.as_std_path().to_path_buf(),
+            })
         })
         .collect()
 }
@@ -91,6 +107,18 @@ mod tests {
             .expect("xtask uses anyhow");
         assert!(!anyhow.internal);
         assert_eq!(anyhow.kind, Kind::Normal);
+    }
+
+    #[test]
+    fn package_dirs_are_absolute() {
+        let packages = packages(&this_workspace());
+
+        let domain = packages
+            .iter()
+            .find(|p| p.name == "vak-domain")
+            .expect("vak-domain");
+        assert!(domain.dir.is_absolute());
+        assert!(domain.dir.ends_with("crates/domain"));
     }
 
     #[test]
