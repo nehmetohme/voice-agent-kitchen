@@ -30,7 +30,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `local/mlx-audio.sh`, `local/speech-warmup.sh` | start mlx-audio; load and warm both speech models before the shim starts |
 | `local/doctor.sh`, `local/smoke.sh` | `dev-doctor` and `dev-smoke` |
 
-**Models** live outside the repo in `${VAK_MODELS_DIR:-~/.cache/vak/models}`, so every worktree shares one copy (5.4 GiB). `models.sh` pins each file to a Hugging Face commit and a SHA-256; add a model there, never by hand. Licences: Parakeet CC-BY-4.0, Kokoro and Kev-4B Apache-2.0. Never fetch `openjev/openjev` (CC-BY-NC); the script refuses it.
+**Models** live outside the repo in `${VAK_MODELS_DIR:-~/.cache/vak/models}`, so every worktree shares one copy (5.4 GiB). `models.sh` pins each file to a Hugging Face commit and a SHA-256; add a model there, never by hand. Licences: Parakeet CC-BY-4.0, Kokoro and Kev-4B Apache-2.0. Never fetch `openjev/openjev` (CC-BY-NC); the script refuses it. Kokoro's G2P in the mlx-audio environment pulls in copyleft packages: `phonemizer-fork` and espeak-ng (GPL-3.0), and `num2words` (LGPL). They are fine on a developer's Mac and are exempted by package in `.github/dependency-review.yml`, but they must never ship. The production Kokoro pyfunc (M7) needs its own licence review.
 
 **Configuration** is the gitignored `.env` at the repo root (`cp .env.example .env`). `.env.example` lists every variable with placeholders; the real LAN address and passwords stay in `.env`. `.worktreeinclude` copies `.env` into worktrees that Claude Code creates; for a `just task` worktree, copy it from the main checkout (`just dev-doctor` prints the command).
 

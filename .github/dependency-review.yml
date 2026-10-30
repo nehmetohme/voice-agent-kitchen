@@ -28,9 +28,17 @@ allow-licenses:
   - Unicode-3.0
   - Unlicense
   - Zlib
-# Exceptions by package URL, for tools that only run in CI and are never distributed.
+# Exceptions by package URL, for tools that are never distributed: CI-only, or local-dev-only.
 allow-dependencies-licenses:
   - pkg:githubactions/trufflesecurity/trufflehog # AGPL-3.0; secrets-deep-scan.yml
+  # deploy/local/mlx-audio (uv.lock): the speech server on a developer's Mac, never shipped.
+  # Kokoro's G2P (misaki) needs these two; production TTS gets its own review in M7.
+  - pkg:pypi/phonemizer-fork # GPL-3.0
+  - pkg:pypi/num2words # LGPL
+  # Permissive, but their metadata lists extra or misdetected licences.
+  - pkg:pypi/regex # Apache-2.0 AND CNRI-Python
+  - pkg:pypi/typing-extensions # PSF-2.0
+  - pkg:pypi/webrtcvad # BSD/MIT; locked under a never-true marker, not installed
 
 # Show OpenSSF Scorecard data for changed dependencies and warn below level 3.
 show-openssf-scorecard: true
