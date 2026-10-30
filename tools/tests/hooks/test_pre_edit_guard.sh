@@ -53,6 +53,18 @@ test_guard_denies_generated_frontend_client() {
   assert_denied "generated"
 }
 
+test_guard_denies_generated_route_tree() {
+  make_repo
+  guard frontend/src/app/routeTree.gen.ts pre-edit-edit
+  assert_denied "generated"
+}
+
+test_guard_denies_generated_tokens_css() {
+  make_repo
+  guard frontend/src/shared/ui/tokens.css
+  assert_denied "frontend/tokens/"
+}
+
 test_guard_denies_sqlx_offline_cache() {
   make_repo
   guard backend/crates/repositories-pg/.sqlx/query-1a2b3c.json
@@ -160,6 +172,43 @@ test_guard_denies_again_once_the_new_version_is_signed() {
   tag_health_contract 2
   guard backend/crates/api/tests/contract_health.rs
   assert_denied "contract/health/v2"
+}
+
+tag_ui_contract() { # paths-line : a "ui" feature whose contract tests are .tsx and .spec.ts
+  mkdir -p "$R/contracts"
+  printf '%s\n' '[features.ui]' 'version = 1' "$1" >"$R/contracts/contracts.toml"
+  write_file frontend/src/shared/ui/button.contract.test.tsx "test('renders', () => {})"
+  write_file frontend/e2e/contract/agents/create.contract.spec.ts "test('creates', () => {})"
+  write_file backend/crates/api/tests/contract_health.rs '#[test] fn health() {}'
+  write_file frontend/src/shared/ui/button.tsx 'export const Button = () => null'
+  commit_all "test(contract): ui v1"
+  git -C "$R" tag contract/ui/v1
+}
+
+test_guard_denies_tsx_and_spec_contract_files_listed_in_the_manifest() {
+  make_repo
+  tag_ui_contract 'paths = ["frontend/src/shared/ui/*.contract.test.tsx", "frontend/e2e/contract/**"]'
+  guard frontend/src/shared/ui/button.contract.test.tsx
+  assert_denied "contract/ui/v1"
+  guard frontend/e2e/contract/agents/create.contract.spec.ts pre-edit-edit
+  assert_denied "contract/ui/v1"
+  guard backend/crates/api/tests/contract_health.rs
+  assert_allowed
+  guard frontend/src/shared/ui/button.tsx
+  assert_allowed
+}
+
+test_guard_uses_the_default_contract_globs_when_a_feature_lists_no_paths() {
+  make_repo
+  tag_ui_contract '# no paths: the default contract globs apply'
+  guard frontend/src/shared/ui/button.contract.test.tsx
+  assert_denied "contract/ui/v1"
+  guard frontend/e2e/contract/agents/create.contract.spec.ts
+  assert_denied "contract/ui/v1"
+  guard backend/crates/api/tests/contract_health.rs
+  assert_denied "contract/ui/v1"
+  guard frontend/src/shared/ui/button.tsx
+  assert_allowed
 }
 
 test_guard_denies_turning_off_reviewers_in_settings() {

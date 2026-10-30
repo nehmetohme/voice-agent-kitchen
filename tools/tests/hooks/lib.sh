@@ -86,7 +86,7 @@ sandbox() {
   git config --global tag.gpgsign false
   export STUB_LOG="$T/stub.log" STUB_CLAUDE_DIR="$T/claude"
   : >"$STUB_LOG"
-  unset CLAUDE_REVIEW_CHILD CLAUDE_PROJECT_DIR VAK_REVIEWERS VAK_HOOK_JSON VAK_HOOK_TOML \
+  unset CLAUDE_REVIEW_CHILD CLAUDE_PROJECT_DIR VAK_REVIEWERS VAK_HOOK_JSON VAK_HOOK_TOML STUB_JUST_RECIPES \
     VAK_GRAPHIFY VAK_STOP_MAX_REPEATS VAK_REVIEW_MAX_TURNS VAK_REVIEW_MAX_BUDGET_USD \
     VAK_REVIEW_CONCURRENCY VAK_LINT_BUDGET_S XDG_BIN_HOME
   # Safety net: a real claude must never be reachable from a test.
@@ -108,7 +108,7 @@ stub_bin() { # tool... : put fake executables on PATH
   local tool src
   for tool in "$@"; do
     case "$tool" in
-      claude | graphify) src="$STUBS/$tool" ;;
+      claude | graphify | just) src="$STUBS/$tool" ;;
       *) src="$STUBS/generic" ;;
     esac
     ln -sf "$src" "$T/bin/$tool"

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Fake `just` for the hook tests.
+# `just --summary` prints $STUB_JUST_RECIPES (the recipe names; not logged).
+# Any other call is logged as "just<TAB>cwd<TAB>args" to $STUB_LOG, prints $STUB_JUST_OUT
+# and exits $STUB_JUST_RC.
+set -u
+if [ "${1:-}" = "--summary" ]; then
+  printf '%s\n' "${STUB_JUST_RECIPES:-default verify verify-fast}"
+  exit 0
+fi
+printf 'just\t%s\t%s\n' "$PWD" "$*" >>"${STUB_LOG:-/dev/null}"
+[ -n "${STUB_JUST_OUT:-}" ] && printf '%s\n' "$STUB_JUST_OUT"
+exit "${STUB_JUST_RC:-0}"

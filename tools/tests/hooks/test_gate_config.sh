@@ -81,6 +81,8 @@ test_config_settings_deny_tags_and_generated_edits() {
   assert_contains "$deny" "Bash(git push * refs/tags/*)"
   assert_contains "$deny" "Edit(/contracts/openapi.json)"
   assert_contains "$deny" "Edit(/frontend/src/shared/api/generated/**)"
+  assert_contains "$deny" "Edit(/frontend/src/app/routeTree.gen.ts)"
+  assert_contains "$deny" "Edit(/frontend/src/shared/ui/tokens.css)"
   assert_contains "$deny" "Edit(/backend/**/.sqlx/**)"
 }
 

@@ -29,11 +29,11 @@ edition = "2024"'
   write_file backend/crates/domain/src/lib.rs 'pub fn add(a: i32, b: i32) -> i32 { a + b }'
 }
 
-frontend_ready() { # package.json plus the formatter and linter binaries
+frontend_ready() { # package.json, installed node_modules and the frontend-check-file recipe
   write_file frontend/package.json '{ "name": "@vak/frontend", "private": true }'
-  mkdir -p "$R/frontend/node_modules/.bin"
-  ln -s "$STUBS/generic" "$R/frontend/node_modules/.bin/oxfmt"
-  ln -s "$STUBS/generic" "$R/frontend/node_modules/.bin/oxlint"
+  mkdir -p "$R/frontend/node_modules"
+  stub_bin just
+  export STUB_JUST_RECIPES="default verify verify-fast frontend-verify frontend-check-file"
 }
 
 test_lint_rust_formats_the_file_then_clippy_on_its_package() {
@@ -94,42 +94,74 @@ test_lint_rust_slow_clippy_does_not_block() {
   assert_not_contains "$HOOK_OUT" '"block"' "a timeout is not a lint failure"
 }
 
-test_lint_ts_runs_frontend_format_and_lint_on_the_file() {
+test_lint_ts_runs_the_frontend_check_recipe_on_the_file() {
   make_repo
   frontend_ready
   write_file frontend/src/features/agents/views/AgentList.tsx 'export const A = () => null'
   lint frontend/src/features/agents/views/AgentList.tsx
   assert_quiet_success
-  assert_contains "$(call_line oxfmt)" "src/features/agents/views/AgentList.tsx"
-  assert_eq "$R/frontend" "$(call_cwd oxfmt)" "formatter runs in frontend/"
-  assert_contains "$(call_line oxlint)" "src/features/agents/views/AgentList.tsx"
-  assert_eq "$R/frontend" "$(call_cwd oxlint)" "linter runs in frontend/"
+  assert_eq "frontend-check-file $R/frontend/src/features/agents/views/AgentList.tsx" "$(call_line just)"
+  assert_eq "$R" "$(call_cwd just)" "the recipe runs from the repo root"
+}
+
+test_lint_js_runs_the_frontend_check_recipe() {
+  make_repo
+  frontend_ready
+  write_file frontend/vite.config.js 'export default {}'
+  lint frontend/vite.config.js
+  assert_quiet_success
+  assert_eq "frontend-check-file $R/frontend/vite.config.js" "$(call_line just)"
 }
 
 test_lint_ts_error_blocks() {
   make_repo
   frontend_ready
   write_file frontend/src/shared/lib/format.ts 'export const x = 1'
-  export STUB_OXLINT_RC=1 STUB_OXLINT_OUT="eslint(no-unused-vars): y is never used"
+  export STUB_JUST_RC=1 STUB_JUST_OUT="eslint(no-unused-vars): y is never used"
   lint frontend/src/shared/lib/format.ts
   assert_blocked "no-unused-vars"
 }
 
 test_lint_ts_skips_when_frontend_is_not_set_up() {
   make_repo
+  stub_bin just
+  export STUB_JUST_RECIPES="default frontend-check-file"
   write_file frontend/src/main.tsx 'export {}'
   lint frontend/src/main.tsx
   assert_quiet_success
   assert_eq "" "$(cat "$STUB_LOG")" "no tool ran"
 }
 
-test_lint_ts_skips_generated_client() {
+test_lint_ts_skips_without_node_modules() {
+  make_repo
+  frontend_ready
+  rmdir "$R/frontend/node_modules"
+  write_file frontend/src/main.tsx 'export {}'
+  lint frontend/src/main.tsx
+  assert_quiet_success
+  assert_eq 0 "$(calls just)"
+}
+
+test_lint_ts_skips_until_the_recipe_exists() {
+  make_repo
+  frontend_ready
+  export STUB_JUST_RECIPES="default verify verify-fast frontend-verify"
+  write_file frontend/src/main.tsx 'export {}'
+  lint frontend/src/main.tsx
+  assert_quiet_success
+  assert_eq 0 "$(calls just)"
+}
+
+test_lint_ts_skips_generated_files() {
   make_repo
   frontend_ready
   write_file frontend/src/shared/api/generated/client.ts 'export {}'
   lint frontend/src/shared/api/generated/client.ts
   assert_quiet_success
-  assert_eq 0 "$(calls oxfmt)"
+  write_file frontend/src/app/routeTree.gen.ts 'export {}'
+  lint frontend/src/app/routeTree.gen.ts
+  assert_quiet_success
+  assert_eq 0 "$(calls just)"
 }
 
 test_lint_toml_runs_taplo_on_the_file() {
