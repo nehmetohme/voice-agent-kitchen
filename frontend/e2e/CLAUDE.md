@@ -1,8 +1,11 @@
 # e2e/
 
 Playwright tests against the production build (`pnpm build`, then `pnpm e2e`; `just
-frontend-verify` does both). Chromium only. The web server is `vite preview` on port 4173
-(override with `E2E_PORT` when two worktrees run at once).
+frontend-verify` does both). Chromium only. The web server is `vite preview`.
+
+**Ports.** Parallel worktrees run their own servers, so each worktree derives its ports from a
+hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, database 24200–24999.
+`E2E_PORT`, `E2E_API_PORT` and `E2E_DB_PORT` override them, e.g. `E2E_PORT=4175 just verify`.
 
 | Folder                | What                                                                              | Edit?                               |
 | --------------------- | --------------------------------------------------------------------------------- | ----------------------------------- |
