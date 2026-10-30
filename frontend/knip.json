@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/app/main.tsx",
+    "src/features/*/index.ts",
+    "src/shared/api/http.ts",
+    "tools/lint-rules/vak-ux.ts",
+    "tokens/build.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "tools/**/*.ts",
+    "tokens/**/*.ts",
+    "e2e/**/*.ts",
+    ".storybook/**/*.ts"
+  ],
+  "ignore": ["src/app/routeTree.gen.ts", "src/shared/api/generated/**"],
+  "ignoreDependencies": ["@swc/core", "oxlint-tsgolint"]
+}
