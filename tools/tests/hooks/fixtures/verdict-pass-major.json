@@ -1,0 +1,20 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 9,
+  "result": "",
+  "session_id": "00000000-0000-0000-0000-000000000003",
+  "total_cost_usd": 0.18,
+  "structured_output": {
+    "verdict": "pass",
+    "findings": [
+      {
+        "severity": "major",
+        "file": "backend/crates/domain/src/lib.rs",
+        "line": 7,
+        "message": "New rule has no unit test. Fix: add a test for the rejecting branch."
+      }
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "session_id": "test-session",
+  "transcript_path": "/dev/null",
+  "cwd": "__CWD__",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "__FILE__",
+    "content": "changed"
+  },
+  "tool_response": {
+    "filePath": "__FILE__",
+    "success": true
+  },
+  "tool_use_id": "toolu_test_post",
+  "duration_ms": 3
+}

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Fake `graphify` for the hook tests.
+# `--help` mimics the pip package graphifyy (has `update <path>`), or the unrelated npm
+# package of the same name when STUB_GRAPHIFY_FLAVOR=npm. Other calls are logged to
+# $STUB_LOG, sleep $STUB_GRAPHIFY_SLEEP seconds and exit $STUB_GRAPHIFY_RC.
+set -u
+if [ "${1:-}" = "--help" ]; then
+  if [ "${STUB_GRAPHIFY_FLAVOR:-}" = "npm" ]; then
+    printf '%s\n' 'Usage: graphify [options] [command] [path]' '  query [options] <question>'
+  else
+    printf '%s\n' 'Usage: graphify <command>' \
+      '  update <path>           re-extract code files and update the graph (no LLM needed)'
+  fi
+  exit 0
+fi
+printf 'graphify\t%s\t%s\n' "$PWD" "$*" >>"${STUB_LOG:-/dev/null}"
+sleep "${STUB_GRAPHIFY_SLEEP:-0}"
+exit "${STUB_GRAPHIFY_RC:-0}"

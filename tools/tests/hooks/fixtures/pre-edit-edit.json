@@ -1,0 +1,15 @@
+{
+  "session_id": "test-session",
+  "transcript_path": "/dev/null",
+  "cwd": "__CWD__",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "__FILE__",
+    "old_string": "old",
+    "new_string": "__CONTENT__",
+    "replace_all": false
+  },
+  "tool_use_id": "toolu_test_edit"
+}

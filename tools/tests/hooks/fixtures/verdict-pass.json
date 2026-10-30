@@ -1,0 +1,13 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 6,
+  "result": "",
+  "session_id": "00000000-0000-0000-0000-000000000001",
+  "total_cost_usd": 0.12,
+  "structured_output": {
+    "verdict": "pass",
+    "findings": []
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "result",
+  "subtype": "error_max_turns",
+  "is_error": true,
+  "num_turns": 30,
+  "result": "",
+  "session_id": "00000000-0000-0000-0000-000000000005",
+  "total_cost_usd": 0.4
+}
