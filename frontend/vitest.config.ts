@@ -15,6 +15,8 @@ export default mergeConfig(
             environment: 'jsdom',
             include: ['src/**/*.test.{ts,tsx}'],
             setupFiles: ['./src/test/setup.ts'],
+            // Vitest blanks CSS imports by default; tests read the token sheet with `?raw`.
+            css: { include: [/shared\/ui\/tokens\.css/] },
           },
         },
         {
