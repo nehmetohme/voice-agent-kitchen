@@ -1,0 +1,21 @@
+# Line-coverage floors in whole percent. Source: docs/plan/quality.md §1 (coverage floors).
+# Gated by `cargo xtask coverage-gate` on `cargo llvm-cov` JSON (`just backend-coverage`).
+# - A crate below its floor fails. Crates with no instrumented lines pass.
+# - apps/, xtask/, crates/testkit, crates/contract-tests and tests/ files are excluded
+#   from the report (see backend.just).
+# - Crates not listed have no floor of their own but count toward `global`.
+# Floors only go up.
+
+# All instrumented library code together (PROMPT.md §6, research 02 §9).
+global = 80
+
+[crates]
+vak-domain = 95
+vak-services = 90
+vak-pipeline = 90
+vak-api = 85
+vak-repositories-pg = 85
+vak-adapter-llm-openai = 75
+vak-adapter-stt-serving = 75
+vak-adapter-tts-serving = 75
+vak-adapter-decision-systemone = 75
