@@ -1,5 +1,6 @@
-/* Global styles. Scan only src/ for class names, not docs or CLAUDE.md files. */
+/* Global styles. Scan only src/ for class names, and skip the CLAUDE.md files there. */
 @import 'tailwindcss' source('..');
+@source not '../**/*.md';
 /* Token-only theme: replaces Tailwind's default theme entirely (generated, see tokens/). */
 @import '../shared/ui/tokens.css';
 
