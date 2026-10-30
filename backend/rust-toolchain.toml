@@ -1,0 +1,6 @@
+# Pinned toolchain. For an application, MSRV equals this version (`rust-version` in Cargo.toml).
+# Bump it deliberately, in its own PR.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
