@@ -79,7 +79,13 @@ deps = []
 deps = ["vak-domain", "vak-audio", "vak-repositories", "vak-providers"]
 
 [crates.vak-contract-tests]
-deps = ["vak-domain", "vak-audio", "vak-repositories", "vak-providers", "vak-api"]
+deps = [
+  "vak-domain",
+  "vak-audio",
+  "vak-repositories",
+  "vak-providers",
+  "vak-api",
+]
 dev-deps = ["vak-testkit"]
 
 # Composition root: the only place implementations are wired to ports.
