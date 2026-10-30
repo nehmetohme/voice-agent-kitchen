@@ -7,7 +7,7 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=env.sh
 . "$here/env.sh"
-mlx=http://127.0.0.1:8000
+mlx=$VAK_SHIM_MLX_AUDIO_URL
 fixture="$VAK_ROOT/backend/fixtures/audio/utterance_book_table_16k.wav"
 
 for model in "$VAK_SHIM_STT_MODEL" "$VAK_SHIM_TTS_MODEL"; do

@@ -2,6 +2,12 @@ version = 1
 revision = 1
 requires-python = "==3.12.*"
 
+[manifest]
+overrides = [
+    { name = "setuptools", specifier = ">=83" },
+    { name = "webrtcvad", marker = "sys_platform == 'never'" },
+]
+
 [[package]]
 name = "addict"
 version = "2.4.0"
@@ -642,7 +648,7 @@ server = [
     { name = "python-multipart" },
     { name = "setuptools" },
     { name = "uvicorn", extra = ["standard"] },
-    { name = "webrtcvad" },
+    { name = "webrtcvad", marker = "sys_platform == 'never'" },
 ]
 
 [[package]]
@@ -1073,11 +1079,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "80.10.2"
+version = "84.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/76/95/faf61eb8363f26aa7e1d762267a8d602a1b26d4f3a1e758e92cb3cb8b054/setuptools-80.10.2.tar.gz", hash = "sha256:8b0e9d10c784bf7d262c4e5ec5d4ec94127ce206e8738f29a437945fbc219b70", size = 1200343 }
+sdist = { url = "https://files.pythonhosted.org/packages/70/b3/c19426f783614d625699a4b247faf628ea9ab1db228674491767b417f9e1/setuptools-84.2.1.tar.gz", hash = "sha256:3ff8b3b5492a0aa66960f4419365a86b84e013070d4313e4d4a6894f5d64d6bc", size = 1230289 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/b8/f1f62a5e3c0ad2ff1d189590bfa4c46b4f3b6e49cef6f26c6ee4e575394d/setuptools-80.10.2-py3-none-any.whl", hash = "sha256:95b30ddfb717250edb492926c92b5221f7ef3fbcc2b07579bcd4a27da21d0173", size = 1064234 },
+    { url = "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl", hash = "sha256:ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2", size = 876263 },
 ]
 
 [[package]]
@@ -1443,6 +1449,7 @@ dependencies = [
     { name = "num2words" },
     { name = "phonemizer-fork" },
     { name = "spacy" },
+    { name = "webrtcvad-wheels" },
 ]
 
 [package.metadata]
@@ -1454,6 +1461,7 @@ requires-dist = [
     { name = "num2words" },
     { name = "phonemizer-fork" },
     { name = "spacy" },
+    { name = "webrtcvad-wheels", specifier = "==2.0.14.post1" },
 ]
 
 [[package]]
@@ -1519,6 +1527,26 @@ name = "webrtcvad"
 version = "2.0.10"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/89/34/e2de2d97f3288512b9ea56f92e7452f8207eb5a0096500badf9dfd48f5e6/webrtcvad-2.0.10.tar.gz", hash = "sha256:f1bed2fb25b63fb7b1a55d64090c993c9c9167b28485ae0bcdd81cf6ede96aea", size = 66156 }
+
+[[package]]
+name = "webrtcvad-wheels"
+version = "2.0.14.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/8d/0597fa376df2f11dbd28fd4dca333d063d6f8fd993eb32563b80d09c6fc6/webrtcvad_wheels-2.0.14.post1.tar.gz", hash = "sha256:c740e93d24b5d0d7ecdd5548c43e37e2c88564826e869c861d5e3fa7f1cee7ff", size = 187822 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/11/2a/f9b193e1338b607d1a51fa3a9e0af0dc0735a0a8d20f96aa232c7a693c7a/webrtcvad_wheels-2.0.14.post1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:d52241ea622917ed4f6ce7074ccc36d31003f287382b87a38fb6641239055772", size = 32902 },
+    { url = "https://files.pythonhosted.org/packages/a7/1b/cb835173195a7acb340179c3597d000aeaea0aaae8938885997be53a3c43/webrtcvad_wheels-2.0.14.post1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:132ffb4ca996d321f0226d0e01aec229277306f3b86b1dada549b0b063601fce", size = 29912 },
+    { url = "https://files.pythonhosted.org/packages/97/4f/dd82e31c278badf5fb8e9da52d1c7d3a831221a7b88b0e837a339b1c68a6/webrtcvad_wheels-2.0.14.post1-cp312-cp312-manylinux1_i686.manylinux2014_i686.manylinux_2_17_i686.manylinux_2_5_i686.whl", hash = "sha256:a74f5fcedeb24db05f2793ea7d0cfd8c5fcb4368cab0d07e52b7db205910d8fa", size = 81171 },
+    { url = "https://files.pythonhosted.org/packages/9b/8c/c7aa505aa184833e00bab4ef13bccac0f8259be5262ac958f5ac216b4d8d/webrtcvad_wheels-2.0.14.post1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:394af5aea41253b34e858f0f977a62f1c9fafeff7cc9adf71422e8431e68e80b", size = 86403 },
+    { url = "https://files.pythonhosted.org/packages/ef/8b/1f2fa69fdcdc173eb66cfcd85116d57bc03f58b4e8d37c0122cfd2dc294d/webrtcvad_wheels-2.0.14.post1-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:82455fa469dbe69e560c62177f0092ce62be01ad2f3500eed41c55b0a2f4351e", size = 95833 },
+    { url = "https://files.pythonhosted.org/packages/4e/97/775a8459cd7470ee3d699b81ed4fdc7b3d90f5340737a6ae8e69edfa07ea/webrtcvad_wheels-2.0.14.post1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:0cdacbdba4551e55481b8bddd44f2faf5d5021eba3662c56a21b9342945f8c92", size = 83264 },
+    { url = "https://files.pythonhosted.org/packages/67/03/bb4e11688e74791e7aa10448520aea5d02e94452e5829b085e519f432cd5/webrtcvad_wheels-2.0.14.post1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:1e0e5db8460cbc3f669ddbc3c5d76aa2a7c9451dcc4026e2941482853a0fad07", size = 83460 },
+    { url = "https://files.pythonhosted.org/packages/a5/d6/7312363e50618ee2a29748540004d687696f5aa369a0f45e441c61988f35/webrtcvad_wheels-2.0.14.post1-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:3e155163db19fbcef4cb3d04bcdc868c43d36e9ed0d37a0c18ae9cabd86ddf47", size = 83672 },
+    { url = "https://files.pythonhosted.org/packages/a3/53/e4dac4e9fe0704c19df7139b1d0f9aaa932b08672dd08b2dc6ea37e71521/webrtcvad_wheels-2.0.14.post1-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:dcffe93ba576d1ddaca1237893d278d7606b1d7e78556c0c24f1e500292d6bee", size = 94459 },
+    { url = "https://files.pythonhosted.org/packages/18/f4/5871b349cb9aad04685023d48a3a8b2895a7c10e88744a94f299b62d1be1/webrtcvad_wheels-2.0.14.post1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:123347d6b0ec676594b5c809c0916ff9a5824a77da88bba5a8801ac98bd3e45e", size = 85948 },
+    { url = "https://files.pythonhosted.org/packages/c2/95/668bbb54a187545f11e95a13a90def8093199e624e8ee7e901888da76578/webrtcvad_wheels-2.0.14.post1-cp312-cp312-win32.whl", hash = "sha256:a286294cebd66bc17e0657b793f90c8ac6954f7796aed6590fe4ab0a9e0a601b", size = 17054 },
+    { url = "https://files.pythonhosted.org/packages/f9/1f/9f2bea3823af563197af5da572773510061f2e22c424257563c7e657882b/webrtcvad_wheels-2.0.14.post1-cp312-cp312-win_amd64.whl", hash = "sha256:a085ee7fa3f96ac7985ef0c1e3194e4c9c544cc9a0579b6dbd12c84d610271cc", size = 20671 },
+]
 
 [[package]]
 name = "websockets"
