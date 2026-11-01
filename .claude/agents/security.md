@@ -1,7 +1,7 @@
 ---
 name: security
 description: Read-only security gate. Reviews the current change against origin/main for missing authentication or authorization, unvalidated input, injection, secrets, PII in logs and risky dependencies, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a security review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 40

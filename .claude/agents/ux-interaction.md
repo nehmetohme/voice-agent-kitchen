@@ -1,7 +1,7 @@
 ---
 name: ux-interaction
 description: Read-only UX gate for interaction and ergonomics (Fitts's law including target distance, Doherty threshold). Reviews frontend changes against origin/main using docs/ux-guardrails/interaction.md and the auditScreen/Playwright results, and returns only a verdict JSON. The Stop hook runs it on frontend changes; otherwise use it only when the user asks for this UX review.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

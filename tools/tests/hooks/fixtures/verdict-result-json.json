@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 9,
+  "stop_reason": "end_turn",
+  "result": "{\"verdict\":\"pass\",\"findings\":[{\"severity\":\"minor\",\"file\":\"backend/crates/api/src/identity.rs\",\"line\":36,\"message\":\"The API trusts `X-Forwarded-User` and `X-Forwarded-Email` with no check that the request came through the proxy. Fix: refuse a non-loopback bind unless a behind-proxy setting is on.\"}]}",
+  "session_id": "00000000-0000-0000-0000-000000000006",
+  "total_cost_usd": 0.29
+}

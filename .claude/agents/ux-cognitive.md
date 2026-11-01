@@ -1,7 +1,7 @@
 ---
 name: ux-cognitive
 description: Read-only UX gate for cognitive load and decisions (Hick, Miller, Occam's razor, Pareto). Reviews frontend changes against origin/main using docs/ux-guardrails/cognitive.md and the auditScreen/Playwright results, and returns only a verdict JSON. The Stop hook runs it on frontend changes; otherwise use it only when the user asks for this UX review.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

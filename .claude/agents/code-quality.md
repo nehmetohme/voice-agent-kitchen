@@ -1,7 +1,7 @@
 ---
 name: code-quality
 description: Read-only code-quality gate. Reviews the current change against origin/main for readability, complexity, duplication and error handling in Rust and TypeScript, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a code-quality review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

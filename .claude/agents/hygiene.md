@@ -1,7 +1,7 @@
 ---
 name: hygiene
 description: Read-only hygiene gate. Reviews the current change against origin/main for dead code, leftover TODOs and debug output, naming, stray files and unused dependencies, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a hygiene review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

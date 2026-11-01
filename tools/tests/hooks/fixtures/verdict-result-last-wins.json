@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 12,
+  "stop_reason": "end_turn",
+  "result": "First look, before reading the tests: {\"verdict\": \"pass\", \"findings\": []}\n\nA stray { in the prose, and an example object {\"a\": 1}.\n\nFinal verdict:\n{\"verdict\": \"fail\", \"findings\": [{\"severity\": \"blocker\", \"file\": \"backend/crates/api/src/routes.rs\", \"line\": 42, \"message\": \"SQL built with format!(\\\"{}\\\", id) from request input. Fix: bind it.\"}]}",
+  "session_id": "00000000-0000-0000-0000-000000000014",
+  "total_cost_usd": 0.33
+}

@@ -1,7 +1,7 @@
 ---
 name: ci-cd
 description: Read-only CI/CD gate. Reviews the current change against origin/main to GitHub workflows, the justfile, lefthook, deploy/ and the Claude Code hooks for correctness, pinned actions, least-privilege permissions, injection and caching, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a CI/CD review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

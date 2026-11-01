@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Read-only docs gate. Reviews the current change against origin/main to check that CLAUDE.md files, READMEs, API docs, ADRs and the plan still match the code, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a documentation review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 25

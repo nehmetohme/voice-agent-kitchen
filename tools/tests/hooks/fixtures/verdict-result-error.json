@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "error_during_execution",
+  "is_error": true,
+  "num_turns": 6,
+  "stop_reason": "end_turn",
+  "result": "{\"verdict\":\"pass\",\"findings\":[]}",
+  "session_id": "00000000-0000-0000-0000-000000000012",
+  "total_cost_usd": 0.12
+}

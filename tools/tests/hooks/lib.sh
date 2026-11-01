@@ -93,7 +93,7 @@ sandbox() {
   : >"$STUB_LOG"
   unset CLAUDE_REVIEW_CHILD CLAUDE_PROJECT_DIR VAK_REVIEWERS VAK_HOOK_JSON VAK_HOOK_TOML STUB_JUST_RECIPES \
     VAK_GRAPHIFY VAK_STOP_MAX_REPEATS VAK_REVIEW_MAX_TURNS VAK_REVIEW_MAX_BUDGET_USD \
-    VAK_REVIEW_CONCURRENCY VAK_LINT_BUDGET_S XDG_BIN_HOME
+    VAK_REVIEW_CONCURRENCY VAK_REVIEW_PARSE_TIMEOUT_S VAK_LINT_BUDGET_S XDG_BIN_HOME
   # Safety net: a real claude must never be reachable from a test.
   if command -v claude >/dev/null 2>&1; then
     fail "a real claude is on PATH inside the sandbox: $(command -v claude)"

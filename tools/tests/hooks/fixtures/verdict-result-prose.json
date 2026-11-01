@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 7,
+  "stop_reason": "end_turn",
+  "result": "Checking the testing gate: the coverage looks reasonable so far. I haven't found a blocker or a major gap.\n\n{\"verdict\": \"pass\", \"findings\": []}",
+  "session_id": "00000000-0000-0000-0000-000000000007",
+  "total_cost_usd": 0.23
+}
