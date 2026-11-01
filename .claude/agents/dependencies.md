@@ -1,7 +1,7 @@
 ---
 name: dependencies
 description: Read-only dependencies gate. Reviews the current change against origin/main to Cargo, npm and Dependabot manifests and lockfiles for necessity, licenses, maintenance, duplicates and placement in the right layer, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a dependency review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

@@ -1,7 +1,7 @@
 ---
 name: separation
 description: Read-only separation gate. Reviews the current change against origin/main for layer violations, wrong dependency direction and business logic in the wrong layer, in the Rust workspace and the React app, and returns only a verdict JSON. The Stop hook runs it; otherwise use it only when the user asks for a layering review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

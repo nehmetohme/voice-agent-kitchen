@@ -1,7 +1,7 @@
 ---
 name: performance
 description: Read-only performance gate. Reviews the current change against origin/main for latency in the voice path, blocking calls in async code, hot-path allocations, unbounded queues and N+1 queries, and returns only a verdict JSON. The Stop hook runs it on the pipeline, audio, adapters, repositories and the browser voice code; otherwise use it only when the user asks for a performance review of the current change.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 35

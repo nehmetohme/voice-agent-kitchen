@@ -1,7 +1,7 @@
 ---
 name: ux-memory
 description: Read-only UX gate for memory, experience and timing (serial position effect, peak-end rule, Zeigarnik effect). Reviews frontend changes against origin/main using docs/ux-guardrails/memory.md and the auditScreen/Playwright results, and returns only a verdict JSON. The Stop hook runs it on frontend changes; otherwise use it only when the user asks for this UX review.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, StructuredOutput
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
 maxTurns: 30

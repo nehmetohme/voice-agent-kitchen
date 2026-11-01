@@ -320,8 +320,9 @@ agent_field() { # name key : a value from the agent file's front matter, or noth
 # `--json-schema` gives the model a StructuredOutput tool and copies its input to
 # `structured_output`. With `--agent`, the agent file's `tools:` allowlist filters that tool
 # out too, unless the list names StructuredOutput. --tools and --allowedTools don't add it
-# back (checked with Claude Code 2.1.314). Our reviewers list `tools: Read, Grep, Glob, Bash`,
-# so they answer with the verdict as text in `result`, and the parsers below read it there.
+# back (checked with Claude Code 2.1.314). So every reviewer's `tools:` names StructuredOutput
+# (tools/tests/hooks/test_gate_config.sh checks it). When `structured_output` is still
+# missing, the parsers below read the verdict from the reviewer's text in `result`.
 run_reviewer() { # name seconds : always runs in a background subshell
   local name=$1 seconds=$2 model turns rc=0
   local -a model_args=()

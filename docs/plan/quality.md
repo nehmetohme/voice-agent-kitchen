@@ -99,7 +99,7 @@ just task <name>         → git worktree at .claude/worktrees/<name>, branch ta
 Notes from research:
 - Hook scripts read `cwd` from the hook input, because `${CLAUDE_PROJECT_DIR}` doesn't follow worktrees.
 - Reviewers run as `claude -p --agent <name> --json-schema .claude/schemas/review-verdict.json`. Each run has a turn cap and a budget cap. `CLAUDE_REVIEW_CHILD=1` prevents recursion.
-- The gate reads the verdict from `structured_output`, and otherwise from the reviewer's text in `result`: the whole text as JSON, else the last ```` ```json ```` fence, else the last `{…}` with a `verdict` key. With `--agent`, `structured_output` stays empty unless the agent's `tools:` list names `StructuredOutput` (Claude Code 2.1.314). A verdict found nowhere, or found but invalid, counts as a fail.
+- The gate reads the verdict from `structured_output`, and otherwise from the reviewer's text in `result`: the whole text as JSON, else the last ```` ```json ```` fence, else the last `{…}` with a `verdict` key. With `--agent`, `structured_output` stays empty unless the agent's `tools:` list names `StructuredOutput` (Claude Code 2.1.314), so every reviewer lists it. A verdict found nowhere, or found but invalid, counts as a fail.
 - The Stop hook stops retrying after a repeated, unchanged failure and asks you instead.
 
 ## 5. Reviewer subagents
