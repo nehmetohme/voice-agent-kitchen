@@ -24,15 +24,16 @@ Today it exposes:
 | `GET /catalog/voices`, `/catalog/languages` | `listVoices`, `listLanguages` |
 
 - **Identity** (`src/identity.rs`): middleware on the whole `/api/v1` router, unknown paths included. Databricks Apps signs the user in and forwards `X-Forwarded-User` (stable IdP user ID) and `X-Forwarded-Email`; both must be present and valid, or the answer is 401. The app is reachable only through that proxy, which sets the headers, so they are trusted.
-- **Errors** (`src/problem.rs`): `ApiError` → `application/problem+json` with `type: about:blank`; 400 malformed JSON, 401, 404 (also for an ID that can't name an agent), 409 (archived, or still conflicting after retries), 415, 422 (with `errors: [{field, message}]`, one per invalid field), 503 (source logged once, never sent).
+- **Errors** (`src/problem.rs`): `ApiError` → `application/problem+json` with `type: about:blank`; 400 malformed JSON, 401, 404 (also for an ID that can't name an agent), 409 (archived, or still conflicting after retries), 415, 422 (with `errors: [{field, message}]`, one per invalid field), 503 (storage unavailable or request deadline passed; a source is logged once, never sent).
 - **Body limit:** 64 KiB on `/api/v1`.
+- **Request deadline** (`src/deadline.rs`): every `/api/v1` request runs under `AppState::with_request_timeout` (default 10 s; `vak-server` passes `VAK_HTTP_REQUEST_TIMEOUT_MS`); past it the handler is dropped and the answer is a 503 problem. `/health` is outside it. The media WebSocket (M4) must be mounted outside this layer, or every session would be cut at the deadline.
 
 Every route comes from one `OpenApiRouter` (`src/openapi.rs`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`.
 
 ## Dependencies
 
 - **May depend on:** `vak-services`, `vak-domain`. Dev-only: `vak-testkit`.
-- **External crates:** `axum` (this crate and `vak-server` are the `deny.toml` wrappers), `serde`, `serde_json`, `utoipa` and `utoipa-axum` (only here: other crates get the document through `openapi_json()`), `tracing` (logs 5xx sources). Later: `thiserror`, `tower-http`, `garde`.
+- **External crates:** `axum` (this crate and `vak-server` are the `deny.toml` wrappers), `serde`, `serde_json`, `utoipa` and `utoipa-axum` (only here: other crates get the document through `openapi_json()`), `tracing` (logs 5xx sources), `tokio` (`time`, for the request deadline). Later: `thiserror`, `tower-http`, `garde`.
 - **Must not depend on:** repositories, repositories-pg, providers, pipeline, any adapter, sqlx, reqwest. Port types the API needs are re-exported by services.
 
 ## Conventions
@@ -43,7 +44,7 @@ Every route comes from one `OpenApiRouter` (`src/openapi.rs`), so a route can't 
 - **Errors:** `ApiError: IntoResponse` maps service errors to problem+json. Log the source chain once, at the boundary. Never put internal error text or PII in responses.
 - **Every route** is registered in the OpenAPI document (`OpenApiRouter` + `routes!`) and has auth. `/health` is the only unauthenticated route.
 - **The OpenAPI contract** (`contracts/openapi.json`) is generated with `just openapi`. Never hand-edit it.
-- **Middleware:** identity and a body size limit on `/api/v1` today; request IDs, tracing and a request timeout (tower-http) come with the first route that needs them. Repository calls already run under a 5 s deadline in the services.
+- **Middleware:** on `/api/v1`, outermost first: the request deadline, the body size limit, identity. Request IDs and tracing (tower-http) come with the first route that needs them. Repository calls also run under a 5 s deadline in the services, below the request deadline.
 - **Visibility:** `pub(crate)` for handlers and DTOs, unless the OpenAPI export needs them public.
 
 ## Testing

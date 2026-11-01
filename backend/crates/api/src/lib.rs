@@ -10,6 +10,7 @@
 
 mod agents;
 mod catalog;
+mod deadline;
 mod health;
 mod identity;
 mod json;
@@ -41,8 +42,8 @@ pub fn router() -> Router {
 }
 
 /// The whole application: [`router`] plus the `/api/v1` routes. Every `/api/v1` request,
-/// including unknown paths, needs the forwarded identity (or the dev operator) and answers
-/// errors as `application/problem+json`.
+/// including unknown paths, needs the forwarded identity (or the dev operator), runs under the
+/// request deadline, and answers errors as `application/problem+json`.
 ///
 /// | Route | Handler |
 /// |---|---|
@@ -62,6 +63,11 @@ pub fn app(state: AppState) -> Router {
             identity::require_actor,
         ))
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        // Outermost: the deadline covers identity, body reading and the handler.
+        .layer(middleware::from_fn_with_state(
+            state.request_timeout,
+            deadline::within_deadline,
+        ))
         .with_state(state);
     router().nest(API_PREFIX, v1)
 }

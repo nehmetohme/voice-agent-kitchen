@@ -10,14 +10,15 @@ This crate holds the application `Settings` with defaults and overrides:
 
 Today:
 
-- **Shape:** `Settings { profile, http: { addr }, log: { filter }, database: { url: Option<SecretString> }, auth: { dev_operator_email: Option<String> } }`.
-- **Defaults:** profile `local`, `127.0.0.1:3000`, filter `info`, no database URL, no dev operator.
+- **Shape:** `Settings { profile, http: { addr, request_timeout }, log: { filter }, database: { url: Option<SecretString> }, auth: { dev_operator_email: Option<String> } }`.
+- **Defaults:** profile `local`, `127.0.0.1:3000`, a 10 s request timeout, filter `info`, no database URL, no dev operator.
 - **Overrides:** `Settings::from_lookup(lookup)` applies these; an empty value counts as unset.
 
 | Variable | Sets | Notes |
 |---|---|---|
 | `VAK_PROFILE` | `profile` | `local` (default) or `databricks`, any case |
 | `VAK_HTTP_ADDR` | `http.addr` | `IP:port` |
+| `VAK_HTTP_REQUEST_TIMEOUT_MS` | `http.request_timeout` | Whole milliseconds, 1–300000; default 10000. The `/api/v1` request deadline |
 | `VAK_LOG` | `log.filter` | `EnvFilter` syntax |
 | `DATABASE_URL` | `database.url` | `postgres://…`; a secret (`Debug` prints `[REDACTED]`). The conventional name, so sqlx and psql read it too |
 | `VAK_DEV_OPERATOR_EMAIL` | `auth.dev_operator_email` | Local development only: an error in any other profile, so a deployment can't fall back to a fixed identity |

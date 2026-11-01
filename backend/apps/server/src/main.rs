@@ -76,7 +76,7 @@ fn database(settings: &Settings) -> anyhow::Result<Database> {
 /// The application: Postgres repositories behind the services, behind the API.
 fn app(settings: &Settings, database: &Database) -> anyhow::Result<Router> {
     let agents = AgentService::new(Arc::new(database.agents()));
-    let mut state = AppState::new(agents);
+    let mut state = AppState::new(agents).with_request_timeout(settings.http.request_timeout);
     if let Some(email) = &settings.auth.dev_operator_email {
         let operator = Actor::new(DEV_OPERATOR_ID, email)
             .with_context(|| format!("{DEV_OPERATOR_VAR} is not a valid email address"))?;

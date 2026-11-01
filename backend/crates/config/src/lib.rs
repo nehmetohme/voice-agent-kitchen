@@ -15,11 +15,14 @@
 //! ```
 
 use std::net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr};
+use std::time::Duration;
 
 use secrecy::SecretString;
 
 /// Overrides [`HttpSettings::addr`], as `IP:port` (e.g. `0.0.0.0:8000`).
 pub const HTTP_ADDR_VAR: &str = "VAK_HTTP_ADDR";
+/// Overrides [`HttpSettings::request_timeout`], in whole milliseconds (1 to 300000).
+pub const REQUEST_TIMEOUT_VAR: &str = "VAK_HTTP_REQUEST_TIMEOUT_MS";
 /// Overrides [`LogSettings::filter`], in `tracing` `EnvFilter` syntax (e.g. `info,vak_api=debug`).
 pub const LOG_VAR: &str = "VAK_LOG";
 /// Sets [`Settings::profile`]: `local` (default) or `databricks`.
@@ -54,6 +57,10 @@ pub enum Profile {
 pub struct HttpSettings {
     /// Address to bind. Default `127.0.0.1:3000`.
     pub addr: SocketAddr,
+    /// How long an API request may take before it is answered with a 503 problem. Default
+    /// 10 s, above the services' 5 s per-call deadline. Long-lived routes (the media WebSocket)
+    /// must not run under it.
+    pub request_timeout: Duration,
 }
 
 /// Log output.
@@ -84,6 +91,7 @@ impl Default for HttpSettings {
     fn default() -> Self {
         Self {
             addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000),
+            request_timeout: Duration::from_secs(10),
         }
     }
 }
@@ -106,6 +114,8 @@ pub enum ConfigError {
         #[source]
         source: AddrParseError,
     },
+    #[error("{var} must be a whole number of milliseconds from 1 to {max}")]
+    InvalidMillis { var: &'static str, max: u64 },
     #[error("{var} must be local or databricks")]
     InvalidProfile { var: &'static str },
     #[error("{var} is allowed only in the local profile; unset it")]
@@ -135,6 +145,18 @@ impl Settings {
                 var: HTTP_ADDR_VAR,
                 source,
             })?;
+        }
+        if let Some(millis) = value(REQUEST_TIMEOUT_VAR) {
+            const MAX: u64 = 300_000;
+            settings.http.request_timeout = millis
+                .parse::<u64>()
+                .ok()
+                .filter(|millis| (1..=MAX).contains(millis))
+                .map(Duration::from_millis)
+                .ok_or(ConfigError::InvalidMillis {
+                    var: REQUEST_TIMEOUT_VAR,
+                    max: MAX,
+                })?;
         }
         if let Some(filter) = value(LOG_VAR) {
             settings.log.filter = filter;
@@ -208,6 +230,24 @@ mod tests {
         assert_eq!(settings.log.filter, "info");
         assert!(settings.database.url.is_none());
         assert_eq!(settings.auth.dev_operator_email, None);
+    }
+
+    #[test]
+    fn the_request_timeout_defaults_to_10_s_and_takes_milliseconds() {
+        let default = Settings::from_lookup(lookup(&[])).expect("valid");
+        let custom = Settings::from_lookup(lookup(&[("VAK_HTTP_REQUEST_TIMEOUT_MS", "2500")]))
+            .expect("valid");
+
+        assert_eq!(default.http.request_timeout, Duration::from_secs(10));
+        assert_eq!(custom.http.request_timeout, Duration::from_millis(2_500));
+        for bad in ["0", "-5", "1.5", "300001", "soon"] {
+            let error = Settings::from_lookup(lookup(&[("VAK_HTTP_REQUEST_TIMEOUT_MS", bad)]))
+                .expect_err("invalid");
+            assert_eq!(
+                error.to_string(),
+                "VAK_HTTP_REQUEST_TIMEOUT_MS must be a whole number of milliseconds from 1 to 300000"
+            );
+        }
     }
 
     #[test]

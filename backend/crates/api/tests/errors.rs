@@ -1,12 +1,14 @@
 //! Error paths of `/api/v1` that the contract doesn't pin: storage failures are 503 problems
 //! whose body never carries the internal error, write conflicts are 409, a body without
-//! `application/json` is 415, and unknown paths still need an identity.
+//! `application/json` is 415, unknown paths still need an identity, and a request that runs
+//! past its deadline is a 503 problem.
 #![expect(
     clippy::expect_used,
     reason = "helpers outside #[test] functions fail the test on a malformed response"
 )]
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
@@ -183,5 +185,37 @@ async fn unknown_api_paths_need_an_identity_then_answer_404_problems() {
             "status": 404,
             "detail": "Nothing exists at this address.",
         })
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_request_past_its_deadline_is_a_503_problem() {
+    let repo = Arc::new(InMemoryAgentRepo::default());
+    // The services would wait 5 s per call; the request deadline is shorter, so it decides.
+    let agents = vak_services::AgentService::new(repo.clone());
+    let state = vak_api::AppState::new(agents).with_request_timeout(Duration::from_millis(250));
+    let app = vak_api::app(state);
+    repo.set_stalled(true);
+
+    let (status, content_type, problem) = send(&app, Method::GET, "/api/v1/agents", None).await;
+
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(content_type, "application/problem+json");
+    assert_eq!(
+        problem["detail"],
+        "The request took too long. Try again shortly."
+    );
+    let health = app
+        .oneshot(
+            Request::get("/health")
+                .body(Body::empty())
+                .expect("valid request"),
+        )
+        .await
+        .expect("never fails");
+    assert_eq!(
+        health.status(),
+        StatusCode::OK,
+        "/health is outside the API deadline"
     );
 }

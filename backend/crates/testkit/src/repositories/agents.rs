@@ -12,6 +12,7 @@ struct State {
     agents: BTreeMap<AgentId, (Agent, Revision)>,
     audit: Vec<AuditEvent>,
     unavailable: bool,
+    stalled: bool,
     conflicts: u32,
 }
 
@@ -33,6 +34,12 @@ impl InMemoryAgentRepo {
         self.lock().unavailable = unavailable;
     }
 
+    /// While `true`, every call waits forever, like a database that stopped answering. Pair it
+    /// with `#[tokio::test(start_paused = true)]` to reach a deadline without real waiting.
+    pub fn set_stalled(&self, stalled: bool) {
+        self.lock().stalled = stalled;
+    }
+
     /// The next `count` updates fail with [`RepoError::Conflict`], as if another writer got
     /// there first.
     pub fn fail_next_updates_with_conflict(&self, count: u32) {
@@ -42,6 +49,13 @@ impl InMemoryAgentRepo {
     fn lock(&self) -> MutexGuard<'_, State> {
         // A panicking test may poison the lock; the state is still usable for inspection.
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    async fn wait_unless_stalled(&self) {
+        let stalled = self.lock().stalled;
+        if stalled {
+            std::future::pending::<()>().await;
+        }
     }
 
     fn check_available(state: &State) -> Result<(), RepoError> {
@@ -60,6 +74,7 @@ impl AgentRepo for InMemoryAgentRepo {
         event: &'a AuditEvent,
     ) -> BoxFuture<'a, Result<Revision, RepoError>> {
         Box::pin(async move {
+            self.wait_unless_stalled().await;
             let mut state = self.lock();
             Self::check_available(&state)?;
             if state.agents.contains_key(&agent.id()) {
@@ -75,6 +90,7 @@ impl AgentRepo for InMemoryAgentRepo {
 
     fn get(&self, id: AgentId) -> BoxFuture<'_, Result<Versioned<Agent>, RepoError>> {
         Box::pin(async move {
+            self.wait_unless_stalled().await;
             let state = self.lock();
             Self::check_available(&state)?;
             state
@@ -90,6 +106,7 @@ impl AgentRepo for InMemoryAgentRepo {
 
     fn list(&self, query: AgentQuery) -> BoxFuture<'_, Result<Vec<Agent>, RepoError>> {
         Box::pin(async move {
+            self.wait_unless_stalled().await;
             let state = self.lock();
             Self::check_available(&state)?;
             let mut agents: Vec<Agent> = state
@@ -113,6 +130,7 @@ impl AgentRepo for InMemoryAgentRepo {
         event: &'a AuditEvent,
     ) -> BoxFuture<'a, Result<Revision, RepoError>> {
         Box::pin(async move {
+            self.wait_unless_stalled().await;
             let mut state = self.lock();
             Self::check_available(&state)?;
             if state.conflicts > 0 {

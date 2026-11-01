@@ -10,7 +10,7 @@ This crate builds the `vak-server` binary. It is the only place that:
 
 Today the CLI (clap) has three subcommands:
 
-- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` → `vak_api::app`. If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` → `vak_api::app`. API requests run under the `VAK_HTTP_REQUEST_TIMEOUT_MS` deadline (default 10 s). If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
 - `vak-server migrate` applies the pending `vak-repositories-pg` migrations and exits. Run it before each deploy (and before `serve` on a fresh database).
 - `vak-server openapi [--output FILE]` writes `vak_api::openapi_json()` to the file, or to stdout. It reads no settings or environment. `just openapi` uses it to write `contracts/openapi.json`, and `just contracts-verify` uses it to check that file for drift.
 

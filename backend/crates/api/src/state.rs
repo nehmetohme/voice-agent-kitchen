@@ -1,5 +1,7 @@
 //! What every handler can reach: the services and the identity settings.
 
+use std::time::Duration;
+
 use vak_domain::Actor;
 use vak_services::AgentService;
 
@@ -10,7 +12,11 @@ use crate::identity::Identity;
 pub struct AppState {
     pub(crate) agents: AgentService,
     pub(crate) identity: Identity,
+    pub(crate) request_timeout: Duration,
 }
+
+/// The deadline of an `/api/v1` request unless `vak-server` configures another.
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl AppState {
     /// State whose routes accept only the identity Databricks Apps forwards.
@@ -19,6 +25,16 @@ impl AppState {
         Self {
             agents,
             identity: Identity::default(),
+            request_timeout: DEFAULT_REQUEST_TIMEOUT,
+        }
+    }
+
+    /// The same state with another request deadline (default 10 s).
+    #[must_use]
+    pub fn with_request_timeout(self, request_timeout: Duration) -> Self {
+        Self {
+            request_timeout,
+            ..self
         }
     }
 

@@ -57,6 +57,8 @@ pub(crate) enum ApiError {
     Invalid(Vec<FieldError>),
     /// The resource's state forbids the change.
     Conflict(&'static str),
+    /// The request ran past its deadline.
+    Timeout,
     /// A dependency failed; the source is logged here, once, and never sent.
     Unavailable(Box<dyn Error + Send + Sync>),
 }
@@ -89,6 +91,10 @@ impl ApiError {
                 },
             ),
             Self::Conflict(detail) => (StatusCode::CONFLICT, (*detail).to_owned()),
+            Self::Timeout => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "The request took too long. Try again shortly.".to_owned(),
+            ),
             Self::Unavailable(_) => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The service is temporarily unavailable. Try again shortly.".to_owned(),
