@@ -27,8 +27,7 @@ updates:
       prefix: build
       include: scope
 
-  # Also covers pnpm (frontend/pnpm-lock.yaml). The frontend lands in M0; until then this entry
-  # finds no manifest and Dependabot reports that in its logs.
+  # Also covers pnpm (frontend/pnpm-lock.yaml).
   - package-ecosystem: npm
     directory: /frontend
     schedule:
@@ -38,6 +37,11 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
+    ignore:
+      # @types/node must match the Node major pinned in frontend/package.json `devEngines`
+      # (24.x). Bump it by hand together with the runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         applies-to: version-updates
@@ -65,7 +69,7 @@ updates:
     commit-message:
       prefix: ci
 
-  # Dockerfiles and compose files arrive with deploy/ (M0 local stack, M7 deploy).
+  # Dockerfiles under deploy/. None yet; they may arrive with the Databricks bundle (M7).
   - package-ecosystem: docker
     directories: ["/deploy/**"]
     schedule:
@@ -76,6 +80,22 @@ updates:
       default-days: 7
     groups:
       docker:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Compose files are a separate ecosystem: the local Postgres image, pinned by tag and digest.
+  - package-ecosystem: docker-compose
+    directory: /deploy/local
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 7
+    groups:
+      docker-compose:
         patterns: ["*"]
     commit-message:
       prefix: build

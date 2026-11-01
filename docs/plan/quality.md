@@ -176,7 +176,7 @@ Hardening:
 | Ruleset `main` | Require a PR, required check `gate`, merge queue, linear history, code-owner review, dismiss stale approvals, resolve conversations, no force push or deletion |
 | Ruleset `contract-tags` | Only admins create, update or delete `contract/*/*` tags |
 | Security | Secret scanning + push protection, Dependabot alerts and security updates, private vulnerability reporting |
-| `dependabot.yml` | cargo, npm, github-actions, docker; weekly, grouped, with a cooldown before new releases |
+| `dependabot.yml` | cargo, npm, github-actions, docker, docker-compose; weekly, grouped, with a cooldown before new releases; `@types/node` majors follow the pinned Node runtime by hand |
 | `dependency-review.yml` | Fail on moderate or higher; license allowlist |
 | `CODEOWNERS` | You on everything; always on `contracts/`, `.github/`, `layers.toml`, `deny.toml`, `.claude/` |
 | Rulesets as code | `.github/rulesets/*.json`, applied with `gh api` |
