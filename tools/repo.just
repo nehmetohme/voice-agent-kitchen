@@ -23,9 +23,10 @@ repo-secrets:
     gitleaks dir . --no-banner --redact
 
 # Claude Code hook tests (claude and just are stubbed: no API calls, no network), plus shellcheck
+# of the hooks and the local dev stack scripts
 repo-hooks-test:
     tools/tests/hooks/run.sh
-    shellcheck -x --source-path=SCRIPTDIR .claude/hooks/*.sh .claude/hooks/lib/common.sh tools/tests/hooks/*.sh tools/tests/hooks/stubs/*
+    shellcheck -x --source-path=SCRIPTDIR .claude/hooks/*.sh .claude/hooks/lib/common.sh tools/tests/hooks/*.sh tools/tests/hooks/stubs/* deploy/local/*.sh
 
 # Create a task worktree at .claude/worktrees/<name> on a new branch task/<name> from origin/main
 task $name:

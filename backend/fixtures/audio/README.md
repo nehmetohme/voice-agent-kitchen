@@ -2,7 +2,11 @@
 
 Short recorded clips that the backend tests replay instead of a live microphone or phone line. `vak-testkit` loads them (with `hound`), and the deterministic pipeline simulations, VAD and codec tests, and the end-to-end caller bot stream them as 20 ms frames.
 
-There are no fixtures yet. They arrive with the voice core (M4).
+Most fixtures arrive with the voice core (M4). Today there is one:
+
+| File | What | Used by |
+|---|---|---|
+| `utterance_book_table_16k.wav` + `.txt` | 3.8 s, 16 kHz mono PCM16, canonical 44-byte header; Kokoro TTS (see `SOURCES.md`) | `just dev-smoke` (STT through the model shim), `deploy/local/speech-warmup.sh` |
 
 ## What goes here
 

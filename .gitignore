@@ -25,6 +25,10 @@ frontend/test-results/
 frontend/storybook-static/
 *.tsbuildinfo
 
+# Python environments (deploy/local/mlx-audio)
+.venv/
+__pycache__/
+
 # Coverage and reports
 lcov.info
 coverage/

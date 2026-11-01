@@ -51,9 +51,16 @@ axum = { version = "0.8.9", default-features = false, features = [
   "tokio",
   "tracing",
 ] }
+base64 = "0.23.1"
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 http-body-util = "0.1.5"
+# Dev-only (vak-model-shim contract tests), like wiremock below. They add the only duplicate
+# versions in Cargo.lock, all in the dev graph: syn 2 (strum_macros, zerocopy-derive) and
+# base64 0.22 (wiremock). cargo-deny's multiple-versions ban skips dev-only duplicates
+# (`multiple-versions-include-dev` defaults to false), so `cargo deny check` passes.
+jsonschema = { version = "0.60.2", default-features = false }
+reqwest = { version = "0.13.5", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
@@ -73,6 +80,7 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 # Code-first OpenAPI 3.1 (research 02 §4). Only vak-api uses them.
 utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
 utoipa-axum = "0.3.0"
+wiremock = "0.6.5"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

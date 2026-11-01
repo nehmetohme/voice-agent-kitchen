@@ -9,6 +9,7 @@ import 'tools/repo.just'
 import 'tools/ci.just'
 import 'contracts/contracts.just'
 import 'tools/canaries/canaries.just'
+import 'deploy/local/dev.just'
 
 # List recipes
 default:

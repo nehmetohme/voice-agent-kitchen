@@ -9,7 +9,8 @@ A change here can break the other side. Treat every file as a published interfac
 | `openapi.json` | REST API contract, **generated** from the Rust code (utoipa in `vak-api`) by `vak-server openapi`. OpenAPI 3.1, sorted keys. | **Never by hand.** Change the backend, run `just openapi`, commit it with the regenerated frontend client. |
 | `contracts.toml` | Contract-test manifest: `contract_globs` and one `[features.<name>]` per contract with its `version` and `paths` | Yes, to register a contract or bump a version (never lower one) |
 | `contracts.just` | Recipes: drift checks, `oasdiff`, `contract-check`, `contract-status`, `contract-approve` | Yes |
-| `media/`, `serving/`, `decisions/`, `rule-packs/` | Media protocol, model-serving shapes, decision questions, compliance packs | Placeholders until their milestones |
+| `serving/` | `stt.json`, `tts.json`: JSON Schemas of the Databricks STT/TTS invocation bodies (`serving/README.md`) | Only with a version bump: the `model-shim` contract tag pins both |
+| `media/`, `decisions/`, `rule-packs/` | Media protocol, decision questions, compliance packs | Placeholders until their milestones |
 
 Related: `.github/contract-signers` holds the SSH public keys allowed to sign contract tags (owner-only). The checker lives in `backend/xtask/src/contracts.rs`.
 
