@@ -22,7 +22,7 @@ Today (M2 Provision):
 | `settings` | `ModelProfile` (`balanced` default, `fast`), `TurnDetection` (200–2000 ms silence, default 500; barge-in on), `AgentSettings` |
 | `rule_pack` | `RulePackRef::for_agent` → `<jurisdiction>-<use case>` v1 |
 | `draft` | `Persona`, `AgentDraft` (`new` needs name, use case and voice; `apply(DraftPatch)` keeps the rule pack in step; `changed_fields`; `content_hash`) |
-| `hash` | `ContentHash` (`sha256:` + 64 hex) and a FIPS 180-4 SHA-256 (no hashing crate is allowed here) |
+| `hash` | `ContentHash` (`sha256:` + 64 lowercase hex), computed with the RustCrypto `sha2` crate |
 | `agent` | `Agent`: `create`, `update_draft` (`None` when nothing changes, `AgentError::Archived` when archived), `archive` (once) |
 | `progress` | `SetupProgress::derive(draft, facts)`: Provision, Plan, Test, Publish, 25 % each, never stored |
 | `actor`, `audit` | `Actor` (forwarded user ID and email), `AuditEvent` and `AuditAction` (`agent.created`, `agent.draft_updated`, `agent.archived`) |
@@ -32,7 +32,7 @@ Contract: `tests/contract_agent_provisioning.rs` (`agent-provisioning` v1).
 ## Dependencies
 
 - **May depend on:** no workspace crate.
-- **External, normal and build:** only `serde` (derive), `thiserror`, `uuid` (v7 IDs) and `jiff` (time). This is the `external` list in `layers.toml`.
+- **External, normal and build:** only `serde` (derive), `thiserror`, `uuid` (v7 IDs), `jiff` (time) and `sha2` (content hash). This is the `external` list in `layers.toml`.
 - **External, dev only:** additionally `proptest` and `insta`.
 - **Must not depend on:** tokio or any async runtime, sqlx, axum, reqwest, tracing exporters, any adapter, or any other `vak-*` crate.
 - `cargo xtask check-layers` fails on anything else.

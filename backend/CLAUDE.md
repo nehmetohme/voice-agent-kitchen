@@ -20,7 +20,7 @@ This folder holds the whole Voice Agent Kitchen server: a layered Cargo workspac
 
 | Crate | May depend on | Must never depend on |
 |---|---|---|
-| vak-domain | none; external: serde, thiserror, uuid, jiff | tokio, sqlx, axum, reqwest, any adapter |
+| vak-domain | none; external: serde, thiserror, uuid, jiff, sha2 | tokio, sqlx, axum, reqwest, any adapter |
 | vak-audio | none | tokio net, sqlx, axum |
 | vak-providers | domain, audio | reqwest, tungstenite, sqlx |
 | vak-repositories | domain | sqlx, services, api |

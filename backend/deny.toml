@@ -48,8 +48,8 @@ highlight = "all"
 # entry names its source; revisit them on every bump of that dependency (review by
 # 2027-04-30 at the latest).
 skip = [
-  # sqlx 0.9.0: sqlx-core (migration checksums) uses the sha2 0.10 generation, sqlx-postgres
-  # (SCRAM auth) sha2 0.11. Both are only in vak-repositories-pg.
+  # sqlx 0.9.0: sqlx-core (migration checksums) still uses the sha2 0.10 generation; sqlx-postgres
+  # (SCRAM auth) and vak-domain (content hash) use sha2 0.11, the generation we choose.
   { crate = "sha2@0.10.9", reason = "sqlx-core 0.9.0 pins sha2 0.10; sqlx-postgres uses 0.11" },
   { crate = "digest@0.10.7", reason = "sha2 0.10 via sqlx-core 0.9.0" },
   { crate = "block-buffer@0.10.4", reason = "sha2 0.10 via sqlx-core 0.9.0" },
