@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 5,
+  "stop_reason": "end_turn",
+  "result": "{\"verdict\":\"pass with notes\",\"findings\":[]}",
+  "session_id": "00000000-0000-0000-0000-000000000010",
+  "total_cost_usd": 0.14
+}

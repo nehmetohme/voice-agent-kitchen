@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "num_turns": 10,
+  "stop_reason": "end_turn",
+  "result": "```json\n{\"verdict\": \"pass\", \"findings\": []}\n```",
+  "session_id": "00000000-0000-0000-0000-000000000008",
+  "total_cost_usd": 0.23
+}
