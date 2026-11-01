@@ -16,7 +16,7 @@ dev-only = ["vak-testkit", "vak-contract-tests"]
 # Pure types and rules: no I/O, no async, no frameworks.
 [crates.vak-domain]
 deps = []
-external = ["serde", "thiserror", "uuid", "jiff"]
+external = ["serde", "thiserror", "uuid", "jiff", "sha2"]
 external-dev = ["proptest", "insta"]
 
 [crates.vak-audio]
