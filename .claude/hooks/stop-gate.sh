@@ -15,8 +15,9 @@
 #     the model can't skip one.
 #  5. Run them in parallel as headless `claude -p --agent <name>` children, with the verdict
 #     schema, turn, budget and time caps, read-only tools and no permission prompts.
-#  6. Any "fail" verdict, blocker or major finding, or missing or unparseable verdict:
-#     exit 2 with the findings on stderr, so Claude keeps working.
+#  6. Read each verdict from `structured_output`, else from the reviewer's text in `result`
+#     (see run_reviewer). Any "fail" verdict, blocker or major finding, or missing or
+#     unparseable verdict: exit 2 with the findings on stderr, so Claude keeps working.
 #  7. Loop breaker: when Claude is already continuing because of this hook (stop_hook_active)
 #     and the work tree hasn't changed since the failure, or the same failure has come back
 #     VAK_STOP_MAX_REPEATS times in a row, exit 0 and ask a human instead of blocking again.
@@ -27,8 +28,8 @@
 #                       shows a notice that reviewers were skipped.
 #
 # Tuning (env): VAK_REVIEW_MAX_TURNS, VAK_REVIEW_MAX_BUDGET_USD, VAK_REVIEW_TIMEOUT_S,
-# VAK_REVIEW_CONCURRENCY, VAK_REVIEW_DIFF_MAX_BYTES, VAK_STOP_MAX_REPEATS,
-# VAK_STOP_DEADLINE_S, VAK_BASE_REF, VAK_VERIFY_CMD.
+# VAK_REVIEW_CONCURRENCY, VAK_REVIEW_DIFF_MAX_BYTES, VAK_REVIEW_PARSE_TIMEOUT_S,
+# VAK_STOP_MAX_REPEATS, VAK_STOP_DEADLINE_S, VAK_BASE_REF, VAK_VERIFY_CMD.
 #
 # Run it by hand on the current folder:  .claude/hooks/stop-gate.sh --manual
 # Logs of the last run: .claude/state/stop-gate/
@@ -44,6 +45,10 @@ CONCURRENCY=${VAK_REVIEW_CONCURRENCY:-8}
 # so verify and reviewers that can't finish in time count as failures instead.
 DEADLINE_S=${VAK_STOP_DEADLINE_S:-1700}
 DIFF_MAX_BYTES=${VAK_REVIEW_DIFF_MAX_BYTES:-60000}
+# Cap on reading one verdict. Real outputs take milliseconds, but scanning free text for the
+# last JSON object is quadratic on crafted input, and 14 parses must fit in the time between
+# the deadline and the hook timeout. Running over counts as a missing verdict.
+PARSE_TIMEOUT_S=${VAK_REVIEW_PARSE_TIMEOUT_S:-5}
 MAX_REPEATS=${VAK_STOP_MAX_REPEATS:-3}
 REVIEWERS_MODE=${VAK_REVIEWERS:-on}
 [ "$REVIEWERS_MODE" = off ] || REVIEWERS_MODE=on
@@ -312,6 +317,11 @@ agent_field() { # name key : a value from the agent file's front matter, or noth
   return 0
 }
 
+# `--json-schema` gives the model a StructuredOutput tool and copies its input to
+# `structured_output`. With `--agent`, the agent file's `tools:` allowlist filters that tool
+# out too, unless the list names StructuredOutput. --tools and --allowedTools don't add it
+# back (checked with Claude Code 2.1.314). Our reviewers list `tools: Read, Grep, Glob, Bash`,
+# so they answer with the verdict as text in `result`, and the parsers below read it there.
 run_reviewer() { # name seconds : always runs in a background subshell
   local name=$1 seconds=$2 model turns rc=0
   local -a model_args=()
@@ -349,16 +359,64 @@ wait
 # verdict_summary FILE: line 1 "status US cost US note" (status pass|fail|invalid), then one
 # "severity US file US line US message" line per finding. US is the ASCII unit separator,
 # which, unlike a tab, keeps empty fields when read splits on it.
+#
+# The verdict is `structured_output` when that is an object. Otherwise it comes from the
+# text in `result`, tried in this order:
+#   1. the whole text as a JSON object
+#   2. the last ```json fence that holds an object with a "verdict" key
+#   3. the last top-level {...} in the text that parses as an object with a "verdict" key
+# The jq and python3 programs implement the same rules, and the tests run both. A verdict
+# found anywhere is still checked strictly, and an is_error run fails whatever it says.
 US=$'\x1f'
 # shellcheck disable=SC2016 # a jq program, not shell
 JQ_VERDICT='
 def clean: tostring | gsub("[\u001f\t\r\n]+"; " ");
+def has_verdict: type == "object" and has("verdict");
+# End (exclusive) of the {...} that opens at index $s of the code points $c, skipping
+# braces inside JSON strings. null when it never closes.
+def closing($c; $s):
+  first(foreach range($s; $c | length) as $i ({depth: 0, str: false, esc: false};
+      $c[$i] as $ch
+      | if .str then
+          if .esc then .esc = false
+          elif $ch == 92 then .esc = true
+          elif $ch == 34 then .str = false
+          else . end
+        elif $ch == 34 then .str = true
+        elif $ch == 123 then .depth += 1
+        elif $ch == 125 then .depth -= 1
+        else . end;
+      if .depth == 0 then $i + 1 else empty end)) // null;
+# Whether the "{" at index $s can open a JSON object: its next non-blank is a quote or "}".
+# Rejects stray braces in prose at once, as the python3 json decoder does.
+def opens_object($c; $s):
+  (first(range($s + 1; $c | length)
+      | select($c[.] as $x | $x != 32 and $x != 9 and $x != 10 and $x != 13)) // null) as $k
+  | $k != null and ($c[$k] == 34 or $c[$k] == 125);
+# The top-level JSON objects in a text, in order. A "{" that opens no valid object is skipped.
+def objects_in_text:
+  explode as $c
+  | reduce ([range(0; $c | length) | select($c[.] == 123)][]) as $s ({next: 0, found: []};
+      if $s < .next or (opens_object($c; $s) | not) then .
+      else closing($c; $s) as $e
+      | (if $e == null then null else ($c[$s:$e] | implode | fromjson? // null) end) as $o
+      | if ($o | type) == "object" then .found += [$o] | .next = $e else . end
+      end)
+  | .found;
+def verdict_in_text:
+  if type != "string" then null
+  else ((fromjson? // null) | if type == "object" then . else null end)
+    // ([match("```json\\s*([\\s\\S]*?)```"; "g") | .captures[0].string
+          | fromjson? // null | select(has_verdict)] | last)
+    // ([objects_in_text[] | select(has_verdict)] | last)
+  end;
 (if length == 0 then null else .[-1] end) as $r
 | if ($r | type) != "object" then "invalid\u001f0\u001foutput is not a JSON object"
   else (($r.total_cost_usd // 0) | tostring) as $cost
-  | $r.structured_output as $v
+  | (if ($r.structured_output | type) == "object" then $r.structured_output
+     else $r.result | verdict_in_text end) as $v
   | if ($r.is_error // false) == true then "invalid\u001f\($cost)\u001fthe run ended with an error (\($r.subtype // "unknown"))"
-    elif ($v | type) != "object" then "invalid\u001f\($cost)\u001fno verdict in the output (\($r.subtype // "unknown"))"
+    elif ($v | type) != "object" then "invalid\u001f\($cost)\u001fno verdict in structured_output or result (\($r.subtype // "unknown"))"
     elif ($v.verdict != "pass" and $v.verdict != "fail") then "invalid\u001f\($cost)\u001fverdict is neither pass nor fail"
     elif ($v.findings | type) != "array" then "invalid\u001f\($cost)\u001ffindings is not a list"
     else ($v.findings | map(select(type == "object"))) as $f
@@ -370,10 +428,12 @@ def clean: tostring | gsub("[\u001f\t\r\n]+"; " ");
     end
   end'
 
+# shellcheck disable=SC2016 # a python program, not shell
 PY_VERDICT='
-import json, sys
+import json, re, sys
 
 US = "\x1f"
+FENCE = re.compile(r"```json\s*(.*?)```", re.S)
 
 def clean(value):
     return " ".join(str(value).replace(US, " ").split())
@@ -389,6 +449,41 @@ def load(text):
                 continue
     return None
 
+def parse(text):
+    try:
+        return json.loads(text)
+    except (ValueError, RecursionError):
+        return None
+
+def has_verdict(value):
+    return isinstance(value, dict) and "verdict" in value
+
+def objects_in_text(text):
+    # The top-level JSON objects in a text, in order. A "{" that opens no valid object is skipped.
+    decoder, found = json.JSONDecoder(), []
+    start = text.find("{")
+    while start != -1:
+        try:
+            value, end = decoder.raw_decode(text, start)
+        except (ValueError, RecursionError):
+            start = text.find("{", start + 1)
+            continue
+        found.append(value)
+        start = text.find("{", end)
+    return found
+
+def verdict_in_text(text):
+    if not isinstance(text, str):
+        return None
+    whole = parse(text)
+    if isinstance(whole, dict):
+        return whole
+    for candidates in ([parse(block) for block in FENCE.findall(text)], objects_in_text(text)):
+        verdicts = [c for c in candidates if has_verdict(c)]
+        if verdicts:
+            return verdicts[-1]
+    return None
+
 def row(*fields):
     print(US.join(str(x) for x in fields))
 
@@ -398,11 +493,13 @@ if not isinstance(r, dict):
     sys.exit()
 cost = r.get("total_cost_usd") or 0
 v = r.get("structured_output")
+if not isinstance(v, dict):
+    v = verdict_in_text(r.get("result"))
 subtype = r.get("subtype") or "unknown"
 if r.get("is_error") is True:
     row("invalid", cost, "the run ended with an error (%s)" % subtype)
 elif not isinstance(v, dict):
-    row("invalid", cost, "no verdict in the output (%s)" % subtype)
+    row("invalid", cost, "no verdict in structured_output or result (%s)" % subtype)
 elif v.get("verdict") not in ("pass", "fail"):
     row("invalid", cost, "verdict is neither pass nor fail")
 elif not isinstance(v.get("findings"), list):
@@ -418,14 +515,15 @@ else:
 '
 
 verdict_summary() {
-  local out=""
+  local out="" rc=0
   if [ -s "$1" ]; then
     if [ "$JSON_TOOL" = jq ]; then
-      out=$(jq -r -s "$JQ_VERDICT" "$1" 2>/dev/null || true)
+      out=$(run_with_timeout "$PARSE_TIMEOUT_S" jq -r -s "$JQ_VERDICT" "$1" 2>/dev/null) || rc=$?
     else
-      out=$(python3 -I -c "$PY_VERDICT" "$1" 2>/dev/null || true)
+      out=$(run_with_timeout "$PARSE_TIMEOUT_S" python3 -I -c "$PY_VERDICT" "$1" 2>/dev/null) || rc=$?
     fi
   fi
+  [ "$rc" -ne 124 ] || out="invalid${US}0${US}reading the verdict took over ${PARSE_TIMEOUT_S}s"
   printf '%s\n' "${out:-invalid${US}0${US}output is not JSON}"
 }
 
