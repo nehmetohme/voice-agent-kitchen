@@ -29,6 +29,8 @@ Goal: an empty but fully gated repo. Each gate is proven to fail when it should.
   - extra primary button (UX gate)
   - coverage drop
   - vulnerable dependency
+
+  **Status (2026-10-30):** `just canaries` (`tools/canaries/`, run nightly) catches all seven, plus a frontend boundary violation, OpenAPI drift and an unpinned action: 11 of 12 canaries. Draft PR [#7](https://github.com/nehmetohme/voice-agent-kitchen/pull/7) shows the live case: a clippy warning turns CI's `rust` job and `gate` red. Still open: zizmor misses `permissions: write-all` in a single-job workflow (`workflow-write-all`). Details are in [`docs/ci.md`](../ci.md#gate-self-tests).
 - A green PR merges through the merge queue.
 - The Stop hook blocks an unfinished task in Claude Code.
 

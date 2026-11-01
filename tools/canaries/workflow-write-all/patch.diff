@@ -1,0 +1,24 @@
+diff --git a/.github/workflows/docs.yml b/.github/workflows/docs.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..12151aa169c10b374203b5dfdea58fb02c26d4da
+--- /dev/null
++++ b/.github/workflows/docs.yml
+@@ -0,0 +1,18 @@
++# Lists the Markdown docs on every pull request.
++name: docs
++
++on:
++  pull_request:
++
++permissions: write-all
++
++jobs:
++  markdown:
++    name: markdown
++    runs-on: ubuntu-24.04
++    timeout-minutes: 5
++    steps:
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++        with:
++          persist-credentials: false
++      - run: find docs -name '*.md' -print

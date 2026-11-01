@@ -1,0 +1,12 @@
+diff --git a/backend/crates/api/src/health.rs b/backend/crates/api/src/health.rs
+index 3fe5e26bf344dbbe4b7b29f570dfa79678e63a22..522302b25088bfe164367a92f8c3840bd5d62aa3 100644
+--- a/backend/crates/api/src/health.rs
++++ b/backend/crates/api/src/health.rs
+@@ -14,6 +14,7 @@
+     #[schema(inline)]
+     status: HealthStatus,
+     /// The server's version (the `vak-api` package version), e.g. `0.1.0`.
++    #[schema(example = "0.1.0")]
+     version: &'static str,
+ }
+ 

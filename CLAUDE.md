@@ -53,6 +53,7 @@ The graph lives in `graphify-out/`, and hooks keep it current.
 | `just dev` / `just dev-light` | Local stack with the full or light LLM profile |
 | `just task <name>` / `just task-done <name>` | Create or remove a task worktree |
 | `just openapi` | Regenerate the OpenAPI contract and frontend client |
+| `just canaries [name...]` | Gate self-tests: each gate must still fail on a deliberate violation (slow; nightly runs it) |
 
 ## Status
 

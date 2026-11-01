@@ -78,6 +78,11 @@ sandbox() {
   done
   export PATH="$T/bin:/usr/bin:/bin"
   export HOME="$T/home"
+  # Git exports these to its hooks, and lefthook's pre-push runs these tests (`just verify`).
+  # Inherited, they aim every sandbox git command at the real repository: `git init --bare`
+  # then sets core.bare in its shared config, and the fixture commit lands on the real branch.
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY \
+    GIT_ALTERNATE_OBJECT_DIRECTORIES
   export GIT_CONFIG_GLOBAL="$T/home/.gitconfig" GIT_CONFIG_NOSYSTEM=1
   git config --global user.name "Hook Test"
   git config --global user.email "hook-test@example.invalid"

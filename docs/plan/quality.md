@@ -159,7 +159,7 @@ Other workflows:
 | `codeql.yml` | Rust, JS/TS, Actions; on PRs, merge queue, `main` and weekly |
 | `scorecard.yml` | OpenSSF Scorecard, weekly |
 | `secrets-deep-scan.yml` | trufflehog over full history, weekly |
-| `nightly.yml` | mutation tests, benchmarks, Lighthouse user flows |
+| `nightly.yml` | gate canaries (`just canaries`, see [`docs/ci.md`](../ci.md#gate-self-tests)), mutation tests, benchmarks, Lighthouse user flows |
 | `deploy.yml` (M7) | `main` → staging, signed release tag → prod |
 
 Hardening:

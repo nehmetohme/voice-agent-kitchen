@@ -1,0 +1,12 @@
+diff --git a/backend/crates/api/src/health.rs b/backend/crates/api/src/health.rs
+index 3fe5e26bf344dbbe4b7b29f570dfa79678e63a22..7c27df14c7877196c90451accc810902576b531b 100644
+--- a/backend/crates/api/src/health.rs
++++ b/backend/crates/api/src/health.rs
+@@ -35,6 +35,6 @@ pub(crate) enum HealthStatus {
+ pub(crate) async fn get() -> Json<Health> {
+     Json(Health {
+         status: HealthStatus::Ok,
+-        version: env!("CARGO_PKG_VERSION"),
++        version: env!("CARGO_PKG_VERSION").split('+').next().unwrap(),
+     })
+ }
