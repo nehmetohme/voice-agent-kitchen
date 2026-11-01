@@ -14,14 +14,20 @@ gate_reviewers() {
 }
 
 test_config_every_gate_reviewer_has_a_read_only_agent() {
-  local name file count=0
+  local name file tools tool count=0
   for name in $(gate_reviewers); do
     count=$((count + 1))
     file="$CLAUDE_DIR/agents/$name.md"
     assert_file "$file"
     assert_eq "$name" "$(front_matter "$file" name)" "$name: name"
     assert_contains "$(front_matter "$file" description)" "verdict JSON" "$name: description"
-    assert_eq "Read, Grep, Glob, Bash" "$(front_matter "$file" tools)" "$name: tools"
+    # `--json-schema` answers through the StructuredOutput tool, and an agent's `tools:`
+    # allowlist filters that tool out unless it names it (see run_reviewer in stop-gate.sh).
+    tools=$(front_matter "$file" tools)
+    assert_eq "Read, Grep, Glob, Bash, StructuredOutput" "$tools" "$name: tools"
+    for tool in Edit Write NotebookEdit Agent; do
+      assert_not_contains ", $tools, " ", $tool, " "$name: tools must not grant $tool"
+    done
     assert_eq "Edit, Write, NotebookEdit, Agent" "$(front_matter "$file" disallowedTools)" "$name: disallowedTools"
     assert_eq "sonnet" "$(front_matter "$file" model)" "$name: model"
     case "$(front_matter "$file" maxTurns)" in
