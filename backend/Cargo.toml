@@ -64,9 +64,8 @@ jiff = { version = "0.2.38", default-features = false, features = ["std"] }
 # sqlx has no jiff feature; jiff-sqlx maps Timestamp to timestamptz.
 jiff-sqlx = { version = "0.2.0", features = ["postgres"] }
 # jsonschema and reqwest are dev-only (vak-model-shim contract tests), like wiremock below.
-# Their duplicate versions are all in the dev graph: syn 2 (strum_macros, zerocopy-derive) and
-# base64 0.22 (wiremock). cargo-deny's multiple-versions ban skips dev-only duplicates
-# (`multiple-versions-include-dev` defaults to false), so `cargo deny check` passes.
+# Their dev graph brings syn 2 (strum_macros, zerocopy-derive) and base64 0.22 (wiremock).
+# sqlx 0.9.0 uses both in the normal graph as well, so deny.toml's `skip` list names them.
 jsonschema = { version = "0.60.2", default-features = false }
 proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 reqwest = { version = "0.13.5", default-features = false }

@@ -55,6 +55,9 @@ skip = [
   { crate = "block-buffer@0.10.4", reason = "sha2 0.10 via sqlx-core 0.9.0" },
   { crate = "crypto-common@0.1.6", reason = "sha2 0.10 via sqlx-core 0.9.0" },
   { crate = "cpufeatures@0.2.17", reason = "sha2 0.10 via sqlx-core 0.9.0" },
+  # sqlx-core and sqlx-postgres 0.9.0 require base64 0.22; hyper-util (axum, reqwest) and
+  # vak-model-shim use 0.23.
+  { crate = "base64@0.22.1", reason = "sqlx-core and sqlx-postgres 0.9.0 pin base64 0.22" },
   # sqlx-core 0.9.0's hashlink pins hashbrown 0.16; indexmap uses 0.17.
   { crate = "hashbrown@0.16.1", reason = "hashlink 0.11 via sqlx-core 0.9.0" },
   # sqlx-macros 0.9.0 and tracing-attributes 0.1.31 (enabled by sqlx-core) still use syn 2;
