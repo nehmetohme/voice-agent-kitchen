@@ -414,9 +414,10 @@ mod repo_layers_toml {
         let config = repo();
         let domain = &config.crates["vak-domain"];
         assert!(domain.deps.is_empty() && domain.dev_deps.is_empty());
+        // sha2: the draft content hash (owner-approved in `build(layers): allow sha2 in vak-domain`).
         assert_eq!(
             domain.external,
-            Some(set(&["serde", "thiserror", "uuid", "jiff"]))
+            Some(set(&["serde", "thiserror", "uuid", "jiff", "sha2"]))
         );
     }
 
