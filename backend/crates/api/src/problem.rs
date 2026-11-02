@@ -9,7 +9,8 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use utoipa::ToSchema;
 use vak_services::{
-    ArchiveAgentError, CreateAgentError, FindAgentError, ListAgentsError, UpdateDraftError,
+    ArchiveAgentError, CreateAgentError, FindAgentError, ListAgentsError, OpenMediaError,
+    StartSessionError, UpdateDraftError,
 };
 
 /// The media type of every error response.
@@ -49,6 +50,8 @@ pub(crate) enum ApiError {
     Unauthenticated,
     /// The body is not JSON.
     MalformedJson,
+    /// The request is not what the route takes (e.g. not a WebSocket upgrade).
+    BadRequest(&'static str),
     /// The body is not `application/json`.
     UnsupportedMediaType,
     /// No such resource (or an ID that can't name one).
@@ -59,6 +62,8 @@ pub(crate) enum ApiError {
     Conflict(&'static str),
     /// The request ran past its deadline.
     Timeout,
+    /// The feature can't serve the request now; nothing failed that needs logging.
+    Refused(&'static str),
     /// A dependency failed; the source is logged here, once, and never sent.
     Unavailable(Box<dyn Error + Send + Sync>),
 }
@@ -74,6 +79,7 @@ impl ApiError {
                 StatusCode::BAD_REQUEST,
                 "The request body is not valid JSON.".to_owned(),
             ),
+            Self::BadRequest(detail) => (StatusCode::BAD_REQUEST, (*detail).to_owned()),
             Self::UnsupportedMediaType => (
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 "Send the request body as application/json.".to_owned(),
@@ -95,6 +101,7 @@ impl ApiError {
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The request took too long. Try again shortly.".to_owned(),
             ),
+            Self::Refused(detail) => (StatusCode::SERVICE_UNAVAILABLE, (*detail).to_owned()),
             Self::Unavailable(_) => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The service is temporarily unavailable. Try again shortly.".to_owned(),
@@ -200,6 +207,37 @@ impl From<UpdateDraftError> for ApiError {
             }
             unavailable @ UpdateDraftError::Unavailable(_) => {
                 Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<StartSessionError> for ApiError {
+    fn from(error: StartSessionError) -> Self {
+        match error {
+            StartSessionError::NotFound => Self::NotFound,
+            StartSessionError::Archived => {
+                Self::Conflict("This agent is archived, so it can't take calls.")
+            }
+            StartSessionError::VoiceUnavailable => {
+                Self::Refused("Voice sessions aren't set up on this server.")
+            }
+            StartSessionError::Busy => {
+                Self::Refused("Too many test calls are running. Try again shortly.")
+            }
+            unavailable @ StartSessionError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<OpenMediaError> for ApiError {
+    fn from(error: OpenMediaError) -> Self {
+        match error {
+            OpenMediaError::NotFound => Self::NotFound,
+            OpenMediaError::Busy => {
+                Self::Refused("Too many test calls are running. Try again shortly.")
             }
         }
     }

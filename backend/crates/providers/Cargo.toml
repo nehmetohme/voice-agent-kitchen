@@ -10,6 +10,8 @@ publish.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+# Media events to and from JSON text frames, one encoding for the bridge and the fakes.
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 # Channel types of the media transport handle (`sync` only: no runtime, no I/O).
 tokio = { workspace = true, features = ["sync"] }
@@ -18,7 +20,7 @@ vak-domain = { workspace = true }
 
 [dev-dependencies]
 jsonschema = { workspace = true }
-serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

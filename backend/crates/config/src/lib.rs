@@ -14,10 +14,19 @@
 //! # Ok::<(), vak_config::ConfigError>(())
 //! ```
 
+mod models;
+
 use std::net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use secrecy::SecretString;
+
+pub use models::{
+    DECISION_BASE_URL_VAR, DECISION_MODEL_VAR, DECISION_PATH_VAR, DecisionSettings,
+    LLM_API_KEY_VAR, LLM_BASE_URL_VAR, LLM_EXTRA_BODY_VAR, LLM_MODEL_VAR, LlmSettings,
+    ModelSettings, STT_BASE_URL_VAR, STT_ENDPOINT_VAR, ServingSettings, TTS_BASE_URL_VAR,
+    TTS_ENDPOINT_VAR,
+};
 
 /// Overrides [`HttpSettings::addr`], as `IP:port` (e.g. `0.0.0.0:8000`).
 pub const HTTP_ADDR_VAR: &str = "VAK_HTTP_ADDR";
@@ -40,6 +49,8 @@ pub struct Settings {
     pub log: LogSettings,
     pub database: DatabaseSettings,
     pub auth: AuthSettings,
+    /// The voice models; voice sessions run only when all are set.
+    pub models: ModelSettings,
 }
 
 /// Where the server runs. Switching profiles changes configuration only, never code.
@@ -120,6 +131,8 @@ pub enum ConfigError {
     InvalidProfile { var: &'static str },
     #[error("{var} is allowed only in the local profile; unset it")]
     DevOperatorOutsideLocal { var: &'static str },
+    #[error("{var} must be set")]
+    Missing { var: &'static str },
 }
 
 impl Settings {
@@ -170,6 +183,7 @@ impl Settings {
             }
             settings.auth.dev_operator_email = Some(email);
         }
+        settings.models = ModelSettings::from_values(&value)?;
         Ok(settings)
     }
 }

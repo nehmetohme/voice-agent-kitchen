@@ -72,8 +72,11 @@ fn documents_exactly_the_routes_the_router_serves() {
             "/api/v1/agents/{id}/plan",
             "/api/v1/agents/{id}/plan/validate",
             "/api/v1/agents/{id}/progress",
+            "/api/v1/agents/{id}/sessions",
             "/api/v1/catalog/languages",
             "/api/v1/catalog/voices",
+            "/api/v1/sessions/{id}/media",
+            "/api/v1/voice/latency",
             "/health",
         ]
     );

@@ -22,7 +22,9 @@ use vak_api::AppState;
 use vak_config::{DATABASE_URL_VAR, DEV_OPERATOR_VAR, Settings};
 use vak_domain::Actor;
 use vak_repositories_pg::{Database, DatabaseConfig};
-use vak_services::AgentService;
+use vak_services::{AgentService, VoiceService};
+
+mod voice;
 
 /// The user ID the local dev operator acts under.
 const DEV_OPERATOR_ID: &str = "dev-operator";
@@ -79,7 +81,10 @@ fn app(settings: &Settings, database: &Database) -> anyhow::Result<Router> {
     let rule_packs =
         vak_services::rule_packs::shipped().context("the shipped rule packs don't load")?;
     let agents = AgentService::new(Arc::new(database.agents())).with_rule_packs(rule_packs);
-    let mut state = AppState::new(agents).with_request_timeout(settings.http.request_timeout);
+    let voice = VoiceService::new(agents.clone(), voice::engines(&settings.models)?);
+    let mut state = AppState::new(agents)
+        .with_voice(voice)
+        .with_request_timeout(settings.http.request_timeout);
     if let Some(email) = &settings.auth.dev_operator_email {
         let operator = Actor::new(DEV_OPERATOR_ID, email)
             .with_context(|| format!("{DEV_OPERATOR_VAR} is not a valid email address"))?;

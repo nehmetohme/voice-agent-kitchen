@@ -11,10 +11,17 @@
 //! audio), lets the caller barge in, and ends on the client's `session.end` or an
 //! opt-out from any of its three layers.
 
+mod chunker;
 mod config;
+mod detector;
 mod outcome;
+mod playback;
+mod routing;
 mod session;
+mod stages;
 
-pub use config::{Engines, OptOutPolicy, SessionConfig, TurnPolicy};
+pub use config::{
+    Engines, OptOutPolicy, SessionConfig, SessionObserver, StageDeadlines, TurnPolicy,
+};
 pub use outcome::{SessionOutcome, TurnRecord};
 pub use session::run_session;

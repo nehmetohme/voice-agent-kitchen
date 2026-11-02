@@ -9,6 +9,9 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
 vak-audio = { workspace = true }
 vak-domain = { workspace = true }
 vak-providers = { workspace = true }

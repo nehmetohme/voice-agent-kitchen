@@ -30,7 +30,23 @@ impl ProviderError {
     /// Whether trying again, within the caller's budget, may succeed.
     #[must_use]
     pub fn is_retryable(&self) -> bool {
-        // CONTRACT-STUB
-        false
+        matches!(
+            self,
+            Self::Timeout | Self::RateLimited { .. } | Self::Unavailable
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_transient_failures_are_retryable() {
+        assert!(ProviderError::Timeout.is_retryable());
+        assert!(ProviderError::RateLimited { retry_after: None }.is_retryable());
+        assert!(ProviderError::Unavailable.is_retryable());
+        assert!(!ProviderError::Auth.is_retryable());
+        assert!(!ProviderError::Protocol("bad".to_owned()).is_retryable());
     }
 }

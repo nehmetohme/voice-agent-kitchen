@@ -33,6 +33,7 @@ mod draft_plan;
 mod hash;
 mod ids;
 mod jurisdiction;
+mod opt_out;
 mod plan;
 mod progress;
 mod rule_pack;
@@ -40,6 +41,7 @@ mod session;
 mod settings;
 mod timeline;
 mod use_case;
+mod voice;
 
 pub use actor::{Actor, ActorError};
 pub use agent::{Agent, AgentError, DraftChange};
@@ -52,6 +54,7 @@ pub use draft_plan::DraftPlan;
 pub use hash::{ContentHash, ContentHashError};
 pub use ids::{AgentId, AuditEventId, IdError};
 pub use jurisdiction::{Jurisdiction, JurisdictionError};
+pub use opt_out::{DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES, OptOutPhrases};
 pub use plan::{EdgeId, NodeId, NodeKind, Plan, PlanEdge, PlanError, PlanNode, PlanShapeError};
 pub use progress::{ProgressFacts, SetupProgress, SetupStep, StepProgress};
 pub use rule_pack::{
@@ -62,5 +65,6 @@ pub use session::{OptOutLayer, SessionEndReason, Speaker};
 pub use settings::{
     AgentSettings, ModelProfile, ModelProfileError, TurnDetection, TurnDetectionError,
 };
-pub use timeline::StageLatencies;
+pub use timeline::{StageLatencies, TurnTimeline};
 pub use use_case::{UseCase, UseCaseError};
+pub use voice::SessionScript;

@@ -17,9 +17,12 @@ tokio = { workspace = true, features = ["time"] }
 toml = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
 vak-domain = { workspace = true }
+vak-pipeline = { workspace = true }
+vak-providers = { workspace = true }
 vak-repositories = { workspace = true }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 vak-testkit = { workspace = true }
 

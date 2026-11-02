@@ -6,6 +6,13 @@ use std::time::Duration;
 use tokio::time::Instant;
 use vak_providers::{BoxFuture, ProviderError, Speech, TtsEngine, TtsRequest};
 
+use super::{get_mut, lock, within};
+
+/// Audio per character of text when no length is scripted.
+const PER_CHARACTER: Duration = Duration::from_millis(60);
+/// Samples per millisecond at 24 kHz.
+const SAMPLES_PER_MS: usize = 24;
+
 /// One recorded `synthesize` call.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -15,14 +22,20 @@ pub struct TtsCall {
     pub started_at: Instant,
 }
 
+#[derive(Debug, Default)]
+struct State {
+    delay: Duration,
+    lengths: Vec<(String, Duration)>,
+    calls: Vec<TtsCall>,
+}
+
 /// A [`TtsEngine`] that answers every request, after its first-audio delay (default none),
 /// with audible 24 kHz audio: as long as [`ScriptedTts::with_audio_for`] says for that
 /// text, otherwise 60 ms per character. Texts are compared after trimming whitespace.
 /// Blank text fails with `ProviderError::Protocol`, like the serving adapter.
 #[derive(Debug, Default)]
 pub struct ScriptedTts {
-    // CONTRACT-STUB
-    _state: Mutex<()>,
+    state: Mutex<State>,
 }
 
 impl ScriptedTts {
@@ -33,25 +46,24 @@ impl ScriptedTts {
 
     /// Every request waits `delay` before its audio arrives.
     #[must_use]
-    pub fn with_delay(self, delay: Duration) -> Self {
-        // CONTRACT-STUB
-        let _ = delay;
+    pub fn with_delay(mut self, delay: Duration) -> Self {
+        get_mut(&mut self.state).delay = delay;
         self
     }
 
     /// `text` is spoken in exactly `duration`.
     #[must_use]
-    pub fn with_audio_for(self, text: &str, duration: Duration) -> Self {
-        // CONTRACT-STUB
-        let _ = (text, duration);
+    pub fn with_audio_for(mut self, text: &str, duration: Duration) -> Self {
+        get_mut(&mut self.state)
+            .lengths
+            .push((text.trim().to_owned(), duration));
         self
     }
 
     /// Every call so far, oldest first.
     #[must_use]
     pub fn calls(&self) -> Vec<TtsCall> {
-        // CONTRACT-STUB
-        Vec::new()
+        lock(&self.state).calls.clone()
     }
 }
 
@@ -60,8 +72,43 @@ impl TtsEngine for ScriptedTts {
         &'a self,
         request: TtsRequest<'a>,
     ) -> BoxFuture<'a, Result<Speech, ProviderError>> {
-        // CONTRACT-STUB
-        let _ = request;
-        Box::pin(async { Err(ProviderError::Unavailable) })
+        let (delay, length) = {
+            let mut state = lock(&self.state);
+            state.calls.push(TtsCall {
+                text: request.text().to_owned(),
+                voice: request.voice().to_owned(),
+                started_at: Instant::now(),
+            });
+            let text = request.text().trim();
+            let length = state
+                .lengths
+                .iter()
+                .find(|(scripted, _)| scripted == text)
+                .map_or_else(
+                    || {
+                        let chars = u32::try_from(text.chars().count()).unwrap_or(u32::MAX);
+                        PER_CHARACTER.saturating_mul(chars)
+                    },
+                    |(_, length)| *length,
+                );
+            (state.delay, length)
+        };
+        Box::pin(async move {
+            if request.text().trim().is_empty() {
+                return Err(ProviderError::Protocol("blank text".to_owned()));
+            }
+            within(delay, request.deadline()).await?;
+            let samples = usize::try_from(length.as_millis())
+                .unwrap_or(usize::MAX)
+                .saturating_mul(SAMPLES_PER_MS);
+            Ok(Speech::new(24_000, tone(samples)))
+        })
     }
+}
+
+/// A 500 Hz square wave, loud enough to pass for speech.
+fn tone(samples: usize) -> Vec<i16> {
+    (0..samples)
+        .map(|i| if (i / 24) % 2 == 0 { 3_000 } else { -3_000 })
+        .collect()
 }

@@ -32,9 +32,9 @@ pub enum OptOutLayer {
     LlmTool,
 }
 
-/// Why a session ended.
+/// Why a session ended. Every reason has a wire name in `vak.media.v1`, so adding one is a
+/// protocol change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum SessionEndReason {
     /// The caller hung up or the connection closed.
     ClientEnded,
@@ -48,4 +48,15 @@ pub enum SessionEndReason {
     Timeout,
     /// The session could not go on.
     Error,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn speakers_have_wire_names() {
+        assert_eq!(Speaker::Caller.as_str(), "caller");
+        assert_eq!(Speaker::Agent.as_str(), "agent");
+    }
 }

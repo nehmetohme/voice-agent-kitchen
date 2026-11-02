@@ -9,4 +9,4 @@ mod frame;
 mod vad;
 
 pub use frame::{AudioFrame, FRAME_MS, FrameError, MAX_FRAME_SAMPLES};
-pub use vad::{Vad, VadEvent};
+pub use vad::{EnergyVad, Vad, VadEvent};

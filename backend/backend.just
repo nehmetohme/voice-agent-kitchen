@@ -26,6 +26,21 @@ backend-test *args:
     cargo nextest run --all-features {{ args }}
     cargo test --workspace --all-features --doc
 
+# Needs `just dev` (speech, decisions) and the LAN LLM in .env. One test at a time: the LLM has
+# one slot. Args replace the package list, e.g. `just adapters-live -p vak-adapter-llm-openai`.
+# Run the adapters' contract suites against the live models (their #[ignore] tests)
+[positional-arguments]
+[working-directory: 'backend']
+adapters-live *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    . ../deploy/local/env.sh
+    if [ "$#" -eq 0 ]; then
+        set -- -p vak-adapter-llm-openai -p vak-adapter-stt-serving \
+            -p vak-adapter-tts-serving -p vak-adapter-decision-systemone
+    fi
+    cargo nextest run --all-features --locked --run-ignored only --test-threads 1 "$@"
+
 # Regenerate the sqlx offline query cache (crates/repositories-pg/.sqlx) against a freshly
 # migrated database in this worktree's test container. Commit the result.
 [working-directory: 'backend']

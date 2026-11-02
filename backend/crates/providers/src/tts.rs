@@ -101,8 +101,11 @@ impl Speech {
     /// How long the audio plays.
     #[must_use]
     pub fn duration(&self) -> Duration {
-        // CONTRACT-STUB
-        Duration::ZERO
+        if self.sample_rate == 0 {
+            return Duration::ZERO;
+        }
+        let samples = u64::try_from(self.samples.len()).unwrap_or(u64::MAX);
+        Duration::from_micros(samples.saturating_mul(1_000_000) / u64::from(self.sample_rate))
     }
 }
 
@@ -121,4 +124,31 @@ pub trait TtsEngine: Send + Sync {
         &'a self,
         request: TtsRequest<'a>,
     ) -> BoxFuture<'a, Result<Speech, ProviderError>>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn speech_knows_how_long_it_plays() {
+        let speech = Speech::new(24_000, vec![0; 36_000]);
+        assert_eq!(speech.duration(), Duration::from_millis(1_500));
+        assert_eq!(speech.samples().len(), 36_000);
+        assert_eq!(Speech::new(0, vec![1]).duration(), Duration::ZERO);
+        let debug = format!("{speech:?}");
+        assert!(debug.contains("36000"));
+        assert_eq!(speech.into_samples().len(), 36_000);
+    }
+
+    #[test]
+    fn a_request_hides_its_text_in_debug() {
+        let request =
+            TtsRequest::new("Hello there", "af_heart", Duration::from_secs(1)).with_speed(1.25);
+        assert_eq!(request.text(), "Hello there");
+        assert_eq!(request.voice(), "af_heart");
+        assert!((request.speed() - 1.25).abs() < f32::EPSILON);
+        assert_eq!(request.deadline(), Duration::from_secs(1));
+        assert!(!format!("{request:?}").contains("Hello"));
+    }
 }

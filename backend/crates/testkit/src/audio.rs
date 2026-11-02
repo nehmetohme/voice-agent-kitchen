@@ -25,8 +25,31 @@ impl LevelVad {
 
 impl Vad for LevelVad {
     fn push(&mut self, frame: &AudioFrame) -> VadEvent {
-        // CONTRACT-STUB
-        let _ = (frame, self.threshold);
-        VadEvent::Silence
+        let peak = frame
+            .samples()
+            .iter()
+            .map(|sample| sample.unsigned_abs())
+            .max()
+            .unwrap_or(0);
+        if peak >= self.threshold {
+            VadEvent::Speech
+        } else {
+            VadEvent::Silence
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_loudest_sample_decides() {
+        let mut vad = LevelVad::default();
+        let frame = |level: i16| AudioFrame::new(16_000, &[level; 320]).unwrap();
+        assert_eq!(vad.push(&frame(0)), VadEvent::Silence);
+        assert_eq!(vad.push(&frame(999)), VadEvent::Silence);
+        assert_eq!(vad.push(&frame(-1_000)), VadEvent::Speech);
+        assert_eq!(LevelVad::new(10).push(&frame(10)), VadEvent::Speech);
     }
 }

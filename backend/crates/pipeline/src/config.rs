@@ -3,12 +3,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use vak_audio::Vad;
+use vak_audio::{EnergyVad, Vad};
+use vak_domain::StageLatencies;
 use vak_providers::{DecisionEngine, LlmEngine, SttEngine, TtsEngine};
 
 /// The model engines a session talks to. Cheap to clone; shared by every session.
 #[derive(Clone)]
-#[expect(dead_code, reason = "CONTRACT-STUB: the session actor reads them")]
 pub struct Engines {
     pub(crate) stt: Arc<dyn SttEngine>,
     pub(crate) llm: Arc<dyn LlmEngine>,
@@ -131,8 +131,35 @@ impl OptOutPolicy {
     }
 }
 
+/// How long each model call may take before it counts as failed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageDeadlines {
+    /// STT: from the end of the caller's turn to its transcript.
+    pub stt: Duration,
+    /// LLM: from the request to the first token.
+    pub llm_first_token: Duration,
+    /// TTS: from a clause's request to its audio.
+    pub tts: Duration,
+}
+
+impl Default for StageDeadlines {
+    /// Generous enough for a local model's first call; production tightens them.
+    fn default() -> Self {
+        Self {
+            stt: Duration::from_secs(10),
+            llm_first_token: Duration::from_secs(10),
+            tts: Duration::from_secs(10),
+        }
+    }
+}
+
+/// Told about every reply's stage timings as soon as its first audio is out: the place
+/// services record latency histograms.
+pub trait SessionObserver: Send + Sync {
+    fn reply_latencies(&self, latencies: &StageLatencies);
+}
+
 /// One session's configuration.
-#[expect(dead_code, reason = "CONTRACT-STUB: the session actor reads them")]
 pub struct SessionConfig {
     pub(crate) session_id: String,
     pub(crate) disclosure: String,
@@ -141,6 +168,9 @@ pub struct SessionConfig {
     pub(crate) turn_policy: TurnPolicy,
     pub(crate) opt_out: OptOutPolicy,
     pub(crate) vad: Option<Box<dyn Vad>>,
+    pub(crate) deadlines: StageDeadlines,
+    pub(crate) max_duration: Duration,
+    pub(crate) observer: Option<Arc<dyn SessionObserver>>,
 }
 
 impl SessionConfig {
@@ -155,8 +185,14 @@ impl SessionConfig {
             system_prompt: String::new(),
             voice: "af_heart".to_owned(),
             turn_policy: TurnPolicy::new(Duration::from_millis(500)),
-            opt_out: OptOutPolicy::new(Vec::<String>::new(), String::new()),
+            opt_out: OptOutPolicy::new(
+                vak_domain::DEFAULT_OPT_OUT_PHRASES,
+                vak_domain::DEFAULT_OPT_OUT_CONFIRMATION,
+            ),
             vad: None,
+            deadlines: StageDeadlines::default(),
+            max_duration: Duration::from_mins(30),
+            observer: None,
         }
     }
 
@@ -191,12 +227,41 @@ impl SessionConfig {
         Self { opt_out, ..self }
     }
 
-    /// The voice activity detector for this session's microphone audio.
+    /// The voice activity detector for this session's microphone audio (default:
+    /// [`EnergyVad`]).
     #[must_use]
     pub fn with_vad(self, vad: Box<dyn Vad>) -> Self {
         Self {
             vad: Some(vad),
             ..self
         }
+    }
+
+    #[must_use]
+    pub fn with_deadlines(self, deadlines: StageDeadlines) -> Self {
+        Self { deadlines, ..self }
+    }
+
+    /// The session ends with reason `timeout` after this long (default 30 minutes).
+    #[must_use]
+    pub fn with_max_duration(self, max_duration: Duration) -> Self {
+        Self {
+            max_duration,
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn with_observer(self, observer: Arc<dyn SessionObserver>) -> Self {
+        Self {
+            observer: Some(observer),
+            ..self
+        }
+    }
+
+    pub(crate) fn take_vad(&mut self) -> Box<dyn Vad> {
+        self.vad
+            .take()
+            .unwrap_or_else(|| Box::new(EnergyVad::default()))
     }
 }
