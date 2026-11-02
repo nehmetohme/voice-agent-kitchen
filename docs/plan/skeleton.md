@@ -13,7 +13,7 @@ Nested `CLAUDE.md` files only load when Claude touches that folder. The rules th
 voice/
 ├── CLAUDE.md 📘                 global: TDD + contract tags, worktrees, `just verify`, layer map, use the graph
 ├── README.md  LICENSE  PROMPT.md
-├── justfile                    verify, verify-fast, dev, dev-light, task, task-done, contract-approve, openapi
+├── justfile                    verify, verify-fast, dev, dev-light, task, task-done, contract-pin, contract-push, openapi
 ├── lefthook.yml                pre-commit, pre-push, post-commit/checkout/merge/rewrite
 ├── .gitignore  .editorconfig  .graphifyignore  .worktreeinclude
 │
@@ -32,7 +32,7 @@ voice/
 │
 ├── contracts/ 📘                the agreements between parts; changes need review
 │   ├── openapi.json            generated from Rust, committed, drift-checked
-│   ├── contracts.toml          contract-test manifest pinned by signed tags
+│   ├── contracts.toml          contract-test manifest pinned by contract tags
 │   ├── media/                  vak.media.v1 event schemas
 │   ├── serving/                stt.json, tts.json: model request/response shapes
 │   ├── decisions/              platform decision questions (opt-out, escalation, outcome)

@@ -42,7 +42,7 @@ It translates each request to the local mlx-audio server on `:8000` (Parakeet fo
 
 ## Testing
 
-- **Contract tests** (`tests/contract_model_shim.rs`, feature `model-shim` in `contracts/contracts.toml`): black-box. Each test starts the real binary against a wiremock mlx-audio and validates every request and response against the JSON Schemas. The signed tag pins the test file and both schemas.
+- **Contract tests** (`tests/contract_model_shim.rs`, feature `model-shim` in `contracts/contracts.toml`): black-box. Each test starts the real binary against a wiremock mlx-audio and validates every request and response against the JSON Schemas. The `contract/model-shim/v1` tag pins the test file and both schemas.
 - **Unit tests** per module: config parsing, field validation, WAV reading and writing, error codes, and the router's body limit (413), unknown routes (404) and `/health`.
 - **Against real models:** `just dev-smoke` sends a fixture WAV and a sentence through the running shim.
 

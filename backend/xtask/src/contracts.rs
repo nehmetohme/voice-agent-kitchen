@@ -1,10 +1,12 @@
-//! `contract-check` and `contract-status`: contract test files are pinned by tags the owner
-//! signed. Design: `docs/research/06-graphify-github-ci.md` §4.
+//! `contract-check` and `contract-status`: contract test files are pinned by
+//! `contract/<feature>/v<N>` tags. Design: `docs/research/06-graphify-github-ci.md` §4.
 //!
 //! For each feature in HEAD's `contracts/contracts.toml`:
 //! - its version is not lower than the base's;
-//! - tag `contract/<feature>/v<version>` exists, is a tag object of that name, and
-//!   `git verify-tag` accepts it with the **base** ref's `.github/contract-signers`;
+//! - tag `contract/<feature>/v<version>` exists and is a tag object of that name. By default
+//!   ([`Signatures::Ignored`]) signed and unsigned tags pin alike. With
+//!   [`Signatures::Required`] (`--require-signatures`), `git verify-tag` must also accept the
+//!   tag with the **base** ref's `.github/contract-signers`;
 //! - the tag's own manifest pins that version and defines the file set, and every file in
 //!   it is blob-identical at HEAD (blobs, not ancestry, so squash merges pass).
 //!
@@ -22,14 +24,50 @@ mod tests;
 
 /// The contract manifest, relative to the repository root.
 pub(crate) const MANIFEST: &str = "contracts/contracts.toml";
-/// SSH allowed-signers file for contract tags. Only the base ref's copy is trusted.
+/// SSH allowed-signers file for contract tags. Read only with [`Signatures::Required`], and
+/// then only the base ref's copy is trusted.
 pub(crate) const SIGNERS: &str = ".github/contract-signers";
+
+/// Whether a contract tag must carry a trusted signature to pin its files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Signatures {
+    /// The default: an annotated tag of the right name pins its files, signed or not. No
+    /// signature is verified and [`SIGNERS`] is never read.
+    Ignored,
+    /// `--require-signatures`: `git verify-tag` must also accept each tag with the base's
+    /// [`SIGNERS`] (see [`trusted_signers`] for the one bootstrap exception).
+    Required,
+}
+
+impl Signatures {
+    /// The mode for the `--require-signatures` flag.
+    pub(crate) fn required_if(flag: bool) -> Self {
+        if flag { Self::Required } else { Self::Ignored }
+    }
+
+    /// How a valid tag is described in a `contract-status` row.
+    fn verb(self) -> &'static str {
+        match self {
+            Self::Ignored => "pinned",
+            Self::Required => "signed",
+        }
+    }
+}
+
+impl fmt::Display for Signatures {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Ignored => "signatures not checked",
+            Self::Required => "signatures required",
+        })
+    }
+}
 
 /// Parsed `contracts/contracts.toml`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Manifest {
-    /// Files matching any of these must be covered by a signed tag.
+    /// Files matching any of these must be covered by a contract tag.
     #[serde(default)]
     pub(crate) contract_globs: Vec<String>,
     /// One entry per feature, keyed by name.
@@ -159,12 +197,12 @@ pub(crate) struct Report {
     pub(crate) problems: Vec<Problem>,
     /// Facts worth knowing that are not failures by themselves.
     pub(crate) notices: Vec<String>,
-    /// Files covered by a valid signed tag.
+    /// Files covered by a valid contract tag.
     pub(crate) pinned: usize,
 }
 
 impl Report {
-    /// Whether the check passes. Findings that only await the owner's signature pass when
+    /// Whether the check passes. Findings that only await a contract tag pass when
     /// `allow_pending` is set (local gates); violations never pass. CI runs with `false`.
     pub(crate) fn passed(&self, allow_pending: bool) -> bool {
         self.problems
@@ -172,7 +210,7 @@ impl Report {
             .all(|problem| allow_pending && problem.is_pending())
     }
 
-    /// How many findings only await the owner's signature.
+    /// How many findings only await a contract tag.
     pub(crate) fn pending(&self) -> usize {
         self.problems.iter().filter(|p| p.is_pending()).count()
     }
@@ -183,7 +221,7 @@ impl Report {
 pub(crate) struct FeatureStatus {
     pub(crate) name: String,
     pub(crate) version: u32,
-    /// Short description, e.g. `signed, 2 files unchanged` or `tag not found`.
+    /// Short description, e.g. `pinned, 2 file(s) unchanged` or `tag not found`.
     pub(crate) state: String,
 }
 
@@ -200,6 +238,7 @@ pub(crate) enum Problem {
         feature: String,
         version: u32,
     },
+    /// Only with [`Signatures::Required`].
     TagUnverified {
         feature: String,
         version: u32,
@@ -257,10 +296,10 @@ pub(crate) enum Untagged {
 }
 
 impl Problem {
-    /// Whether this finding only awaits the owner's approval (a contract tag not signed
-    /// yet: the tag is missing, or a contract file isn't covered by any tag), rather than
-    /// violating an approved contract (a changed or deleted tagged file, a bad or unknown
-    /// signature, a lower version, a removed feature, an inconsistent tag).
+    /// Whether this finding only awaits its contract tag (the tag is missing, or a contract
+    /// file isn't covered by any tag), rather than violating a pinned contract (a changed or
+    /// deleted tagged file, a lower version, a removed feature, an inconsistent tag, or, with
+    /// [`Signatures::Required`], a bad or unknown signature).
     pub(crate) fn is_pending(&self) -> bool {
         matches!(self, Self::TagMissing { .. } | Self::Untagged { .. })
     }
@@ -281,8 +320,13 @@ impl Problem {
     }
 }
 
-fn approve(feature: &str, version: u32) -> String {
-    format!("ask the owner to run `just contract-approve {feature} {version}`")
+/// Who pins a contract version, and how.
+fn pin(feature: &str, version: u32) -> String {
+    format!(
+        "the coordinating session pins {} with `just contract-pin {feature} {version}` and \
+         pushes it with `just contract-push {feature} {version}`",
+        tag_name(feature, version)
+    )
 }
 
 fn restore_or_bump(path: &str, feature: &str, version: u32) -> String {
@@ -291,7 +335,7 @@ fn restore_or_bump(path: &str, feature: &str, version: u32) -> String {
     format!(
         "restore it with `git checkout {tag} -- {path}`, or bump {feature} to version {next} in \
          {MANIFEST} and {}",
-        approve(feature, next)
+        pin(feature, next)
     )
 }
 
@@ -302,7 +346,7 @@ impl fmt::Display for Problem {
                 f,
                 "{}: tag not found: once the {feature} v{version} contract tests are committed, {}",
                 tag_name(feature, *version),
-                approve(feature, *version)
+                pin(feature, *version)
             ),
             Self::TagUnverified {
                 feature,
@@ -311,9 +355,9 @@ impl fmt::Display for Problem {
             } => write!(
                 f,
                 "{} is not signed by an allowed key in the base's {SIGNERS} (git: {reason}); \
-                 only the owner signs contract tags: {}",
-                tag_name(feature, *version),
-                approve(feature, *version)
+                 with --require-signatures, only a tag signed by a key in that file pins a \
+                 contract",
+                tag_name(feature, *version)
             ),
             Self::TagMisnamed {
                 feature,
@@ -321,11 +365,11 @@ impl fmt::Display for Problem {
                 object_name,
             } => write!(
                 f,
-                "refs/tags/{} holds the tag object named {}: a signature approves only the tag \
-                 it was made for; {}",
+                "refs/tags/{} holds the tag object named {}: only an annotated tag made under \
+                 its own name pins a contract (`just contract-pin {feature} {version}` makes \
+                 one); ask the owner to remove the wrong ref",
                 tag_name(feature, *version),
                 object_name.as_deref().unwrap_or("(none: lightweight tag)"),
-                approve(feature, *version)
             ),
             Self::TagManifestMismatch {
                 feature,
@@ -338,8 +382,8 @@ impl fmt::Display for Problem {
                 );
                 write!(
                     f,
-                    "{}: the tagged commit's {MANIFEST} {found}; the owner signs the commit that \
-                     sets {feature} to version {version}",
+                    "{}: the tagged commit's {MANIFEST} {found}; a contract tag points at the \
+                     commit that sets {feature} to version {version}",
                     tag_name(feature, *version)
                 )
             }
@@ -348,7 +392,7 @@ impl fmt::Display for Problem {
                 "{}: no file in the tagged commit matches {feature}'s paths; fix the paths, bump \
                  the version and {}",
                 tag_name(feature, *version),
-                approve(feature, version + 1)
+                pin(feature, version + 1)
             ),
             Self::VersionDown {
                 feature,
@@ -396,26 +440,27 @@ impl fmt::Display for Untagged {
         match self {
             Self::Unregistered => write!(
                 f,
-                "register it in {MANIFEST} under a feature, commit, then ask the owner to run \
-                 `just contract-approve <feature> <version>`"
+                "register it in {MANIFEST} under a feature and commit; then the coordinating \
+                 session pins that version with `just contract-pin <feature> <version>`"
             ),
-            Self::AwaitingTag { feature, version } => f.write_str(&approve(feature, *version)),
+            Self::AwaitingTag { feature, version } => f.write_str(&pin(feature, *version)),
             Self::NotInTag { feature, version } => write!(
                 f,
                 "it matches {feature}'s paths but is not in {}; bump {feature} to version {} in \
                  {MANIFEST} and {}",
                 tag_name(feature, *version),
                 version + 1,
-                approve(feature, version + 1)
+                pin(feature, version + 1)
             ),
         }
     }
 }
 
-/// The allowed-signers text tags are verified with: the base's copy, except while the base
-/// predates the contract system (no manifest and no signers file). There is no trusted
-/// copy yet then, so HEAD's is used and the run says so loudly; the owner's review of the
-/// pull request that adds the file is the only protection in that window.
+/// The allowed-signers text tags are verified with ([`Signatures::Required`] only): the
+/// base's copy, except while the base predates the contract system (no manifest and no
+/// signers file). There is no trusted copy yet then, so HEAD's is used and the run says so
+/// loudly; the owner's review of the pull request that adds the file is the only protection
+/// in that window.
 fn trusted_signers(
     repo: &impl Repo,
     base: &str,
@@ -441,10 +486,15 @@ fn trusted_signers(
     Ok(repo.read(head, SIGNERS)?.unwrap_or_default())
 }
 
-/// Checks `head` against the signed contract tags, trusting only `base` for signers and
-/// minimum versions (see [`trusted_signers`] for the one bootstrap exception). Both are
-/// revisions git can resolve, ideally full commit ids.
-pub(crate) fn check(repo: &impl Repo, base: &str, head: &str) -> anyhow::Result<Report> {
+/// Checks `head` against the contract tags, trusting only `base` for minimum versions and,
+/// with [`Signatures::Required`], for signers (see [`trusted_signers`] for the one bootstrap
+/// exception). Both are revisions git can resolve, ideally full commit ids.
+pub(crate) fn check(
+    repo: &impl Repo,
+    base: &str,
+    head: &str,
+    signatures: Signatures,
+) -> anyhow::Result<Report> {
     let mut report = Report::default();
     let base_manifest =
         load_manifest(repo, base).with_context(|| format!("parsing {MANIFEST} at the base"))?;
@@ -455,13 +505,16 @@ pub(crate) fn check(repo: &impl Repo, base: &str, head: &str) -> anyhow::Result<
             "the base has no {MANIFEST}: versions are not compared with it"
         ));
     }
-    let signers = trusted_signers(
-        repo,
-        base,
-        head,
-        base_manifest.is_some(),
-        &mut report.notices,
-    )?;
+    let signers = match signatures {
+        Signatures::Required => Some(trusted_signers(
+            repo,
+            base,
+            head,
+            base_manifest.is_some(),
+            &mut report.notices,
+        )?),
+        Signatures::Ignored => None,
+    };
     let base_manifest = base_manifest.unwrap_or_default();
     let head_manifest = head_manifest.unwrap_or_default();
     let head_files = repo.files(head)?;
@@ -478,11 +531,11 @@ pub(crate) fn check(repo: &impl Repo, base: &str, head: &str) -> anyhow::Result<
                 head: feature.version,
             });
         }
-        let state = match signed_files(repo, name, feature.version, &signers)? {
+        let state = match tagged_files(repo, name, feature.version, signers.as_deref())? {
             Ok(files) => {
                 approved.insert(name.as_str());
                 let differences = compare(name, feature.version, &files, &head_files);
-                let state = signed_state(files.len(), differences.len());
+                let state = tag_state(signatures, files.len(), differences.len());
                 report.problems.extend(differences);
                 covered.extend(files.into_keys());
                 state
@@ -544,13 +597,14 @@ fn load_manifest(repo: &impl Repo, rev: &str) -> anyhow::Result<Option<Manifest>
         .transpose()
 }
 
-/// The files `contract/<feature>/v<version>` pins, with their blob ids, if the tag is a
-/// valid approval; otherwise the problem with it.
-fn signed_files(
+/// The files `contract/<feature>/v<version>` pins, with their blob ids, if the tag is
+/// valid; otherwise the problem with it. With `signers` (only under
+/// [`Signatures::Required`]), the tag must also verify against them.
+fn tagged_files(
     repo: &impl Repo,
     feature: &str,
     version: u32,
-    signers: &str,
+    signers: Option<&str>,
 ) -> anyhow::Result<Result<BTreeMap<String, String>, Problem>> {
     let tag = tag_name(feature, version);
     let (feature_owned, rev) = (feature.to_owned(), format!("refs/tags/{tag}"));
@@ -560,7 +614,9 @@ fn signed_files(
             version,
         }));
     };
-    if let Err(reason) = repo.verify_tag(&tag, signers)? {
+    if let Some(signers) = signers
+        && let Err(reason) = repo.verify_tag(&tag, signers)?
+    {
         return Ok(Err(Problem::TagUnverified {
             feature: feature_owned,
             version,
@@ -629,10 +685,13 @@ fn compare(
         .collect()
 }
 
-fn signed_state(files: usize, changed: usize) -> String {
+/// The `contract-status` state of a valid tag: `signed, …` when signatures are required,
+/// `pinned, …` otherwise.
+fn tag_state(signatures: Signatures, files: usize, changed: usize) -> String {
+    let verb = signatures.verb();
     if changed == 0 {
-        format!("signed, {files} file(s) unchanged")
+        format!("{verb}, {files} file(s) unchanged")
     } else {
-        format!("signed, {changed} of {files} file(s) changed or deleted")
+        format!("{verb}, {changed} of {files} file(s) changed or deleted")
     }
 }

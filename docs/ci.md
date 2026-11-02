@@ -44,7 +44,7 @@ To skip hooks for one command, use `LEFTHOOK=0 git commit ...`. CI runs the same
 |---|---|---|
 | `rust` | `just backend-verify`. The Postgres tests start their own Postgres in Docker (nextest setup script, `backend/tools/test-db.sh`) | PR doesn't touch `backend/`, `contracts/`, `justfile` or CI files |
 | `web` | `just frontend-verify` (pnpm 12, Node from `devEngines.runtime`, Playwright Chromium). Its E2E run builds `vak-server` with the pinned Rust toolchain and serves it on a throwaway Postgres in Docker | PR doesn't touch `frontend/`, `backend/`, `contracts/`, `justfile` or CI files, or there is no `frontend/package.json` |
-| `contracts` | `just contracts-check-ci origin/<base> HEAD`, `just contracts-verify` | no `contracts/contracts.just` |
+| `contracts` | `just contracts-verify`, then `just contracts-check-ci origin/<base> HEAD` (strict: fails until every contract tag is pinned; signatures aren't checked for now, see `contracts/CLAUDE.md`) | no `contracts/contracts.just` |
 | `repo` | `just ci-secrets <base> HEAD` (gitleaks over the new commits), then `just repo-verify` (secrets in git-visible files, TOML format, Claude Code hook tests, shellcheck) | never |
 | `workflows` | `just ci-verify` (actionlint, zizmor) | never |
 | `deps` | dependency review (`.github/dependency-review.yml`) | not a PR |
@@ -96,7 +96,7 @@ Results from `just canaries` on 2026-10-30. The run used `main` at c51282d plus 
 |---|---|---|---|---|
 | `layer-tokio` | `xtask check-layers` (`just backend-verify-fast`) | `vak-domain` depends on `tokio` | `vak-domain may not use external crate tokio` | caught |
 | `layer-internal` | `xtask check-layers` (`just backend-verify-fast`) | `vak-api` depends on `vak-repositories-pg`, skipping services | `vak-api may not depend on vak-repositories-pg` | caught |
-| `contract-edit` | `contract-check --allow-pending` (`just contracts-verify-fast`) | one assertion in `contract_health.rs`, signed as `contract/health/v1`, is loosened | `contract_health.rs changed since contract/health/v…` | caught |
+| `contract-edit` | `contract-check --allow-pending` (`just contracts-verify-fast`) | one assertion in `contract_health.rs`, pinned by `contract/health/v1`, is loosened | `contract_health.rs changed since contract/health/v…` | caught |
 | `clippy` | clippy `-D warnings` (`just backend-verify-fast`) | `unwrap()` in the `GET /health` handler | `clippy::unwrap-used` | caught; also live in [#7](https://github.com/nehmetohme/voice-agent-kitchen/pull/7) |
 | `secret` | gitleaks (`just repo-secrets`) | a fake AWS access key ID in a new tracked file | `leaks found: 1` | caught |
 | `ux-primary` | app-shell contract e2e and `auditScreen()` (`just frontend-verify`) | a second primary `Button` in the app shell's top bar | `2 visible primary actions (max 1)` | caught |
@@ -106,7 +106,7 @@ Results from `just canaries` on 2026-10-30. The run used `main` at c51282d plus 
 | `openapi-drift` | OpenAPI drift (`just contracts-verify-fast`) | the health response schema changes without `just openapi` | `contracts/openapi.json differs from the Rust API` | caught |
 | `workflow-unpinned` | zizmor (`just ci-verify`) | a new workflow uses `actions/checkout@v4` | `unpinned-uses` | caught |
 | `workflow-write-all` | zizmor (`just ci-verify`) | a new single-job workflow sets `permissions: write-all` | `excessive-permissions` | **missed**: see below |
-| Claude Code hook guards | `tools/tests/hooks` (`just repo-hooks-test`, part of `just verify`) | edits to generated, owner-only and contract-tagged files; Stop and SubagentStop gates; post-edit lint | the hook tests' own assertions | covered there, not by a canary |
+| Claude Code hook guards | `tools/tests/hooks` (`just repo-hooks-test`, part of `just verify`) | edits to generated, owner-only and contract-tagged files; Stop and SubagentStop gates; post-edit lint; `contract-pin` and `contract-push` refusals | the hook tests' own assertions | covered there, not by a canary |
 
 The domain's layer rule is proven with `tokio`, not with `vak-services`. `layers.toml` lets `vak-services` depend on `vak-domain`, so once it does, a `vak-domain` → `vak-services` edge is a cycle, and cargo rejects it before check-layers runs. `layer-internal` uses an edge that can never close a cycle.
 
@@ -136,7 +136,7 @@ just rulesets-apply        # create or update each ruleset by name (repo admin o
   - required check `gate`, from the GitHub Actions app, with strict up-to-date branches
   - no force pushes and no deletion
   - conversations must be resolved
-- **`contract-tags`**: only repository admins create, move or delete `refs/tags/contract/**`.
+- **`contract-tags`**: only repository admins create, move or delete `refs/tags/contract/**`. The tags are unsigned for now, so this ruleset is what limits who can pin a contract: the coordinating session pushes them with `just contract-push`, under the owner's credentials.
 
 ### Owner checklist after merging
 

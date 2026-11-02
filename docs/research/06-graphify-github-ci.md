@@ -269,6 +269,8 @@ updates:
 
 ## 4. Contract-check design
 
+> **Status (2026-11-02):** the owner turned signatures off, for now. Contract tags stay `contract/<feature>/vN` annotated tags, but the coordinating session creates them unsigned with `just contract-pin` and pushes them with `just contract-push`; `just contract-approve` is gone. `xtask contract-check` keeps every other rule below and checks signatures only with `--require-signatures`. Current workflow: `contracts/CLAUDE.md`. The design below is the signed version, kept for when signatures come back.
+
 ### Options compared
 
 | Option | Strength | Weakness |

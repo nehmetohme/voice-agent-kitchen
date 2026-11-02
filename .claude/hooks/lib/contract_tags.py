@@ -1,11 +1,12 @@
-"""Print the signed contract tag that pins a file, or nothing.
+"""Print the contract tag that pins a file, or nothing.
 
 Usage: python3 -I contract_tags.py <repo-root> <repo-relative-path> <tag>...
 
-Tags look like contract/<feature>/v<N>. A file is pinned when:
+Tags look like contract/<feature>/v<N>, signed or not: only their names and trees count.
+A file is pinned when:
   1. the tag for the feature's *current* version exists. The current version comes from
      the working tree's contracts/contracts.toml, or is the highest tagged version when
-     the manifest doesn't list the feature. A bumped, not yet signed version pins nothing,
+     the manifest doesn't list the feature. A bumped, not yet pinned version pins nothing,
      so a contract can be changed by bumping its version first.
   2. the file exists in that tag's tree and a path (git-style glob) listed for the feature
      in the tag's own contracts/contracts.toml matches it. A feature that lists no paths

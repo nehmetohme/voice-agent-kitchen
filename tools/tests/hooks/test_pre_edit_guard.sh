@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # pre-edit-guard.sh (PreToolUse on Edit|Write): denies edits to generated files,
-# owner-only files and files pinned by a signed contract tag. Allows everything else.
+# owner-only files and files pinned by a contract tag, signed or not. Allows everything else.
 
 guard() { # repo-relative-path [fixture] [content]
   hook_input "${2:-pre-edit-write}" CWD="$R" FILE="$R/$1" CONTENT="${3:-x}"
@@ -33,12 +33,13 @@ paths = [
 EOF
 }
 
-tag_health_contract() { # version : commit the contract files and tag them
+tag_health_contract() { # version : commit the contract files and pin them with an unsigned
+  # annotated tag, as `just contract-pin` does
   write_contract_manifest "$1"
   write_file backend/crates/api/tests/contract_health.rs '#[test] fn health_returns_200() {}'
   write_file frontend/src/features/agents/__contract__/create.contract.test.ts "test('creates', () => {})"
   commit_all "test(contract): health v$1"
-  git -C "$R" tag "contract/health/v$1"
+  git -C "$R" tag --annotate --message "health v$1" "contract/health/v$1"
 }
 
 test_guard_denies_openapi_contract() {
@@ -128,7 +129,7 @@ test_guard_skips_contract_check_without_manifest_or_tags() {
   assert_allowed
 }
 
-test_guard_allows_contract_files_before_they_are_signed() {
+test_guard_allows_contract_files_before_they_are_pinned() {
   make_repo
   write_contract_manifest 1
   write_file backend/crates/api/tests/contract_health.rs
@@ -141,7 +142,8 @@ test_guard_denies_files_covered_by_a_contract_tag() {
   make_repo
   tag_health_contract 1
   guard backend/crates/api/tests/contract_health.rs pre-edit-edit
-  assert_denied "contract/health/v1"
+  assert_denied "is pinned by the contract tag contract/health/v1"
+  assert_not_contains "$(out_json '.hookSpecificOutput.permissionDecisionReason')" "signed"
   guard frontend/src/features/agents/__contract__/create.contract.test.ts
   assert_denied "contract/health/v1"
   guard backend/crates/api/src/lib.rs
@@ -166,7 +168,7 @@ test_guard_allows_contract_files_after_a_version_bump() {
   assert_allowed
 }
 
-test_guard_denies_again_once_the_new_version_is_signed() {
+test_guard_denies_again_once_the_new_version_is_pinned() {
   make_repo
   tag_health_contract 1
   tag_health_contract 2

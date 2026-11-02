@@ -4,8 +4,8 @@
 #   - generated files: contracts/openapi.json, frontend/src/shared/api/generated/**,
 #     frontend/src/app/routeTree.gen.ts, frontend/src/shared/ui/tokens.css, backend/**/.sqlx/**
 #   - owner-only files: backend/layers.toml
-#   - files pinned by a signed contract tag: contracts/contracts.toml plus the
-#     contract/<feature>/v<N> tags (skipped while no contract tag exists)
+#   - files pinned by a contract tag: contracts/contracts.toml plus the
+#     contract/<feature>/v<N> tags, signed or not (skipped while no contract tag exists)
 #   - setting the human-only VAK_REVIEWERS switch in .claude/settings*.json
 #
 # Denies with a PreToolUse permissionDecision and a reason Claude can act on.
@@ -65,7 +65,7 @@ case "$lower" in
     ;;
 esac
 
-# Files pinned by a signed contract tag.
+# Files pinned by a contract tag.
 tags=$(git -C "$root" for-each-ref --format='%(refname)' refs/tags/contract/ 2>/dev/null \
   | sed 's#^refs/tags/##' || true)
 [ -n "$tags" ] || exit 0
@@ -76,6 +76,6 @@ fi
 # shellcheck disable=SC2086 # one argument per tag; tag names have no spaces
 pinned=$(python3 -I "$HOOK_DIR/lib/contract_tags.py" "$root" "$rel" $tags 2>/dev/null || true)
 if [ -n "$pinned" ]; then
-  deny "$rel is pinned by the signed contract tag $pinned. Contract tests are never edited in place. To change the contract, bump the feature's version in contracts/contracts.toml first (the owner reviews and signs the new tag), then edit."
+  deny "$rel is pinned by the contract tag $pinned. Contract tests are never edited in place. To change the contract, bump the feature's version in contracts/contracts.toml first, then edit; the coordinating session pins the new version's tag."
 fi
 exit 0

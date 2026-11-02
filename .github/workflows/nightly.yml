@@ -34,7 +34,7 @@ jobs:
       - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
-      # Full history and tags: the contract canary checks against origin/main and the signed
+      # Full history and tags: the contract canary checks against origin/main and the
       # contract/* tags.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

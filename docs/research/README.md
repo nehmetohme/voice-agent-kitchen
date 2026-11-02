@@ -44,7 +44,7 @@ Researched 2026-10-30. This page combines reports 01–09 into one set of recomm
 | FE enforcement | dependency-cruiser, Oxlint (type-aware) + Oxfmt, Vitest, Playwright, Storybook | 03 |
 | Gates | Claude Code hooks: format/lint after each edit, async Graphify update, Stop hook runs `just verify` + relevant reviewers. Then lefthook git hooks, then CI. | 05, 06 |
 | CI | One workflow; a single always-run "gate" job is the only required check; actions pinned by SHA | 06 |
-| Contracts | Signed tags `contract/<feature>/vN` plus a manifest; CI fails on any change to tagged files | 06 |
+| Contracts | Signed tags `contract/<feature>/vN` plus a manifest; CI fails on any change to tagged files. Signatures are off for now (06 §4 status note) | 06 |
 | Graph | Graphify (`graphifyy` on PyPI, pinned); local parsing, no LLM; `graphify-out/` gitignored | 06 |
 
 ## Local development (macOS)

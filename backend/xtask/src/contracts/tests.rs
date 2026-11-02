@@ -84,7 +84,7 @@ fn the_real_contract_globs_skip_ordinary_files() {
     for path in [
         "backend/crates/api/tests/health.rs",
         "backend/crates/api/src/contract_health.rs",
-        "backend/xtask/tests/signed_contract_tags.rs",
+        "backend/xtask/tests/pinned_contract_tags.rs",
         "frontend/src/shared/ui/button.test.tsx",
         "frontend/src/shared/ui/button.contract.tsx",
         "frontend/src/features/agents/__contract__/.gitkeep",
@@ -280,8 +280,8 @@ fn messages_tell_the_reader_what_to_do() {
     };
     assert_eq!(
         untagged.to_string(),
-        "untagged contract file a/tests/contract_x.rs: ask the owner to run \
-         `just contract-approve x 1`"
+        "untagged contract file a/tests/contract_x.rs: the coordinating session pins \
+         contract/x/v1 with `just contract-pin x 1` and pushes it with `just contract-push x 1`"
     );
     let changed = Problem::Changed {
         path: "p.rs".to_owned(),
@@ -291,18 +291,32 @@ fn messages_tell_the_reader_what_to_do() {
     assert_eq!(
         changed.to_string(),
         "p.rs changed since contract/x/v3: restore it with `git checkout contract/x/v3 -- p.rs`, \
-         or bump x to version 4 in contracts/contracts.toml and ask the owner to run \
-         `just contract-approve x 4`"
+         or bump x to version 4 in contracts/contracts.toml and the coordinating session pins \
+         contract/x/v4 with `just contract-pin x 4` and pushes it with `just contract-push x 4`"
     );
 }
+
+#[test]
+fn signatures_follow_the_flag() {
+    assert_eq!(Signatures::required_if(false), Signatures::Ignored);
+    assert_eq!(Signatures::required_if(true), Signatures::Required);
+    assert_eq!(Signatures::Ignored.to_string(), "signatures not checked");
+    assert_eq!(Signatures::Required.to_string(), "signatures required");
+}
+
+/// Both modes: the rules that don't depend on signatures must hold in each.
+const MODES: [Signatures; 2] = [Signatures::Ignored, Signatures::Required];
 
 /// An in-memory repository: commits are maps of path → contents (the blob id is the text).
 #[derive(Default)]
 struct FakeRepo {
     trees: BTreeMap<String, BTreeMap<String, String>>,
-    /// Tag name → (object name, target tree, signer).
-    tags: BTreeMap<String, (Option<String>, String, String)>,
+    /// Tag name → (object name, target tree, signer; `None` for an unsigned tag).
+    tags: BTreeMap<String, (Option<String>, String, Option<String>)>,
+    /// The allowed-signers text of every `verify_tag` call.
     verified: RefCell<Vec<String>>,
+    /// The path of every `read` call.
+    reads: RefCell<Vec<String>>,
 }
 
 impl FakeRepo {
@@ -314,18 +328,37 @@ impl FakeRepo {
         self.trees.insert(rev.to_owned(), tree);
     }
 
-    fn sign(&mut self, tag: &str, rev: &str, signer: &str) {
+    fn tag_as(&mut self, tag: &str, rev: &str, signer: Option<&str>) {
         let tree = self.trees[rev].clone();
         self.trees.insert(format!("refs/tags/{tag}"), tree);
         self.tags.insert(
             tag.to_owned(),
-            (Some(tag.to_owned()), rev.to_owned(), signer.to_owned()),
+            (
+                Some(tag.to_owned()),
+                rev.to_owned(),
+                signer.map(str::to_owned),
+            ),
         );
+    }
+
+    /// An annotated tag signed by `signer`.
+    fn sign(&mut self, tag: &str, rev: &str, signer: &str) {
+        self.tag_as(tag, rev, Some(signer));
+    }
+
+    /// An annotated, unsigned tag, as `just contract-pin` makes it.
+    fn pin(&mut self, tag: &str, rev: &str) {
+        self.tag_as(tag, rev, None);
+    }
+
+    fn read_signers(&self) -> bool {
+        self.reads.borrow().iter().any(|path| path == SIGNERS)
     }
 }
 
 impl Repo for FakeRepo {
     fn read(&self, rev: &str, path: &str) -> anyhow::Result<Option<String>> {
+        self.reads.borrow_mut().push(path.to_owned());
         Ok(self.trees.get(rev).and_then(|tree| tree.get(path)).cloned())
     }
 
@@ -345,10 +378,10 @@ impl Repo for FakeRepo {
     fn verify_tag(&self, name: &str, allowed_signers: &str) -> anyhow::Result<Result<(), String>> {
         self.verified.borrow_mut().push(allowed_signers.to_owned());
         let (_, _, signer) = &self.tags[name];
-        Ok(if allowed_signers.lines().any(|line| line == signer) {
-            Ok(())
-        } else {
-            Err("no principal matched".to_owned())
+        Ok(match signer {
+            None => Err("no signature found".to_owned()),
+            Some(signer) if allowed_signers.lines().any(|line| line == signer) => Ok(()),
+            Some(_) => Err("no principal matched".to_owned()),
         })
     }
 }
@@ -374,17 +407,75 @@ fn alpha_repo() -> FakeRepo {
     repo
 }
 
+/// `alpha_repo` with `contract/alpha/v1` replaced by an unsigned tag.
+fn pinned_alpha_repo() -> FakeRepo {
+    let mut repo = alpha_repo();
+    repo.pin("contract/alpha/v1", "base");
+    repo
+}
+
 #[test]
 fn check_passes_and_counts_pinned_files() {
-    let repo = alpha_repo();
+    for (signatures, state) in [
+        (Signatures::Ignored, "pinned, 1 file(s) unchanged"),
+        (Signatures::Required, "signed, 1 file(s) unchanged"),
+    ] {
+        let repo = alpha_repo();
 
-    let report = check(&repo, "base", "base").expect("check runs");
+        let report = check(&repo, "base", "base", signatures).expect("check runs");
+
+        assert!(report.passed(false), "{signatures}: {:?}", report.problems);
+        assert_eq!(report.pinned, 1);
+        assert_eq!(report.features.len(), 1);
+        assert_eq!(report.features[0].state, state);
+        assert_eq!(report.features[0].tag(), "contract/alpha/v1");
+    }
+}
+
+#[test]
+fn by_default_an_unsigned_tag_pins_and_no_signature_is_read() {
+    let repo = pinned_alpha_repo();
+
+    let report = check(&repo, "base", "base", Signatures::Ignored).expect("check runs");
 
     assert!(report.passed(false), "{:?}", report.problems);
     assert_eq!(report.pinned, 1);
-    assert_eq!(report.features.len(), 1);
-    assert_eq!(report.features[0].state, "signed, 1 file(s) unchanged");
-    assert_eq!(report.features[0].tag(), "contract/alpha/v1");
+    assert_eq!(report.features[0].state, "pinned, 1 file(s) unchanged");
+    assert!(repo.verified.borrow().is_empty(), "verify-tag ran");
+    assert!(!repo.read_signers(), "{SIGNERS} was read");
+    assert!(report.notices.is_empty(), "{:?}", report.notices);
+}
+
+#[test]
+fn by_default_a_tag_signed_by_any_key_pins_like_an_unsigned_one() {
+    let mut repo = alpha_repo();
+    repo.sign("contract/alpha/v1", "base", "stranger");
+
+    let report = check(&repo, "base", "base", Signatures::Ignored).expect("check runs");
+
+    assert!(report.passed(false), "{:?}", report.problems);
+    assert!(repo.verified.borrow().is_empty(), "verify-tag ran");
+}
+
+#[test]
+fn required_signatures_reject_an_unsigned_tag_or_an_unknown_key() {
+    for signer in [None, Some("stranger")] {
+        let mut repo = alpha_repo();
+        repo.tag_as("contract/alpha/v1", "base", signer);
+
+        let report = check(&repo, "base", "base", Signatures::Required).expect("check runs");
+
+        assert!(!report.passed(true), "{signer:?}: {:?}", report.problems);
+        assert!(
+            matches!(
+                report.problems.as_slice(),
+                [Problem::TagUnverified { feature, version: 1, .. }, ..] if feature == "alpha"
+            ),
+            "{signer:?}: {:?}",
+            report.problems
+        );
+        assert_eq!(report.features[0].state, "not signed by an allowed key");
+    }
 }
 
 #[test]
@@ -399,25 +490,61 @@ fn check_verifies_with_the_base_signers_only() {
         ],
     );
 
-    check(&repo, "base", "head").expect("check runs");
+    check(&repo, "base", "head", Signatures::Required).expect("check runs");
 
     assert_eq!(*repo.verified.borrow(), ["owner"]);
 }
 
 #[test]
 fn check_reports_a_changed_file_once() {
-    let mut repo = alpha_repo();
+    for (signatures, state) in [
+        (
+            Signatures::Ignored,
+            "pinned, 1 of 1 file(s) changed or deleted",
+        ),
+        (
+            Signatures::Required,
+            "signed, 1 of 1 file(s) changed or deleted",
+        ),
+    ] {
+        let mut repo = alpha_repo();
+        repo.commit(
+            "head",
+            &[
+                (SIGNERS, "owner"),
+                (MANIFEST, MANIFEST_V1),
+                ("a/tests/contract_alpha.rs", "alpha v1, edited"),
+            ],
+        );
+
+        let report = check(&repo, "base", "head", signatures).expect("check runs");
+
+        assert_eq!(
+            report.problems,
+            [Problem::Changed {
+                path: "a/tests/contract_alpha.rs".to_owned(),
+                feature: "alpha".to_owned(),
+                version: 1,
+            }]
+        );
+        assert_eq!(report.features[0].state, state);
+    }
+}
+
+#[test]
+fn a_changed_file_under_an_unsigned_tag_is_a_violation() {
+    let mut repo = pinned_alpha_repo();
     repo.commit(
         "head",
         &[
-            (SIGNERS, "owner"),
             (MANIFEST, MANIFEST_V1),
             ("a/tests/contract_alpha.rs", "alpha v1, edited"),
         ],
     );
 
-    let report = check(&repo, "base", "head").expect("check runs");
+    let report = check(&repo, "base", "head", Signatures::Ignored).expect("check runs");
 
+    assert!(!report.passed(true), "{:?}", report.problems);
     assert_eq!(
         report.problems,
         [Problem::Changed {
@@ -426,129 +553,188 @@ fn check_reports_a_changed_file_once() {
             version: 1,
         }]
     );
-    assert_eq!(
-        report.features[0].state,
-        "signed, 1 of 1 file(s) changed or deleted"
-    );
+}
+
+#[test]
+fn a_missing_tag_is_pending_in_both_modes() {
+    for signatures in MODES {
+        let mut repo = FakeRepo::default();
+        repo.commit(
+            "base",
+            &[
+                (SIGNERS, "owner"),
+                (MANIFEST, MANIFEST_V1),
+                ("a/tests/contract_alpha.rs", "alpha v1"),
+            ],
+        );
+
+        let report = check(&repo, "base", "base", signatures).expect("check runs");
+
+        assert_eq!(
+            report.problems,
+            [
+                Problem::TagMissing {
+                    feature: "alpha".to_owned(),
+                    version: 1,
+                },
+                Problem::Untagged {
+                    path: "a/tests/contract_alpha.rs".to_owned(),
+                    hint: Untagged::AwaitingTag {
+                        feature: "alpha".to_owned(),
+                        version: 1,
+                    },
+                },
+            ],
+            "{signatures}"
+        );
+        assert!(report.passed(true), "{signatures}");
+        assert!(!report.passed(false), "{signatures}");
+    }
+}
+
+#[test]
+fn a_lightweight_tag_never_pins() {
+    for signatures in MODES {
+        let mut repo = alpha_repo();
+        repo.tags.insert(
+            "contract/alpha/v1".to_owned(),
+            (None, "base".to_owned(), Some("owner".to_owned())),
+        );
+
+        let report = check(&repo, "base", "base", signatures).expect("check runs");
+
+        assert!(
+            report.problems.contains(&Problem::TagMisnamed {
+                feature: "alpha".to_owned(),
+                version: 1,
+                object_name: None,
+            }),
+            "{signatures}: {:?}",
+            report.problems
+        );
+        assert!(!report.passed(true), "{signatures}");
+    }
 }
 
 #[test]
 fn check_without_any_manifest_passes_with_a_notice() {
-    let mut repo = FakeRepo::default();
-    repo.commit("base", &[("src/lib.rs", "")]);
+    // Required adds the BOOTSTRAP notice about HEAD's signers file.
+    for (signatures, notices) in [(Signatures::Ignored, 1), (Signatures::Required, 2)] {
+        let mut repo = FakeRepo::default();
+        repo.commit("base", &[("src/lib.rs", "")]);
 
-    let report = check(&repo, "base", "base").expect("check runs");
+        let report = check(&repo, "base", "base", signatures).expect("check runs");
 
-    assert!(report.passed(false));
-    assert_eq!(report.notices.len(), 2, "{:?}", report.notices);
+        assert!(report.passed(false));
+        assert_eq!(report.notices.len(), notices, "{:?}", report.notices);
+    }
 }
 
 #[test]
 fn check_uses_the_base_globs_even_when_head_drops_them() {
-    let mut repo = alpha_repo();
-    repo.commit(
-        "head",
-        &[
-            (SIGNERS, "owner"),
-            (
-                MANIFEST,
-                "contract_globs = []\n[features.alpha]\nversion = 1\npaths = [\"a/tests/contract_alpha.rs\"]\n",
-            ),
-            ("a/tests/contract_alpha.rs", "alpha v1"),
-            ("b/tests/contract_beta.rs", "beta"),
-        ],
-    );
+    for signatures in MODES {
+        let mut repo = alpha_repo();
+        repo.commit(
+            "head",
+            &[
+                (SIGNERS, "owner"),
+                (
+                    MANIFEST,
+                    "contract_globs = []\n[features.alpha]\nversion = 1\npaths = [\"a/tests/contract_alpha.rs\"]\n",
+                ),
+                ("a/tests/contract_alpha.rs", "alpha v1"),
+                ("b/tests/contract_beta.rs", "beta"),
+            ],
+        );
 
-    let report = check(&repo, "base", "head").expect("check runs");
+        let report = check(&repo, "base", "head", signatures).expect("check runs");
 
-    assert_eq!(
-        report.problems,
-        [Problem::Untagged {
-            path: "b/tests/contract_beta.rs".to_owned(),
-            hint: Untagged::Unregistered,
-        }]
-    );
+        assert_eq!(
+            report.problems,
+            [Problem::Untagged {
+                path: "b/tests/contract_beta.rs".to_owned(),
+                hint: Untagged::Unregistered,
+            }],
+            "{signatures}"
+        );
+    }
 }
 
 #[test]
 fn check_rejects_a_tag_whose_manifest_pins_another_version() {
-    let mut repo = FakeRepo::default();
-    repo.commit(
-        "base",
-        &[
-            (SIGNERS, "owner"),
-            (MANIFEST, &MANIFEST_V1.replace("version = 1", "version = 2")),
-            ("a/tests/contract_alpha.rs", "alpha"),
-        ],
-    );
-    // The owner signed this commit as v1, but its manifest says v2.
-    repo.sign("contract/alpha/v2", "base", "owner");
-    repo.tags.insert(
-        "contract/alpha/v1".to_owned(),
-        (
-            Some("contract/alpha/v1".to_owned()),
-            "base".to_owned(),
-            "owner".to_owned(),
-        ),
-    );
-    repo.trees.insert(
-        "refs/tags/contract/alpha/v1".to_owned(),
-        repo.trees["base"].clone(),
-    );
-    repo.commit(
-        "head",
-        &[
-            (SIGNERS, "owner"),
-            (MANIFEST, MANIFEST_V1),
-            ("a/tests/contract_alpha.rs", "alpha"),
-        ],
-    );
+    for signatures in MODES {
+        let mut repo = FakeRepo::default();
+        repo.commit(
+            "base",
+            &[
+                (SIGNERS, "owner"),
+                (MANIFEST, &MANIFEST_V1.replace("version = 1", "version = 2")),
+                ("a/tests/contract_alpha.rs", "alpha"),
+            ],
+        );
+        // This commit is tagged as v1, but its manifest says v2.
+        repo.sign("contract/alpha/v2", "base", "owner");
+        repo.sign("contract/alpha/v1", "base", "owner");
+        repo.commit(
+            "head",
+            &[
+                (SIGNERS, "owner"),
+                (MANIFEST, MANIFEST_V1),
+                ("a/tests/contract_alpha.rs", "alpha"),
+            ],
+        );
 
-    let report = check(&repo, "head", "head").expect("check runs");
+        let report = check(&repo, "head", "head", signatures).expect("check runs");
 
-    assert!(
-        report.problems.contains(&Problem::TagManifestMismatch {
-            feature: "alpha".to_owned(),
-            version: 1,
-            found: Some(2),
-        }),
-        "{:?}",
-        report.problems
-    );
+        assert!(
+            report.problems.contains(&Problem::TagManifestMismatch {
+                feature: "alpha".to_owned(),
+                version: 1,
+                found: Some(2),
+            }),
+            "{signatures}: {:?}",
+            report.problems
+        );
+    }
 }
 
 #[test]
 fn check_rejects_a_tag_that_covers_no_files() {
-    let mut repo = FakeRepo::default();
-    repo.commit(
-        "base",
-        &[
-            (SIGNERS, "owner"),
-            (
-                MANIFEST,
-                "[features.alpha]\nversion = 1\npaths = [\"typo/contract_alpha.rs\"]\n",
-            ),
-        ],
-    );
-    repo.sign("contract/alpha/v1", "base", "owner");
+    for signatures in MODES {
+        let mut repo = FakeRepo::default();
+        repo.commit(
+            "base",
+            &[
+                (SIGNERS, "owner"),
+                (
+                    MANIFEST,
+                    "[features.alpha]\nversion = 1\npaths = [\"typo/contract_alpha.rs\"]\n",
+                ),
+            ],
+        );
+        repo.sign("contract/alpha/v1", "base", "owner");
 
-    let report = check(&repo, "base", "base").expect("check runs");
+        let report = check(&repo, "base", "base", signatures).expect("check runs");
 
-    assert_eq!(
-        report.problems,
-        [Problem::TagCoversNothing {
-            feature: "alpha".to_owned(),
-            version: 1,
-        }]
-    );
+        assert_eq!(
+            report.problems,
+            [Problem::TagCoversNothing {
+                feature: "alpha".to_owned(),
+                version: 1,
+            }],
+            "{signatures}"
+        );
+    }
 }
 
 #[test]
 fn an_unparsable_head_manifest_is_an_error() {
-    let mut repo = alpha_repo();
-    repo.commit("head", &[(MANIFEST, "features = 3")]);
+    for signatures in MODES {
+        let mut repo = alpha_repo();
+        repo.commit("head", &[(MANIFEST, "features = 3")]);
 
-    let error = check(&repo, "base", "head").expect_err("head manifest is invalid");
+        let error = check(&repo, "base", "head", signatures).expect_err("head manifest is invalid");
 
-    assert!(format!("{error:#}").contains("at the head"), "{error:#}");
+        assert!(format!("{error:#}").contains("at the head"), "{error:#}");
+    }
 }

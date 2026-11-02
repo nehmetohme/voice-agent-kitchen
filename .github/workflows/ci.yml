@@ -203,14 +203,14 @@ jobs:
           url: https://github.com/oasdiff/oasdiff/releases/download/v1.35.0/oasdiff_1.35.0_linux_amd64.tar.gz
           sha256: a8023002fcb2eaa7f5758148a9303cb63d33b939886df312268bc0fc7b939140
       # Local mode first: drift, oasdiff, and HEAD's contract-check with --allow-pending
-      # (contracts awaiting the owner's signature only warn), so their results show even
-      # while a signature is pending.
+      # (contracts awaiting their tag only warn), so their results show even while a tag
+      # is pending.
       - name: Check contract drift
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
         run: VAK_CONTRACTS_BASE="origin/$BASE_REF" just contracts-verify
-      # Strict, with the base branch's copy of the checker: a contract awaiting the owner's
-      # signature fails here, so `gate` stays red until the owner signs the tag.
+      # Strict, with the base branch's copy of the checker: a contract awaiting its tag fails
+      # here, so `gate` stays red until the coordinating session pins and pushes the tag.
       - name: Check contract tags against the base branch (strict)
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
