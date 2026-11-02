@@ -15,6 +15,9 @@ design. The router plugin turns this folder into `src/app/routeTree.gen.ts` on `
 | `agents/$agentId/plan.tsx`                   | `/agents/:agentId/plan`: `SetupProgressPanel` and `PlanPage` (title "Plan"); a save refreshes progress |
 | (later) `agents/$agentId/{test,publish}.tsx` | One per flow step                                                                                      |
 
+The provision route also composes the testing feature's `TestCallPanel` and `LatencyPanel`
+into `ProvisionPage` (its `testCall` slot) until the Test step gets its own route in M5.
+
 ## May import
 
 - `src/features/<name>` through its `index.ts` only (`feature-public-api-only`).
