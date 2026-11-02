@@ -10,7 +10,8 @@ This crate builds the `vak-server` binary. It is the only place that:
 
 Today the CLI (clap) has three subcommands:
 
-- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` (with `vak_services::rule_packs::shipped()`; a pack that doesn't load stops the server) → `vak_api::app`. API requests run under the `VAK_HTTP_REQUEST_TIMEOUT_MS` deadline (default 10 s). If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` (with `vak_services::rule_packs::shipped()`; a pack that doesn't load stops the server), then `VoiceService` → `AppState::with_voice` → `vak_api::app`. API requests run under the `VAK_HTTP_REQUEST_TIMEOUT_MS` deadline (default 10 s). If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- **Voice** (`src/voice.rs`): `voice::engines(&settings.models)` builds the four adapters from `ModelSettings`: `OpenAiLlm` (with the API key and the parsed `VAK_LLM_EXTRA_BODY`), `ServingStt`, `ServingTts` and `SystemOneDecisions` (with `VAK_DECISION_PATH` when set). When a model isn't configured, it returns `None` with a warning that names the first missing variable. Voice sessions are then off, and `POST /api/v1/agents/{id}/sessions` answers 503. A setting that can't be used (an extra body that isn't JSON, or an `https://` base URL before M7) fails startup.
 - `vak-server migrate` applies the pending `vak-repositories-pg` migrations and exits. Run it before each deploy (and before `serve` on a fresh database).
 - `vak-server openapi [--output FILE]` writes `vak_api::openapi_json()` to the file, or to stdout. It reads no settings or environment. `just openapi` uses it to write `contracts/openapi.json`, and `just contracts-verify` uses it to check that file for drift.
 
@@ -21,7 +22,7 @@ Planned subcommand: `worker` (job queue).
 ## Dependencies
 
 - **May depend on:** every workspace crate. `layers.toml` lists all of them. Dev-only: `vak-testkit`.
-- **External crates:** `anyhow` (allowed here, unlike in libraries), `clap`, `tokio` (rt-multi-thread, macros, net, signal), `axum` (for `axum::serve`; a `deny.toml` wrapper), `tracing`.
+- **External crates:** `anyhow` (allowed here, unlike in libraries), `clap`, `tokio` (rt-multi-thread, macros, net, signal), `axum` (for `axum::serve`; a `deny.toml` wrapper), `tracing`, `serde_json` (parses `VAK_LLM_EXTRA_BODY`).
 - **Must not:** contain business logic, handlers, SQL or vendor protocol code. If it isn't wiring or lifecycle, it belongs in a library crate.
 
 ## Conventions
@@ -35,7 +36,7 @@ Planned subcommand: `worker` (job queue).
 
 ## Testing
 
-- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers, that `/api/v1` needs an identity unless a dev operator is set, and that serve returns after shutdown. The pool connects lazily, so these need no database.
+- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers, that `/api/v1` needs an identity unless a dev operator is set, and that serve returns after shutdown. The pool connects lazily, so these need no database. `voice::engines` is tested on settings: every model set turns voice on, a missing one turns it off, and bad settings fail.
 - **End-to-end with Postgres:** the frontend's Playwright run builds this binary, migrates a throwaway database and serves it (`frontend/e2e/support/backend-server.ts`).
 - **End-to-end:** a caller bot against the full Compose stack. These don't run here.
 

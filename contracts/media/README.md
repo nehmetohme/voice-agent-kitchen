@@ -7,7 +7,7 @@
 | `vak.media.v1.json` | JSON Schema (draft 2020-12) of the text events: `$defs/client_event` (browser to server) and `$defs/server_event` (server to browser) |
 | `examples.json` | Valid and invalid examples of both, each invalid one with the reason it is invalid |
 
-Both files are pinned by the signed tag `contract/voice-core/v1` (`../contracts.toml`). The server checks them in `backend/crates/providers/tests/contract_voice_core_media.rs` (its `vak_providers::media` types), the browser in `frontend/src/shared/voice/media-protocol.contract.test.ts` (its parser), and the pipeline contracts validate every event a session sends against the schema. To change the protocol, bump `voice-core` first.
+Both files are pinned by the tag `contract/voice-core/v1` (`../contracts.toml`). The server checks them in `backend/crates/providers/tests/contract_voice_core_media.rs` (its `vak_providers::media` types), the browser in `frontend/src/shared/voice/media-protocol.contract.test.ts` (its parser), and the pipeline contracts validate every event a session sends against the schema. To change the protocol, bump `voice-core` first.
 
 ## Frames
 

@@ -6,7 +6,7 @@ This crate holds the audio primitives for the voice pipeline.
 
 Today (M4a):
 
-- **`AudioFrame`:** 20 ms (`FRAME_MS`) of mono PCM16 at its sample rate, in a fixed `[i16; MAX_FRAME_SAMPLES]` buffer (960 samples, 48 kHz), so frames move through channels without a heap allocation each. Supported rates are 8, 16, 24 and 48 kHz (320 samples at 16 kHz, 480 at 24 kHz). `new` needs exactly one frame of samples, `silent` is a frame of zeros, and `padded` pads the end of a clip with silence; each fails with `FrameError` (`UnsupportedRate`, `WrongLength`). `samples()` and `rms()` read it. `Debug` shows the rate and length, never the samples.
+- **`AudioFrame`:** 20 ms (`FRAME_MS`) of mono PCM16 at its sample rate, in a fixed `[i16; MAX_FRAME_SAMPLES]` buffer (960 samples, 48 kHz), so frames move through channels without a heap allocation each. Supported rates are 8, 16, 24 and 48 kHz (320 samples at 16 kHz, 480 at 24 kHz). `new` needs exactly one frame of samples, `silent` is a frame of zeros, and `padded` pads the end of a clip with silence; each fails with `FrameError` (`UnsupportedRate`, `WrongLength`). `samples()` and `rms()` read it, and `copy_le_bytes` writes it as little-endian PCM16 (`byte_len` bytes, the wire format) into a caller's buffer without allocating. `Debug` shows the rate and length, never the samples.
 - **VAD:** `trait Vad: Send { fn push(&mut self, frame: &AudioFrame) -> VadEvent }`, where `VadEvent` is `Speech` or `Silence`. `EnergyVad` is the default: a frame is speech when its RMS is above both a fixed minimum (default 500, about -36 dBFS) and a multiple of a noise floor it learns from silent frames (default 3×). Turn-taking (end of turn, barge-in) is built on it in `vak-pipeline`.
 
 Later:

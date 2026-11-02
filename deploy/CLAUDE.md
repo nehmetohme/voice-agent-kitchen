@@ -58,11 +58,13 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `just dev-setup` | syncs the mlx-audio environment |
 | `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models, `/v1/systemone` support and ports, with fix hints |
 | `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server`, Vite, and `GET /api/v1/agents` through Vite's proxy (proves the migrations ran and the dev operator is set) |
+| `just adapters-live [args]` | runs the four model adapters' ignored live contract tests against the running stack, one test at a time (the LLM has one slot), with `local/env.sh` loaded. Needs `just dev` and the LAN LLM in `.env`. Defined in `backend/backend.just`; `-p <crate>` runs one adapter |
 
 ## Testing
 
 - `vak-model-shim` has its own contract tests (`backend/apps/model-shim`), against wiremock.
 - The stack itself is tested by `just dev-smoke` against the real models. Run it after changing anything here, and put its latencies in the PR.
+- `just adapters-live` checks that the Rust adapters still pass their port's conformance suite against these servers. Run it after changing a model, an endpoint or a model variable (`VAK_LLM_*`, `VAK_STT_*`, `VAK_TTS_*`, `VAK_DECISION_*`).
 
 ## Example
 
