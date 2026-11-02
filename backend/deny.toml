@@ -63,6 +63,11 @@ skip = [
   # sqlx-macros 0.9.0 and tracing-attributes 0.1.31 (enabled by sqlx-core) still use syn 2;
   # everything else uses syn 3. Compile-time only.
   { crate = "syn@2.0.119", reason = "proc macros of sqlx 0.9.0 and tracing-attributes 0.1.31" },
+  # axum 0.8.9's `ws` feature (the media WebSocket in vak-api) uses tungstenite 0.29, which
+  # still depends on rand 0.9; sqlx-postgres, proptest and uuid use rand 0.10 / getrandom 0.4.
+  { crate = "rand@0.9.5", reason = "tungstenite 0.29 via axum 0.8.9 ws" },
+  { crate = "rand_core@0.9.5", reason = "rand 0.9 via tungstenite 0.29 (axum 0.8.9 ws)" },
+  { crate = "getrandom@0.3.4", reason = "rand_core 0.9 via tungstenite 0.29 (axum 0.8.9 ws); also ahash via jsonschema (dev)" },
 ]
 # Framework firewall: only the named crates may depend on these directly (research 02,
 # "Enforcement"). Wrappers are declared before their crates use the banned crate, so the
