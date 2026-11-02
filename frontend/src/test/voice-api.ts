@@ -5,7 +5,7 @@ import { HttpResponse, http } from 'msw';
 export const SESSION_ID = '01920000-0000-7000-8000-0000000000aa';
 export const MEDIA_PATH = `/api/v1/sessions/${SESSION_ID}/media`;
 
-const STAGES = ['stt', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear'] as const;
+const STAGES = ['stt', 'decision', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear'] as const;
 const BOUNDS = [100, 200, 400, 800, null] as const;
 
 /** Every stage with no replies yet, as a fresh server reports it. */
@@ -24,7 +24,7 @@ export function emptyLatencyBody() {
 /** Two replies measured: end to end took 350 ms and 900 ms. */
 export function measuredLatencyBody() {
   const body = emptyLatencyBody();
-  const endToEnd = body.stages[3];
+  const endToEnd = body.stages.find((stage) => stage.stage === 'mouth_to_ear');
   if (endToEnd !== undefined) {
     Object.assign(endToEnd, {
       count: 2,

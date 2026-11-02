@@ -1,7 +1,7 @@
 // A voice session over the media WebSocket (vak.media.v1): microphone frames out, agent audio
 // and events in, barge-in honoured within a frame. The browser parts come in through
 // `VoiceDeps`, so tests drive the whole flow with fakes.
-import { FrameAccumulator, pcm16ToFloat } from './audio-frames';
+import { pcm16ToFloat } from './audio-frames';
 import {
   encodeClientEvent,
   MEDIA_PROTOCOL,
@@ -24,7 +24,8 @@ interface MediaSocket {
 
 export interface VoiceDeps {
   openSocket(url: string): MediaSocket;
-  openMicrophone(onSamples: (samples: Float32Array) => void): Promise<Microphone>;
+  /** `onFrame` gets each 20 ms frame of 16 kHz PCM16, valid only during the call. */
+  openMicrophone(onFrame: (frame: ArrayBuffer) => void): Promise<Microphone>;
   openSpeaker(): Speaker;
   /** The page the media path is resolved against. */
   readonly page: string;
@@ -74,7 +75,6 @@ export async function openVoiceSession(
 ): Promise<VoiceSession> {
   const speaker = deps.openSpeaker();
   const queue = new PlaybackQueue(speaker);
-  const frames = new FrameAccumulator();
   let socket: MediaSocket | null = null;
   let started = false;
   let muted = false;
@@ -87,9 +87,9 @@ export async function openVoiceSession(
 
   let microphone: Microphone;
   try {
-    microphone = await deps.openMicrophone((samples) => {
-      if (!started || muted || socket?.readyState !== OPEN) return;
-      for (const frame of frames.push(samples)) socket.send(frame);
+    microphone = await deps.openMicrophone((frame) => {
+      // `send` copies the frame, so the worklet may reuse its buffer afterwards.
+      if (started && !muted && socket?.readyState === OPEN) socket.send(frame);
     });
   } catch (error) {
     speaker.close();

@@ -1,6 +1,7 @@
 // A fake of the browser parts a voice session uses (WebSocket, microphone, Web Audio), installed
-// as globals so the real shared/voice code runs in jsdom. Tests drive the socket by hand: open
-// it, deliver server frames, and read what the page sent.
+// as globals so the real shared/voice code runs in jsdom, the capture worklet included: its
+// source is read back from the blob URL and run against a fake AudioWorkletProcessor. Tests
+// drive the socket by hand: open it, deliver server frames, and read what the page sent.
 import { afterEach, beforeEach, vi } from 'vitest';
 
 type Call = () => void;
@@ -20,8 +21,9 @@ export class FakeSocket extends EventTarget {
     FakeSocket.instances.push(this);
   }
 
+  /** Copies binary data, as a real socket does: the caller may reuse its buffer. */
   send(data: string | ArrayBuffer) {
-    this.sent.push(data);
+    this.sent.push(typeof data === 'string' ? data : data.slice(0));
   }
 
   close() {
@@ -54,6 +56,60 @@ export class FakeSocket extends EventTarget {
   }
 }
 
+/** One end of a message channel; delivery to the other end is immediate. */
+class FakePort extends EventTarget {
+  peer: FakePort | undefined;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  readonly start = vi.fn<Call>();
+  readonly close = vi.fn<Call>();
+
+  postMessage(data: unknown) {
+    const event = new MessageEvent('message', { data });
+    this.peer?.onmessage?.(event);
+    this.peer?.dispatchEvent(event);
+  }
+}
+
+function portPair(): [FakePort, FakePort] {
+  const page = new FakePort();
+  const worklet = new FakePort();
+  page.peer = worklet;
+  worklet.peer = page;
+  return [page, worklet];
+}
+
+interface Processor {
+  process(inputs: Float32Array[][]): boolean;
+}
+type ProcessorClass = new () => Processor;
+
+const processors = new Map<string, ProcessorClass>();
+let workletPort: FakePort | undefined;
+
+/** The base class the worklet's processor extends: it gets the worklet end of the port. */
+class FakeAudioWorkletProcessor {
+  readonly port: FakePort;
+
+  constructor() {
+    if (workletPort === undefined) throw new Error('a processor is made by its node');
+    this.port = workletPort;
+  }
+}
+
+function registerProcessor(name: string, processor: ProcessorClass) {
+  processors.set(name, processor);
+}
+
+/** Runs a worklet module's source, as `audioWorklet.addModule` would. */
+function loadWorklet(source: string) {
+  // Test only: the module is our own CAPTURE_WORKLET string.
+  // oxlint-disable-next-line typescript/no-implied-eval
+  const module = new Function('AudioWorkletProcessor', 'registerProcessor', source);
+  Reflect.apply(module, undefined, [FakeAudioWorkletProcessor, registerProcessor]);
+}
+
+const blobs = new Map<string, Blob>();
+
 class FakeSource extends EventTarget {
   buffer: unknown = null;
   readonly connect = vi.fn<Call>();
@@ -69,18 +125,22 @@ export class FakeAudioContext {
   readonly destination = {};
   readonly sources: FakeSource[] = [];
   readonly audioWorklet = {
-    addModule: vi.fn<(url: string) => Promise<void>>(() => Promise.resolve()),
+    addModule: vi.fn<(url: string) => Promise<void>>(async (url) => {
+      const blob = blobs.get(url);
+      if (blob === undefined) throw new Error(`no module at ${url}`);
+      loadWorklet(await blob.text());
+    }),
   };
   readonly close = vi.fn<() => Promise<void>>(() => Promise.resolve());
   readonly microphoneSource = { connect: vi.fn<Call>(), disconnect: vi.fn<Call>() };
 
-  createMediaStreamSource() {
-    return this.microphoneSource;
-  }
-
   constructor(options: { sampleRate: number }) {
     this.sampleRate = options.sampleRate;
     FakeAudioContext.instances.push(this);
+  }
+
+  createMediaStreamSource() {
+    return this.microphoneSource;
   }
 
   createBuffer(_channels: number, length: number) {
@@ -97,9 +157,17 @@ export class FakeAudioContext {
 
 class FakeWorkletNode {
   static readonly instances: FakeWorkletNode[] = [];
-  readonly port = Object.assign(new EventTarget(), { start: vi.fn<Call>(), close: vi.fn<Call>() });
+  readonly port: FakePort;
+  readonly processor: Processor;
 
-  constructor() {
+  constructor(_context: unknown, name: string) {
+    const Processor = processors.get(name);
+    if (Processor === undefined) throw new Error(`no processor named ${name}`);
+    const [page, worklet] = portPair();
+    workletPort = worklet;
+    this.processor = new Processor();
+    workletPort = undefined;
+    this.port = page;
     FakeWorkletNode.instances.push(this);
   }
 }
@@ -107,10 +175,11 @@ class FakeWorkletNode {
 export const microphone = {
   track: { stop: vi.fn<Call>() },
   getUserMedia: vi.fn<(constraints: MediaStreamConstraints) => Promise<unknown>>(),
-  /** The worklet hands the page a quantum of microphone samples. */
+  /** The audio thread renders `samples` through every capture worklet, 128 at a time. */
   speak(samples: Float32Array) {
-    for (const node of FakeWorkletNode.instances) {
-      node.port.dispatchEvent(new MessageEvent('message', { data: samples }));
+    for (let at = 0; at < samples.length; at += 128) {
+      const quantum = samples.subarray(at, at + 128);
+      for (const node of FakeWorkletNode.instances) node.processor.process([[quantum]]);
     }
   },
 };
@@ -124,6 +193,7 @@ export function installFakeVoiceBrowser() {
     FakeSocket.instances.length = 0;
     FakeAudioContext.instances.length = 0;
     FakeWorkletNode.instances.length = 0;
+    blobs.clear();
     microphone.track.stop.mockClear();
     microphone.getUserMedia.mockReset();
     microphone.getUserMedia.mockResolvedValue({ getTracks: () => [microphone.track] });
@@ -136,9 +206,16 @@ export function installFakeVoiceBrowser() {
     });
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
-      value: () => 'blob:vak-capture',
+      value: (blob: Blob) => {
+        const url = `blob:vak-${blobs.size}`;
+        blobs.set(url, blob);
+        return url;
+      },
     });
-    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: (url: string) => blobs.delete(url),
+    });
   });
   afterEach(() => {
     vi.unstubAllGlobals();

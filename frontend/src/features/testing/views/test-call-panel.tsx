@@ -58,13 +58,15 @@ function CallControls({ call }: { call: ReturnType<typeof useTestCall> }) {
   const { state } = call;
   if (!isInCall(state.phase)) {
     return (
-      <Button onClick={call.start}>
-        {state.phase === 'idle' ? 'Start test call' : 'Call again'}
-      </Button>
+      <div data-region="actions" className="flex gap-3">
+        <Button onClick={call.start}>
+          {state.phase === 'idle' ? 'Start test call' : 'Call again'}
+        </Button>
+      </div>
     );
   }
   return (
-    <div className="flex gap-3">
+    <div data-region="actions" className="flex gap-3">
       <Button onClick={call.end} disabled={state.phase === 'ending'}>
         End call
       </Button>

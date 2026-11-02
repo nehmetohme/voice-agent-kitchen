@@ -20,14 +20,17 @@ const WINDOW: usize = 1_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Stt,
+    /// The opt-out decision, beside the LLM.
+    Decision,
     LlmTtft,
     TtsFirstAudio,
     MouthToEar,
 }
 
 impl Stage {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Stt,
+        Self::Decision,
         Self::LlmTtft,
         Self::TtsFirstAudio,
         Self::MouthToEar,
@@ -38,6 +41,7 @@ impl Stage {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Stt => "stt",
+            Self::Decision => "decision",
             Self::LlmTtft => "llm_ttft",
             Self::TtsFirstAudio => "tts_first_audio",
             Self::MouthToEar => "mouth_to_ear",
@@ -47,6 +51,8 @@ impl Stage {
     fn of(self, latencies: &StageLatencies) -> Option<Duration> {
         match self {
             Self::Stt => latencies.stt(),
+            // Reported on its own: `decision_latency`.
+            Self::Decision => None,
             Self::LlmTtft => latencies.llm_ttft(),
             Self::TtsFirstAudio => latencies.tts_first_audio(),
             Self::MouthToEar => latencies.mouth_to_ear(),
@@ -118,7 +124,7 @@ pub struct StageReport {
 /// The voice path's latency so far.
 #[derive(Debug, Default)]
 pub struct LatencyStats {
-    stages: Mutex<[Histogram; 4]>,
+    stages: Mutex<[Histogram; Stage::ALL.len()]>,
 }
 
 impl LatencyStats {
@@ -138,10 +144,25 @@ impl SessionObserver for LatencyStats {
         let mut stages = self.stages.lock().unwrap_or_else(PoisonError::into_inner);
         for (stage, histogram) in Stage::ALL.iter().zip(stages.iter_mut()) {
             if let Some(duration) = stage.of(latencies) {
-                histogram.record(u64::try_from(duration.as_millis()).unwrap_or(u64::MAX));
+                histogram.record(whole_millis(duration));
             }
         }
     }
+
+    fn decision_latency(&self, latency: Duration) {
+        let mut stages = self.stages.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(histogram) = Stage::ALL
+            .iter()
+            .position(|stage| *stage == Stage::Decision)
+            .and_then(|index| stages.get_mut(index))
+        {
+            histogram.record(whole_millis(latency));
+        }
+    }
+}
+
+fn whole_millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]
@@ -173,9 +194,15 @@ mod tests {
         let names: Vec<&str> = report.iter().map(|stage| stage.stage.as_str()).collect();
         assert_eq!(
             names,
-            ["stt", "llm_ttft", "tts_first_audio", "mouth_to_ear"]
+            [
+                "stt",
+                "decision",
+                "llm_ttft",
+                "tts_first_audio",
+                "mouth_to_ear"
+            ]
         );
-        let mouth = &report[3];
+        let mouth = &report[4];
         assert_eq!(mouth.count, 5);
         assert_eq!(mouth.p50_ms, Some(1_000));
         assert_eq!(mouth.p95_ms, Some(1_200));
@@ -189,7 +216,14 @@ mod tests {
         assert_eq!(count_in(Some(1_000)), Some(3), "800, 900 and 1000");
         assert_eq!(count_in(Some(1_500)), Some(1));
         assert_eq!(count_in(None), Some(1), "9 s overflows");
-        assert_eq!(report[2].count, 0, "no TTS timing in these replies");
+        assert_eq!(report[3].count, 0, "no TTS timing in these replies");
+        assert_eq!(report[1].count, 0, "replies carry no decision timing");
+
+        stats.decision_latency(ms(180));
+        stats.decision_latency(ms(2_000));
+        let decision = &stats.report()[1];
+        assert_eq!(decision.count, 2);
+        assert_eq!(decision.p50_ms, Some(180));
         assert_eq!(report[0].buckets.len(), BUCKETS_MS.len() + 1);
     }
 

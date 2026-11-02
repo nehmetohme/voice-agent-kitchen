@@ -59,7 +59,9 @@ describe('openVoiceSession', () => {
     expect(microphone.getUserMedia).toHaveBeenCalledWith({
       audio: expect.objectContaining({ echoCancellation: true, channelCount: 1 }) as unknown,
     });
-    expect(contextAt(16_000).audioWorklet.addModule).toHaveBeenCalledWith('blob:vak-capture');
+    expect(contextAt(16_000).audioWorklet.addModule).toHaveBeenCalledWith(
+      expect.stringMatching(/^blob:/) as unknown,
+    );
   });
 
   it('sends session.start first, then 20 ms microphone frames', async () => {

@@ -8,6 +8,10 @@
 //! | Edge | Capacity | When full |
 //! |---|---|---|
 //! | peer → pipeline, audio | [`INBOUND_CAPACITY`] items | dropped: late audio is worthless, and the socket reader never stalls |
+//!
+//! Audio moves as [`AudioFrame`]s (fixed arrays), so a frame never allocates on its way:
+//! [`InputFramer`] cuts the client's bytes into frames, and [`AudioFrame::copy_le_bytes`]
+//! writes agent frames into the bridge's buffer.
 //! | peer → pipeline, events | shared | the peer waits (events are rare) |
 //! | pipeline → peer | [`OUTBOUND_CAPACITY`] items | the pipeline waits: the bridge only writes to the socket |
 
@@ -314,9 +318,13 @@ impl From<vak_domain::OptOutLayer> for OptOutLayer {
 /// What reaches the pipeline from the client.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "frames move by value, so sending one never allocates"
+)]
 pub enum Inbound {
-    /// A binary frame: 16 kHz mono PCM16 samples.
-    Audio(Vec<i16>),
+    /// 20 ms of client audio at [`INPUT_SAMPLE_RATE`], cut by an [`InputFramer`].
+    Audio(AudioFrame),
     /// A text frame that parsed as a client event.
     Event(ClientEvent),
     /// A text frame that is not a client event.
@@ -418,27 +426,23 @@ impl MediaPeer {
 }
 
 impl PeerSender {
-    /// A binary frame of 16 kHz samples. Never waits: a full queue drops the frame.
+    /// A 20 ms frame of client audio. Never waits: a full queue drops the frame.
     #[must_use]
-    pub fn push_audio(&self, samples: Vec<i16>) -> PushAudio {
-        match self.inbound.try_send(Inbound::Audio(samples)) {
+    pub fn push_audio(&self, frame: AudioFrame) -> PushAudio {
+        match self.inbound.try_send(Inbound::Audio(frame)) {
             Ok(()) => PushAudio::Accepted,
             Err(mpsc::error::TrySendError::Full(_)) => PushAudio::Dropped,
             Err(mpsc::error::TrySendError::Closed(_)) => PushAudio::Closed,
         }
     }
 
-    /// A binary frame as bytes: PCM s16le, or `UnsupportedAudio` for an odd length.
-    #[must_use]
-    pub fn push_audio_bytes(&self, bytes: &[u8]) -> PushAudio {
-        let (pairs, rest) = bytes.as_chunks::<2>();
-        if !rest.is_empty() {
-            return match self.inbound.try_send(Inbound::UnsupportedAudio) {
-                Ok(()) | Err(mpsc::error::TrySendError::Full(_)) => PushAudio::Dropped,
-                Err(mpsc::error::TrySendError::Closed(_)) => PushAudio::Closed,
-            };
+    /// A binary message that isn't PCM16. The pipeline answers it with an error, unless it
+    /// is behind: then the notice is dropped like late audio.
+    fn push_unsupported(&self) -> PushAudio {
+        match self.inbound.try_send(Inbound::UnsupportedAudio) {
+            Ok(()) | Err(mpsc::error::TrySendError::Full(_)) => PushAudio::Dropped,
+            Err(mpsc::error::TrySendError::Closed(_)) => PushAudio::Closed,
         }
-        self.push_audio(pairs.iter().map(|pair| i16::from_le_bytes(*pair)).collect())
     }
 
     /// A text frame: a client event, or an invalid message the pipeline answers with an
@@ -463,6 +467,60 @@ impl PeerSender {
     }
 }
 
+/// Samples in one 20 ms frame of client audio.
+pub const INPUT_FRAME_SAMPLES: usize = 320;
+
+/// Cuts the client's binary messages into 20 ms frames without allocating. Any even length
+/// is accepted (`contracts/media/README.md`); the samples of a partial frame wait for the next
+/// message. One per socket.
+#[derive(Debug)]
+pub struct InputFramer {
+    pending: [i16; INPUT_FRAME_SAMPLES],
+    filled: usize,
+}
+
+impl Default for InputFramer {
+    fn default() -> Self {
+        Self {
+            pending: [0; INPUT_FRAME_SAMPLES],
+            filled: 0,
+        }
+    }
+}
+
+impl InputFramer {
+    /// Pushes every frame `bytes` completes to `sender`. `Dropped` when the pipeline was
+    /// behind for any of them, and for a message with an odd number of bytes (not PCM16,
+    /// and none of it is kept); `Closed` once the pipeline is gone.
+    pub fn push(&mut self, sender: &PeerSender, bytes: &[u8]) -> PushAudio {
+        let (pairs, rest) = bytes.as_chunks::<2>();
+        if !rest.is_empty() {
+            return sender.push_unsupported();
+        }
+        let mut outcome = PushAudio::Accepted;
+        for pair in pairs {
+            if let Some(slot) = self.pending.get_mut(self.filled) {
+                *slot = i16::from_le_bytes(*pair);
+            }
+            self.filled += 1;
+            if self.filled < INPUT_FRAME_SAMPLES {
+                continue;
+            }
+            self.filled = 0;
+            // 320 samples at 16 kHz always make a frame.
+            let Ok(frame) = AudioFrame::new(INPUT_SAMPLE_RATE, &self.pending) else {
+                continue;
+            };
+            match sender.push_audio(frame) {
+                PushAudio::Accepted => {}
+                PushAudio::Dropped => outcome = PushAudio::Dropped,
+                PushAudio::Closed => return PushAudio::Closed,
+            }
+        }
+        outcome
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -473,19 +531,14 @@ mod tests {
     async fn the_peer_reaches_the_transport_and_back() {
         let (mut transport, peer) = media_channel();
         let (sender, mut outbound) = peer.into_parts();
-        assert_eq!(sender.push_audio(vec![1, 2]), PushAudio::Accepted);
-        assert_eq!(
-            sender.push_audio_bytes(&[1, 0, 255, 255]),
-            PushAudio::Accepted
-        );
+        assert_eq!(sender.push_audio(frame(1)), PushAudio::Accepted);
         sender.push_text(r#"{"type":"session.end"}"#).await.unwrap();
         sender.push_text("not json").await.unwrap();
         sender
             .push_event(ClientEvent::Mute { muted: true })
             .await
             .unwrap();
-        assert_eq!(transport.recv().await, Some(Inbound::Audio(vec![1, 2])));
-        assert_eq!(transport.recv().await, Some(Inbound::Audio(vec![1, -1])));
+        assert_eq!(transport.recv().await, Some(Inbound::Audio(frame(1))));
         assert_eq!(
             transport.recv().await,
             Some(Inbound::Event(ClientEvent::SessionEnd))
@@ -505,26 +558,74 @@ mod tests {
         assert!(!sender.is_closed());
         drop(transport);
         assert!(sender.is_closed());
-        assert_eq!(sender.push_audio(vec![0]), PushAudio::Closed);
+        assert_eq!(sender.push_audio(frame(0)), PushAudio::Closed);
         assert!(sender.push_text("{}").await.is_err());
         assert!(sender.push_event(ClientEvent::SessionEnd).await.is_err());
+    }
+
+    fn frame(level: i16) -> AudioFrame {
+        AudioFrame::new(INPUT_SAMPLE_RATE, &[level; INPUT_FRAME_SAMPLES]).unwrap()
+    }
+
+    /// `samples` as the little-endian bytes a client sends.
+    fn wire(samples: &[i16]) -> Vec<u8> {
+        samples
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn the_framer_cuts_any_even_length_into_20_ms_frames() {
+        let (mut transport, peer) = media_channel();
+        let (sender, _outbound) = peer.into_parts();
+        let mut framer = InputFramer::default();
+        let samples: Vec<i16> = (0..800).map(|i| i16::try_from(i).unwrap() - 400).collect();
+
+        // 2.5 frames in three uneven messages: two frames out, 160 samples left waiting.
+        assert_eq!(
+            framer.push(&sender, &wire(&samples[..100])),
+            PushAudio::Accepted
+        );
+        assert_eq!(
+            framer.push(&sender, &wire(&samples[100..700])),
+            PushAudio::Accepted
+        );
+        assert_eq!(
+            framer.push(&sender, &wire(&samples[700..])),
+            PushAudio::Accepted
+        );
+        let first = transport.recv().await;
+        let second = transport.recv().await;
+
+        let expect = |range: std::ops::Range<usize>| {
+            Some(Inbound::Audio(
+                AudioFrame::new(INPUT_SAMPLE_RATE, &samples[range]).unwrap(),
+            ))
+        };
+        assert_eq!(first, expect(0..320));
+        assert_eq!(second, expect(320..640));
+        assert!(transport.inbound.try_recv().is_err());
+        assert_eq!(framer.filled, 160);
     }
 
     #[tokio::test]
     async fn late_audio_is_dropped_and_odd_bytes_are_unsupported() {
         let (mut transport, peer) = media_channel();
         let (sender, _outbound) = peer.into_parts();
+        let mut framer = InputFramer::default();
         for _ in 0..INBOUND_CAPACITY {
-            assert_eq!(sender.push_audio(vec![0]), PushAudio::Accepted);
+            assert_eq!(sender.push_audio(frame(0)), PushAudio::Accepted);
         }
-        assert_eq!(sender.push_audio(vec![0]), PushAudio::Dropped);
-        assert_eq!(sender.push_audio_bytes(&[0, 0]), PushAudio::Dropped);
-        assert_eq!(sender.push_audio_bytes(&[0]), PushAudio::Dropped);
+        assert_eq!(sender.push_audio(frame(0)), PushAudio::Dropped);
+        assert_eq!(framer.push(&sender, &[0; 640]), PushAudio::Dropped);
+        assert_eq!(framer.push(&sender, &[0]), PushAudio::Dropped);
         while transport.inbound.try_recv().is_ok() {}
-        assert_eq!(sender.push_audio_bytes(&[0, 0, 0]), PushAudio::Dropped);
+        assert_eq!(framer.push(&sender, &[0, 0, 0]), PushAudio::Dropped);
         assert_eq!(transport.recv().await, Some(Inbound::UnsupportedAudio));
         drop(transport);
-        assert_eq!(sender.push_audio_bytes(&[0]), PushAudio::Closed);
+        assert_eq!(framer.push(&sender, &[0]), PushAudio::Closed);
+        assert_eq!(framer.push(&sender, &[0; 640]), PushAudio::Closed);
     }
 
     #[test]

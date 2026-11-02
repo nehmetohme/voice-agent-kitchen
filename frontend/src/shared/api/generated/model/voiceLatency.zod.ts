@@ -27,7 +27,7 @@ export const VoiceLatency = zod.object({
   "count": zod.int().min(voiceLatencyStagesItemCountMin).describe('Replies measured since the server started.'),
   "p50Ms": zod.int().min(voiceLatencyStagesItemP50MsMin).nullish().describe('Median over the last 1000 replies; `null` before the first.'),
   "p95Ms": zod.int().min(voiceLatencyStagesItemP95MsMin).nullish().describe('95th percentile over the last 1000 replies; `null` before the first.'),
-  "stage": zod.enum(['stt', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear']).describe('A stage of the voice path.')
+  "stage": zod.enum(['stt', 'decision', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear']).describe('A stage of the voice path.')
 }).describe('One stage\'s histogram.'))
 }).describe('Every stage, in pipeline order.')
 

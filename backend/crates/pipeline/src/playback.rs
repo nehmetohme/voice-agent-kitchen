@@ -77,8 +77,16 @@ impl Playing {
         loop {
             let clause = self.clauses.front_mut()?;
             if clause.sent < clause.samples.len() {
+                // 24 kHz is a supported rate, so this can't fail; if it ever did, the turn
+                // would end early, so it says so.
                 let frame =
-                    AudioFrame::padded(OUTPUT_SAMPLE_RATE, &clause.samples[clause.sent..]).ok()?;
+                    match AudioFrame::padded(OUTPUT_SAMPLE_RATE, &clause.samples[clause.sent..]) {
+                        Ok(frame) => frame,
+                        Err(error) => {
+                            tracing::warn!(%error, "no agent audio frame; the turn ends early");
+                            return None;
+                        }
+                    };
                 clause.sent = (clause.sent + FRAME_SAMPLES).min(clause.samples.len());
                 return Some(frame);
             }

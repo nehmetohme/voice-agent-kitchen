@@ -37,8 +37,6 @@ use crate::stages::{STAGE_CAPACITY, StageEvent, Stages, Synthesis};
 use crate::{Engines, SessionConfig, SessionOutcome};
 
 const FRAME: Duration = Duration::from_millis(20);
-/// Samples in one 20 ms frame of caller audio (16 kHz).
-const INPUT_FRAME_SAMPLES: usize = 320;
 /// Frames sent at once when an agent turn starts, so the browser's playback never starves.
 const HEAD_START_FRAMES: usize = 3;
 /// Clauses synthesized ahead of the one playing: enough to hide TTS latency, few enough that
@@ -78,7 +76,6 @@ pub async fn run_session(
         started: false,
         muted: false,
         detector,
-        input: Vec::with_capacity(INPUT_FRAME_SAMPLES * 4),
         next_turn: 0,
         history: Vec::new(),
         pending_stt: VecDeque::new(),
@@ -166,8 +163,6 @@ struct Session {
     started: bool,
     muted: bool,
     detector: TurnDetector,
-    /// Caller samples not yet making a whole frame.
-    input: Vec<i16>,
     next_turn: u32,
     history: Vec<Line>,
     pending_stt: VecDeque<PendingUtterance>,
@@ -277,8 +272,11 @@ impl Session {
             Inbound::Event(ClientEvent::SessionEnd) => {
                 self.finish(SessionEndReason::ClientEnded).await;
             }
-            Inbound::Audio(samples) if self.started && !self.ending() => {
-                self.on_audio(&samples).await;
+            // The transport only carries 16 kHz frames (`InputFramer`).
+            Inbound::Audio(frame)
+                if self.started && !self.ending() && frame.sample_rate() == INPUT_SAMPLE_RATE =>
+            {
+                self.on_frame(&frame).await;
             }
             // Nothing is sent before session.start.
             Inbound::Invalid if self.started => {
@@ -328,22 +326,6 @@ impl Session {
             self.config.deadlines.tts,
             self.cancel.child_token(),
         );
-    }
-
-    async fn on_audio(&mut self, samples: &[i16]) {
-        self.input.extend_from_slice(samples);
-        let mut used = 0;
-        while self.input.len() - used >= INPUT_FRAME_SAMPLES {
-            let frame = AudioFrame::new(
-                INPUT_SAMPLE_RATE,
-                &self.input[used..used + INPUT_FRAME_SAMPLES],
-            );
-            used += INPUT_FRAME_SAMPLES;
-            if let Ok(frame) = frame {
-                self.on_frame(&frame).await;
-            }
-        }
-        self.input.drain(..used);
     }
 
     async fn on_frame(&mut self, frame: &AudioFrame) {
@@ -524,7 +506,11 @@ impl Session {
             return;
         };
         self.decisions.remove(position);
-        let latency_ms = millis(Instant::now().saturating_duration_since(started));
+        let elapsed = Instant::now().saturating_duration_since(started);
+        if let Some(observer) = &self.config.observer {
+            observer.decision_latency(elapsed);
+        }
+        let latency_ms = millis(elapsed);
         let event = |status, probability| ServerEvent::Decision {
             turn_id,
             question: OPT_OUT_QUESTION.to_owned(),

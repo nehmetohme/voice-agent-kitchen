@@ -868,6 +868,7 @@
         "description": "A stage of the voice path.",
         "enum": [
           "stt",
+          "decision",
           "llm_ttft",
           "tts_first_audio",
           "mouth_to_ear"
@@ -1794,6 +1795,16 @@
               }
             },
             "description": "No signed-in operator"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The handshake comes from a page on another site"
           },
           "404": {
             "content": {

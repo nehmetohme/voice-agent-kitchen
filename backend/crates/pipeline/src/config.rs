@@ -157,6 +157,13 @@ impl Default for StageDeadlines {
 /// services record latency histograms.
 pub trait SessionObserver: Send + Sync {
     fn reply_latencies(&self, latencies: &StageLatencies);
+
+    /// How long an opt-out decision took, from the caller's transcript to its answer,
+    /// timeout or failure. It runs beside the LLM; while it is out, the reply waits (at most
+    /// the policy's decision wait), which `mouth_to_ear` includes.
+    fn decision_latency(&self, latency: Duration) {
+        let _ = latency;
+    }
 }
 
 /// One session's configuration.

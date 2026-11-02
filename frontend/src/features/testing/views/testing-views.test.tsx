@@ -177,6 +177,7 @@ describe('Latency', () => {
     expect(rows.map((row) => row.textContent)).toEqual([
       'StageMedian95th percentileRepliesSpread',
       'Speech to text––0No replies yet',
+      'Opt-out check––0No replies yet',
       'Model, first token––0No replies yet',
       'Voice, first audio––0No replies yet',
       'End to end350 ms900 ms2Replies by time, ≤ 400 ms: 1, > 800 ms: 1',

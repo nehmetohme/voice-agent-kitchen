@@ -26,7 +26,7 @@ pub use vak_pipeline::{Engines, StageDeadlines};
 /// channel pair between the socket and a session.
 pub mod media {
     pub use vak_providers::media::{
-        MediaPeer, MediaTransport, Outbound, PROTOCOL, PeerSender, PushAudio, ServerEvent,
-        media_channel,
+        InputFramer, MediaPeer, MediaTransport, Outbound, PROTOCOL, PeerSender, PushAudio,
+        ServerEvent, media_channel,
     };
 }

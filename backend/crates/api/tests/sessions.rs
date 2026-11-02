@@ -166,7 +166,13 @@ async fn the_media_route_wants_a_websocket_and_the_latency_route_reports_every_s
         .collect();
     assert_eq!(
         stages,
-        ["stt", "llm_ttft", "tts_first_audio", "mouth_to_ear"]
+        [
+            "stt",
+            "decision",
+            "llm_ttft",
+            "tts_first_audio",
+            "mouth_to_ear"
+        ]
     );
     assert_eq!(latency["stages"][3]["count"], 0);
     assert_eq!(latency["stages"][3]["p50Ms"], Value::Null);
@@ -190,10 +196,24 @@ async fn connect(
     protocol: Option<&str>,
     user: &str,
 ) -> Result<Socket, tokio_tungstenite::tungstenite::Error> {
+    connect_from(addr, path, protocol, user, None).await
+}
+
+/// Like `connect`, as a browser on the page at `origin` would.
+async fn connect_from(
+    addr: std::net::SocketAddr,
+    path: &str,
+    protocol: Option<&str>,
+    user: &str,
+    origin: Option<&str>,
+) -> Result<Socket, tokio_tungstenite::tungstenite::Error> {
     let mut request = format!("ws://{addr}{path}")
         .into_client_request()
         .expect("a request");
     let headers = request.headers_mut();
+    if let Some(origin) = origin {
+        headers.insert(header::ORIGIN, origin.parse().expect("a header"));
+    }
     headers.insert("x-forwarded-user", user.parse().expect("a header"));
     headers.insert("x-forwarded-email", EMAIL.parse().expect("a header"));
     if let Some(protocol) = protocol {
@@ -259,9 +279,32 @@ async fn a_conversation_runs_over_the_media_websocket() {
             .is_err(),
         "only the operator who started the session may open it"
     );
-    let mut socket = connect(addr, &path, Some("vak.media.v1"), USER)
-        .await
-        .expect("the media socket opens");
+    let refused = connect_from(
+        addr,
+        &path,
+        Some("vak.media.v1"),
+        USER,
+        Some("https://evil.example"),
+    )
+    .await;
+    assert!(
+        matches!(
+            refused,
+            Err(tokio_tungstenite::tungstenite::Error::Http(ref response))
+                if response.status() == StatusCode::FORBIDDEN
+        ),
+        "a page on another site may not open the call: {refused:?}"
+    );
+    // The app's own page: `Origin` matches the host the handshake went to.
+    let mut socket = connect_from(
+        addr,
+        &path,
+        Some("vak.media.v1"),
+        USER,
+        Some(&format!("http://{addr}")),
+    )
+    .await
+    .expect("the media socket opens");
     assert!(
         connect(addr, &path, Some("vak.media.v1"), USER)
             .await

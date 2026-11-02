@@ -7,6 +7,7 @@ import { LatencyHistogram } from './latency-histogram';
 
 const STAGE_LABEL: Record<VoiceStage, string> = {
   stt: 'Speech to text',
+  decision: 'Opt-out check',
   llm_ttft: 'Model, first token',
   tts_first_audio: 'Voice, first audio',
   mouth_to_ear: 'End to end',

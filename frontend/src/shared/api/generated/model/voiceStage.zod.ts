@@ -7,7 +7,7 @@
  */
 import * as zod from 'zod';
 
-export const VoiceStage = zod.enum(['stt', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear']).describe('A stage of the voice path.')
+export const VoiceStage = zod.enum(['stt', 'decision', 'llm_ttft', 'tts_first_audio', 'mouth_to_ear']).describe('A stage of the voice path.')
 
 export type VoiceStage = zod.input<typeof VoiceStage>;
 export type VoiceStageOutput = zod.output<typeof VoiceStage>;

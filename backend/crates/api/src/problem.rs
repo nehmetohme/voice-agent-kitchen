@@ -52,6 +52,8 @@ pub(crate) enum ApiError {
     MalformedJson,
     /// The request is not what the route takes (e.g. not a WebSocket upgrade).
     BadRequest(&'static str),
+    /// The caller may not do this from where it asked (e.g. a page on another site).
+    Forbidden(&'static str),
     /// The body is not `application/json`.
     UnsupportedMediaType,
     /// No such resource (or an ID that can't name one).
@@ -80,6 +82,7 @@ impl ApiError {
                 "The request body is not valid JSON.".to_owned(),
             ),
             Self::BadRequest(detail) => (StatusCode::BAD_REQUEST, (*detail).to_owned()),
+            Self::Forbidden(detail) => (StatusCode::FORBIDDEN, (*detail).to_owned()),
             Self::UnsupportedMediaType => (
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 "Send the request body as application/json.".to_owned(),

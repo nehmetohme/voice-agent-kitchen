@@ -64,6 +64,9 @@ axum = { version = "0.8.9", default-features = false, features = [
   "tracing",
 ] }
 base64 = "0.23.1"
+# BytesMut: the media bridge reuses one buffer for every outbound audio frame. Already in the
+# tree through axum and hyper.
+bytes = { version = "1.12.1", default-features = false }
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 # Dev-only: the WebSocket client side in vak-api's media socket test.

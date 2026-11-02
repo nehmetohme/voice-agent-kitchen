@@ -84,6 +84,24 @@ impl AudioFrame {
         self.sample_rate
     }
 
+    /// The frame's size as little-endian PCM16 bytes (the wire format).
+    #[must_use]
+    pub const fn byte_len(&self) -> usize {
+        self.len * 2
+    }
+
+    /// Writes the samples as little-endian PCM16 into the start of `out` and returns how
+    /// many bytes it wrote: [`byte_len`](Self::byte_len), or fewer if `out` is shorter.
+    /// Never allocates.
+    pub fn copy_le_bytes(&self, out: &mut [u8]) -> usize {
+        let mut written = 0;
+        for (bytes, sample) in out.as_chunks_mut::<2>().0.iter_mut().zip(self.samples()) {
+            *bytes = sample.to_le_bytes();
+            written += 2;
+        }
+        written
+    }
+
     /// The root mean square of the samples, from 0 to 32768.
     #[must_use]
     pub fn rms(&self) -> f32 {
@@ -140,6 +158,22 @@ mod tests {
                 got: 319
             })
         );
+    }
+
+    #[test]
+    fn a_frame_writes_little_endian_bytes_into_a_given_buffer() {
+        let mut samples = [0; 480];
+        samples[0] = 1;
+        samples[1] = -2;
+        let frame = AudioFrame::new(24_000, &samples).unwrap();
+        assert_eq!(frame.byte_len(), 960);
+
+        let mut out = [0xAA; 1_000];
+        assert_eq!(frame.copy_le_bytes(&mut out), 960);
+        assert_eq!(&out[..4], [1, 0, 0xFE, 0xFF].as_slice());
+        assert_eq!(out[960], 0xAA, "nothing past the frame is touched");
+        let mut short = [0; 3];
+        assert_eq!(frame.copy_le_bytes(&mut short), 2);
     }
 
     #[test]

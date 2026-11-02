@@ -76,6 +76,7 @@ impl Stages {
                 () = cancel.cancelled() => return,
                 result = within(deadline, call) => result,
             };
+            // A send fails only once the session actor is gone: the session has ended.
             let _ = events
                 .send(StageEvent::Stt {
                     utterance,
@@ -102,6 +103,7 @@ impl Stages {
                 () = cancel.cancelled() => return,
                 result = within(request.deadline(), call) => result,
             };
+            // A send fails only once the session actor is gone: the session has ended.
             let _ = events
                 .send(StageEvent::Decision {
                     turn_id,
@@ -131,6 +133,7 @@ impl Stages {
             let mut stream = match opened {
                 Ok(stream) => stream,
                 Err(error) => {
+                    // Fails only once the session has ended.
                     let _ = events
                         .send(StageEvent::Llm {
                             reply,
@@ -173,6 +176,7 @@ impl Stages {
                 () = cancel.cancelled() => return,
                 result = within(deadline, call) => result,
             };
+            // A send fails only once the session actor is gone: the session has ended.
             let _ = events
                 .send(StageEvent::Tts {
                     synthesis,

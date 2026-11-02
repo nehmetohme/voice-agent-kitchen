@@ -7,12 +7,14 @@ use std::time::Duration;
 
 use serde_json::Value;
 use tokio::time::Instant;
-use vak_providers::media::{MediaTransport, Outbound, PeerSender, media_channel};
+use vak_audio::AudioFrame;
+use vak_providers::media::{
+    INPUT_FRAME_SAMPLES, INPUT_SAMPLE_RATE, InputFramer, MediaTransport, Outbound, PeerSender,
+    media_channel,
+};
 
 use crate::providers::lock;
 
-/// Samples in one 20 ms frame of microphone audio (16 kHz).
-const FRAME_SAMPLES: usize = 320;
 const FRAME: Duration = Duration::from_millis(20);
 /// How long `silence_until` waits before it gives up.
 const PATIENCE: Duration = Duration::from_secs(120);
@@ -39,6 +41,7 @@ pub enum Sent {
 #[derive(Debug)]
 pub struct FakeClient {
     sender: PeerSender,
+    framer: Mutex<InputFramer>,
     log: Arc<Mutex<Vec<Sent>>>,
     closed: Arc<AtomicBool>,
 }
@@ -75,6 +78,7 @@ pub fn fake_transport() -> (MediaTransport, FakeClient) {
         transport,
         FakeClient {
             sender,
+            framer: Mutex::new(InputFramer::default()),
             log,
             closed,
         },
@@ -89,6 +93,13 @@ impl FakeClient {
         let _ = self.sender.push_text(&event.to_string()).await;
     }
 
+    /// Sends a binary frame as raw bytes, cut into 20 ms frames the way the WebSocket bridge
+    /// cuts them: an odd length reaches the session as unsupported audio.
+    pub fn send_bytes(&self, bytes: &[u8]) {
+        // Dropped or refused audio is what a real socket would lose too.
+        let _ = lock(&self.framer).push(&self.sender, bytes);
+    }
+
     /// Speaks for `duration`.
     pub async fn speak(&self, duration: Duration) {
         self.frames(duration, &speech()).await;
@@ -96,7 +107,7 @@ impl FakeClient {
 
     /// Stays silent for `duration`, with the microphone open.
     pub async fn silence(&self, duration: Duration) {
-        self.frames(duration, &[0; FRAME_SAMPLES]).await;
+        self.frames(duration, &[0; INPUT_FRAME_SAMPLES]).await;
     }
 
     /// Stays silent until `done` holds for everything sent so far.
@@ -121,7 +132,9 @@ impl FakeClient {
                 "no {what} after {PATIENCE:?}; the session sent {}",
                 summary(&log)
             );
-            let _ = self.sender.push_audio(vec![0; FRAME_SAMPLES]);
+            let _ = self
+                .sender
+                .push_audio(microphone(&[0; INPUT_FRAME_SAMPLES]));
             tokio::time::sleep(FRAME).await;
         }
     }
@@ -136,14 +149,20 @@ impl FakeClient {
         let count = duration.as_millis() / FRAME.as_millis();
         for _ in 0..count {
             // A dropped or refused frame is what a real microphone would lose too.
-            let _ = self.sender.push_audio(frame.to_vec());
+            let _ = self.sender.push_audio(microphone(frame));
             tokio::time::sleep(FRAME).await;
         }
     }
 }
 
+/// A 16 kHz microphone frame of `samples`, which hold exactly one frame.
+fn microphone(samples: &[i16]) -> AudioFrame {
+    AudioFrame::padded(INPUT_SAMPLE_RATE, samples)
+        .unwrap_or_else(|_| unreachable!("16 kHz is supported"))
+}
+
 /// One frame of speech: a loud 500 Hz square wave.
-fn speech() -> [i16; FRAME_SAMPLES] {
+fn speech() -> [i16; INPUT_FRAME_SAMPLES] {
     std::array::from_fn(|i| if (i / 16) % 2 == 0 { 8_000 } else { -8_000 })
 }
 
@@ -200,8 +219,15 @@ mod tests {
         client.silence(Duration::from_millis(40)).await;
         assert_eq!(started.elapsed(), Duration::from_millis(100));
         let mut frames = Vec::new();
-        while let Ok(Inbound::Audio(samples)) = inbound.try_recv() {
-            frames.push(samples.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0));
+        while let Ok(Inbound::Audio(frame)) = inbound.try_recv() {
+            frames.push(
+                frame
+                    .samples()
+                    .iter()
+                    .map(|s| s.unsigned_abs())
+                    .max()
+                    .unwrap_or(0),
+            );
         }
         assert_eq!(frames, [8_000, 8_000, 8_000, 0, 0]);
 

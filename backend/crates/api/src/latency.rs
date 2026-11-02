@@ -16,6 +16,9 @@ use crate::state::AppState;
 pub(crate) enum StageDto {
     /// Speech-to-text: from the end of the caller's turn to its transcript.
     Stt,
+    /// The opt-out decision (System One), from the transcript to its answer; it runs beside
+    /// the LLM.
+    Decision,
     /// LLM time to first token.
     LlmTtft,
     /// TTS time to the first clause's audio.
@@ -28,6 +31,7 @@ impl From<Stage> for StageDto {
     fn from(stage: Stage) -> Self {
         match stage {
             Stage::Stt => Self::Stt,
+            Stage::Decision => Self::Decision,
             Stage::LlmTtft => Self::LlmTtft,
             Stage::TtsFirstAudio => Self::TtsFirstAudio,
             Stage::MouthToEar => Self::MouthToEar,

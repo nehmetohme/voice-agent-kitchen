@@ -26,13 +26,15 @@ pub struct TtsCall {
 struct State {
     delay: Duration,
     lengths: Vec<(String, Duration)>,
+    failing: Vec<String>,
     calls: Vec<TtsCall>,
 }
 
 /// A [`TtsEngine`] that answers every request, after its first-audio delay (default none),
 /// with audible 24 kHz audio: as long as [`ScriptedTts::with_audio_for`] says for that
 /// text, otherwise 60 ms per character. Texts are compared after trimming whitespace.
-/// Blank text fails with `ProviderError::Protocol`, like the serving adapter.
+/// Blank text fails with `ProviderError::Protocol`, like the serving adapter, and a text
+/// set by [`ScriptedTts::with_failure_for`] with `ProviderError::Unavailable`.
 #[derive(Debug, Default)]
 pub struct ScriptedTts {
     state: Mutex<State>,
@@ -48,6 +50,15 @@ impl ScriptedTts {
     #[must_use]
     pub fn with_delay(mut self, delay: Duration) -> Self {
         get_mut(&mut self.state).delay = delay;
+        self
+    }
+
+    /// Every request for `text` fails with `ProviderError::Unavailable`, after the delay.
+    #[must_use]
+    pub fn with_failure_for(mut self, text: &str) -> Self {
+        get_mut(&mut self.state)
+            .failing
+            .push(text.trim().to_owned());
         self
     }
 
@@ -72,7 +83,7 @@ impl TtsEngine for ScriptedTts {
         &'a self,
         request: TtsRequest<'a>,
     ) -> BoxFuture<'a, Result<Speech, ProviderError>> {
-        let (delay, length) = {
+        let (delay, length, fails) = {
             let mut state = lock(&self.state);
             state.calls.push(TtsCall {
                 text: request.text().to_owned(),
@@ -91,13 +102,17 @@ impl TtsEngine for ScriptedTts {
                     },
                     |(_, length)| *length,
                 );
-            (state.delay, length)
+            let fails = state.failing.iter().any(|failing| failing == text);
+            (state.delay, length, fails)
         };
         Box::pin(async move {
             if request.text().trim().is_empty() {
                 return Err(ProviderError::Protocol("blank text".to_owned()));
             }
             within(delay, request.deadline()).await?;
+            if fails {
+                return Err(ProviderError::Unavailable);
+            }
             let samples = usize::try_from(length.as_millis())
                 .unwrap_or(usize::MAX)
                 .saturating_mul(SAMPLES_PER_MS);
