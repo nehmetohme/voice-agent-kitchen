@@ -1,7 +1,7 @@
 //! Setup progress (Zeigarnik): four steps, derived from state and never stored, so it can't
 //! drift from what the agent really is.
 
-use crate::{AgentDraft, ContentHash};
+use crate::{AgentDraft, ContentHash, RulePackCatalog};
 
 /// A step of the setup flow, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -42,6 +42,17 @@ pub struct ProgressFacts {
     pub passing_test_run: Option<ContentHash>,
     /// The draft hash of the live version, if any.
     pub live_version: Option<ContentHash>,
+}
+
+impl ProgressFacts {
+    /// What the draft itself says: Plan is done when the draft has a saved plan that
+    /// validates against its pinned rule pack in `packs`. The other facts start empty.
+    #[must_use]
+    pub fn from_draft(draft: &AgentDraft, packs: &RulePackCatalog) -> Self {
+        // CONTRACT-STUB
+        drop((draft.clone(), packs.clone()));
+        Self::default()
+    }
 }
 
 /// One step and whether it is done.

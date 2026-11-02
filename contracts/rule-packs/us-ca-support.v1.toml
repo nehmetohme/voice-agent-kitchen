@@ -1,0 +1,49 @@
+# Rule pack us-ca-support, version 1: customer support in California, on top of the US baseline.
+# Product research, not legal advice: docs/research/04-compliance-and-market.md.
+# AI disclosure: CA PUC 2874 (AB 2905, artificial voice); CA BOT Act.
+# Recording: CIPA 631, 632, 632.7 (all-party consent; notice before any capture).
+# Opt-out: 47 CFR 64.1200(b)(3); TSR 16 CFR 310.4(b)(1)(v)(B).
+# Audit: TSR 16 CFR 310.5 (5 years).
+#
+# A published pack never changes; a change is a new file with the next version.
+id = "us-ca-support"
+version = 1
+jurisdiction = "US-CA"
+use_case = "support"
+effective = 2026-11-01
+
+# Saying one of these ends the call (matched without regard to case).
+opt_out_phrases = [
+  "take me off your list",
+  "remove me from your list",
+  "stop calling me",
+  "do not call me again",
+  "don't call me again",
+  "unsubscribe",
+]
+
+# Said word for word when the caller opts out, before the call ends. Not part of the
+# opening.
+opt_out_confirmation = "Understood. We won't contact you again. Goodbye."
+
+# What the agent must never claim.
+forbidden_claims = [
+  "Saying it is a human or a real person.",
+  "Saying it is a licensed professional, such as a lawyer, doctor or financial adviser.",
+]
+
+# How long call data is kept, in days.
+[retention]
+recordings_days = 180
+transcripts_days = 365
+audit_days = 1826
+
+# What the start step opens with, word for word and in this order.
+
+[[locked]]
+key = "ai_disclosure"
+text = "Hello, you're speaking with an AI assistant that uses an artificial voice."
+
+[[locked]]
+key = "recording_notice"
+text = "This call is recorded and transcribed by us and our technology provider."

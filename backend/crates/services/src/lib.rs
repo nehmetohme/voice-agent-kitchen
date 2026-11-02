@@ -6,6 +6,7 @@
 
 mod agents;
 pub mod catalog;
+pub mod rule_packs;
 
 pub use agents::{
     AgentService, AgentSummary, ArchiveAgentError, CreateAgent, CreateAgentError, FindAgentError,

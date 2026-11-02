@@ -1,7 +1,7 @@
 //! The agent's draft: its current, editable configuration.
 
 use crate::{
-    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, RulePackRef,
+    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, Plan, RulePackRef,
     TurnDetection, UseCase, VoiceId,
 };
 
@@ -48,13 +48,14 @@ impl Persona {
 
 /// The agent's editable configuration. Creating one needs only a name, a use case and a
 /// voice; everything else starts from a default (Tesler). The rule pack always follows the
-/// use case and jurisdiction.
+/// use case and jurisdiction. The plan is `None` until the operator saves one.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AgentDraft {
     persona: Persona,
     jurisdiction: Jurisdiction,
     rule_pack: RulePackRef,
     settings: AgentSettings,
+    plan: Option<Plan>,
 }
 
 /// Changes to a draft. `None` leaves a field as it is.
@@ -67,6 +68,8 @@ pub struct DraftPatch {
     pub jurisdiction: Option<Jurisdiction>,
     pub model: Option<ModelProfile>,
     pub turn_detection: Option<TurnDetection>,
+    /// Replaces the saved plan.
+    pub plan: Option<Plan>,
 }
 
 /// A part of the draft, as named in audit events.
@@ -80,6 +83,7 @@ pub enum DraftField {
     RulePack,
     Model,
     TurnDetection,
+    Plan,
 }
 
 impl DraftField {
@@ -95,6 +99,7 @@ impl DraftField {
             Self::RulePack => "rule_pack",
             Self::Model => "model",
             Self::TurnDetection => "turn_detection",
+            Self::Plan => "plan",
         }
     }
 }
@@ -109,6 +114,7 @@ impl AgentDraft {
             persona: Persona::new(name, use_case, voice, Language::default()),
             jurisdiction,
             settings: AgentSettings::default(),
+            plan: None,
         }
     }
 
@@ -125,6 +131,7 @@ impl AgentDraft {
             jurisdiction,
             rule_pack,
             settings,
+            plan: None,
         }
     }
 
@@ -157,11 +164,13 @@ impl AgentDraft {
                 .turn_detection
                 .unwrap_or(self.settings.turn_detection()),
         );
+        // CONTRACT-STUB: the patch's plan is not applied yet.
         Self {
             persona,
             jurisdiction,
             rule_pack,
             settings,
+            plan: self.plan.clone(),
         }
     }
 
@@ -241,6 +250,12 @@ impl AgentDraft {
     #[must_use]
     pub fn settings(&self) -> &AgentSettings {
         &self.settings
+    }
+
+    /// The saved plan, if the operator has saved one.
+    #[must_use]
+    pub fn plan(&self) -> Option<&Plan> {
+        self.plan.as_ref()
     }
 }
 
@@ -337,6 +352,7 @@ mod tests {
                     model,
                     turn_detection: turn
                         .and_then(|(ms, barge_in)| TurnDetection::new(ms, barge_in).ok()),
+                    plan: None,
                 },
             )
     }
