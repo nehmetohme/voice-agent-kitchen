@@ -131,6 +131,21 @@ check_http() { # url
   [ "${code%% *}" = 200 ]
 }
 
+# The API the way the browser reaches it: through Vite's /api proxy, with no identity headers.
+# A 200 proves the proxy, the migrations (the agents table exists) and the dev operator.
+check_api() {
+  local url="http://127.0.0.1:5173/api/v1/agents" code
+  code=$(curl -sS -m 10 -o "$tmp/api.out" -w '%{http_code} %{time_total}' "$url" 2>/dev/null) || code="000 0"
+  LAT=$(secs_to_ms "${code#* }")
+  case "${code%% *}" in
+    200) DETAIL="GET $url → 200 (proxy, migrations, dev operator)" ;;
+    401) DETAIL="GET $url → 401: no dev operator; is VAK_DEV_OPERATOR_EMAIL empty in .env?" ;;
+    503) DETAIL="GET $url → 503: storage unavailable; did vak-migrate succeed? (see its log)" ;;
+    *) DETAIL="GET $url → ${code%% *}" ;;
+  esac
+  [ "${code%% *}" = 200 ]
+}
+
 run() { # name check-function [args]
   local name=$1 first_ms first_ok=0 warm_ok=0
   shift
@@ -190,6 +205,7 @@ run decision check_decision
 run postgres check_postgres
 run server check_http "http://$VAK_HTTP_ADDR/health"
 run frontend check_http "http://127.0.0.1:5173/"
+run api check_api
 
 echo
 if [ "$failures" -eq 0 ]; then

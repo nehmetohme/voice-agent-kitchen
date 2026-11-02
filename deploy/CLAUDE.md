@@ -17,7 +17,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | STT, TTS | mlx-audio 0.6.3 (Parakeet TDT 0.6B v2, Kokoro-82M on MLX) behind `vak-model-shim` | 8000 → 8001 | Model Serving pyfuncs |
 | Decisions | Homebrew `llama-server` with Kev-4B Q4_K_M, `/v1/systemone` | 8081 | Unity Gateway System One |
 | Database | `postgres:18.6-trixie`, pinned by digest | 5433 | Lakebase |
-| App | `vak-server` (`cargo run`), Vite dev server | 3000, 5173 | Databricks App |
+| App | `vak-server migrate`, then `vak-server serve` (`cargo run`), Vite dev server | 3000, 5173 | Databricks App |
 
 | File | Does |
 |---|---|
@@ -33,6 +33,8 @@ Production runs only on Databricks. Local development swaps in local servers beh
 **Models** live outside the repo in `${VAK_MODELS_DIR:-~/.cache/vak/models}`, so every worktree shares one copy (5.4 GiB). `models.sh` pins each file to a Hugging Face commit and a SHA-256; add a model there, never by hand. Licences: Parakeet CC-BY-4.0, Kokoro and Kev-4B Apache-2.0. Never fetch `openjev/openjev` (CC-BY-NC); the script refuses it. Kokoro's G2P in the mlx-audio environment pulls in copyleft packages: `phonemizer-fork` and espeak-ng (GPL-3.0), and `num2words` (LGPL). They are fine on a developer's Mac and are exempted by package in `.github/dependency-review.yml`, but they must never ship. The production Kokoro pyfunc (M7) needs its own licence review.
 
 **Configuration** is the gitignored `.env` at the repo root (`cp .env.example .env`). `.env.example` lists every variable with placeholders; the real LAN address and passwords stay in `.env`. `.worktreeinclude` copies `.env` into worktrees that Claude Code creates; for a `just task` worktree, copy it from the main checkout (`just dev-doctor` prints the command).
+
+**Identity:** in production the Databricks Apps proxy adds `X-Forwarded-User` and `X-Forwarded-Email`. Locally nothing does, so `env.sh` sets `VAK_DEV_OPERATOR_EMAIL=dev@localhost` and API requests without the headers act as that operator. `vak-config` refuses the variable outside the `local` profile. Set it empty in `.env` to require the headers.
 
 ## Conventions
 
@@ -55,7 +57,7 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `just models-pull` | downloads missing models; idempotent |
 | `just dev-setup` | syncs the mlx-audio environment |
 | `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models, `/v1/systemone` support and ports, with fix hints |
-| `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server` and Vite |
+| `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server`, Vite, and `GET /api/v1/agents` through Vite's proxy (proves the migrations ran and the dev operator is set) |
 
 ## Testing
 

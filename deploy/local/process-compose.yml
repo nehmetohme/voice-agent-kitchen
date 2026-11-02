@@ -7,7 +7,7 @@
 #   postgres :5433 ─┐
 #   decisions :8081 │ llama-server /v1/systemone, Kev-4B
 #   mlx-audio :8000 ─► speech-warmup ─► model-shim :8001 (Databricks STT/TTS shapes)
-#   postgres ─► vak-server :3000 ─► frontend :5173 (Vite, proxies /api)
+#   postgres ─► vak-migrate ─► vak-server :3000 ─► frontend :5173 (Vite, proxies /api)
 version: "0.5"
 
 processes:
@@ -88,13 +88,23 @@ processes:
       restart: on_failure
       max_restarts: 3
 
+  vak-migrate:
+    description: applies pending database migrations, then exits
+    command: cargo run --quiet --locked -p vak-server -- migrate
+    working_dir: backend
+    depends_on:
+      postgres:
+        condition: process_healthy
+    availability:
+      restart: "no"
+
   vak-server:
     description: vak-server on :3000 (API; the frontend proxies /api to it)
     command: cargo run --quiet --locked -p vak-server -- serve
     working_dir: backend
     depends_on:
-      postgres:
-        condition: process_healthy
+      vak-migrate:
+        condition: process_completed_successfully
     readiness_probe:
       http_get:
         host: 127.0.0.1

@@ -46,9 +46,13 @@ fi
 # vak-server and the Vite dev server (which proxies /api to it).
 : "${VAK_HTTP_ADDR:=127.0.0.1:3000}"
 : "${VAK_LOG:=info}"
+# Locally there is no Databricks Apps proxy to add identity headers, so API requests without
+# them act as this operator (vak-config allows it in the local profile only). Set it empty in
+# .env to require the headers instead.
+: "${VAK_DEV_OPERATOR_EMAIL=dev@localhost}"
 
 export VAK_ROOT VAK_LLM_BASE_URL VAK_LLM_MODEL VAK_LLM_API_KEY VAK_LLM_EXTRA_BODY \
   VAK_MODELS_DIR VAK_STT_BASE_URL VAK_STT_ENDPOINT VAK_TTS_BASE_URL VAK_TTS_ENDPOINT \
   VAK_SHIM_ADDR VAK_SHIM_MLX_AUDIO_URL VAK_SHIM_STT_MODEL VAK_SHIM_TTS_MODEL \
   VAK_DECISION_BASE_URL VAK_DECISION_MODEL VAK_DECISION_GGUF VAK_PG_PORT VAK_PG_PASSWORD \
-  DATABASE_URL VAK_HTTP_ADDR VAK_LOG
+  DATABASE_URL VAK_HTTP_ADDR VAK_LOG VAK_DEV_OPERATOR_EMAIL
