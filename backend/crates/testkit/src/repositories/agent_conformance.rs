@@ -7,7 +7,7 @@ use jiff::{SignedDuration, Timestamp};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    DraftPatch, UseCase, VoiceId,
+    DraftPatch, LockedText, Plan, UseCase, VoiceId,
 };
 use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision};
 
@@ -117,6 +117,53 @@ where
     let old = lists_active_agents_newest_first(repo, &fx).await;
     reads_back_what_create_stored(repo, &fx, &old, &audit_trail).await;
     updates_need_the_stored_revision(repo, &fx, &old, &audit_trail).await;
+    stores_and_replaces_the_saved_plan(repo, &fx).await;
+}
+
+/// The saved plan is part of the draft: an update stores it, `get` and `list` read it back
+/// exactly, and a later update replaces it.
+#[expect(
+    clippy::expect_used,
+    reason = "a conformance suite fails the calling test"
+)]
+async fn stores_and_replaces_the_saved_plan<R: AgentRepo + ?Sized>(repo: &R, fx: &Fixture) {
+    let agent = fx.agent("Planner", 60);
+    repo.create(&agent, &fx.created(&agent))
+        .await
+        .expect("create");
+    let locked =
+        [LockedText::new(LockedText::AI_DISCLOSURE, "You're talking to an AI.").expect("valid")];
+    let mut revision = Revision::FIRST;
+    let mut stored = agent;
+    for (minutes, use_case) in [(61, UseCase::Booking), (62, UseCase::Custom)] {
+        let patch = DraftPatch {
+            plan: Some(Plan::template(use_case, &locked)),
+            ..DraftPatch::default()
+        };
+        let change = stored
+            .update_draft(&patch, fx.at(minutes))
+            .expect("active")
+            .expect("changed");
+        let event = fx.event(
+            &change.agent,
+            AuditAction::AgentDraftUpdated {
+                fields: change.fields.clone(),
+                draft_hash: change.agent.draft().content_hash(),
+            },
+        );
+        revision = repo
+            .update(&change.agent, revision, &event)
+            .await
+            .expect("update with the plan");
+        let reread = repo.get(change.agent.id()).await.expect("get");
+        assert_eq!(reread.value, change.agent, "get reads the saved plan back");
+        let listed = repo.list(AgentQuery { limit: 200 }).await.expect("list");
+        assert!(
+            listed.contains(&change.agent),
+            "list reads the saved plan back"
+        );
+        stored = change.agent;
+    }
 }
 
 /// list: active agents only, most recently updated first, at most `limit`. Returns the oldest

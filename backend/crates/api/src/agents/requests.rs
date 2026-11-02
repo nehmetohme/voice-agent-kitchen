@@ -74,7 +74,10 @@ impl Fields {
         match raw.map(parse)? {
             Ok(value) => Some(value),
             Err(message) => {
-                self.errors.push(FieldError { field, message });
+                self.errors.push(FieldError {
+                    field: field.to_owned(),
+                    message,
+                });
                 None
             }
         }
@@ -89,7 +92,7 @@ impl Fields {
     ) -> Option<T> {
         if raw.is_none() {
             self.errors.push(FieldError {
-                field,
+                field: field.to_owned(),
                 message: "This field is required.",
             });
         }
@@ -193,7 +196,7 @@ mod tests {
 
     use super::*;
 
-    fn fields_of(error: ApiError) -> Vec<(&'static str, &'static str)> {
+    fn fields_of(error: ApiError) -> Vec<(String, &'static str)> {
         match error {
             ApiError::Invalid(errors) => errors
                 .into_iter()
@@ -201,6 +204,13 @@ mod tests {
                 .collect(),
             other => panic!("expected Invalid, got {other:?}"),
         }
+    }
+
+    fn pairs(expected: &[(&str, &'static str)]) -> Vec<(String, &'static str)> {
+        expected
+            .iter()
+            .map(|(field, message)| ((*field).to_owned(), *message))
+            .collect()
     }
 
     #[test]
@@ -216,13 +226,13 @@ mod tests {
 
         assert_eq!(
             fields_of(error),
-            [
+            pairs(&[
                 ("name", "Remove line breaks and control characters."),
                 ("language", "Choose a language from the catalog."),
                 ("jurisdiction", "Use a region code such as US, US-CA or UK."),
                 ("model", "Choose balanced or fast."),
                 ("turnDetection", "Use a silence between 200 and 2000 ms."),
-            ]
+            ])
         );
     }
 
@@ -260,10 +270,10 @@ mod tests {
         let error = DraftPatch::try_from(body).expect_err("invalid");
         assert_eq!(
             fields_of(error),
-            [
+            pairs(&[
                 ("name", "Enter a name."),
                 ("voice", "Choose a voice from the catalog.")
-            ]
+            ])
         );
     }
 }

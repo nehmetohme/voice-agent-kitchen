@@ -7,7 +7,7 @@ use uuid::Uuid;
 use vak_domain::{Actor, Agent, AgentId, AuditEvent};
 use vak_repositories::{AgentQuery, AgentRepo, BoxFuture, RepoError, Revision, Versioned};
 
-use crate::records::{AgentRow, AuditDetails, PersonaRecord, SettingsRecord};
+use crate::records::{AgentRow, AuditDetails, PersonaRecord, PlanRecord, SettingsRecord};
 
 /// The single MVP workspace, seeded by the first migration.
 const DEFAULT_WORKSPACE: Uuid = Uuid::from_u128(0x01923a00_0000_7000_8000_000000000001);
@@ -62,12 +62,13 @@ impl PgAgentRepo {
         .await
         .map_err(map_error)?;
         sqlx::query!(
-            "INSERT INTO agent_drafts (agent_id, persona, settings, rule_pack_id,
+            "INSERT INTO agent_drafts (agent_id, persona, settings, plan, rule_pack_id,
                                        rule_pack_version, content_hash, updated_at, updated_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
             SettingsRecord::of(draft) as _,
+            PlanRecord::of(draft) as _,
             draft.rule_pack().id(),
             i32::try_from(draft.rule_pack().version()).map_err(RepoError::unavailable)?,
             content_hash.as_str(),
@@ -90,6 +91,7 @@ impl PgAgentRepo {
                       a.updated_at AS "updated_at: jiff_sqlx::Timestamp",
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
+                      d.plan AS "plan: _",
                       d.rule_pack_id, d.rule_pack_version, d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.id = $1 AND a.workspace_id = $2"#,
@@ -111,6 +113,7 @@ impl PgAgentRepo {
                       a.updated_at AS "updated_at: jiff_sqlx::Timestamp",
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
+                      d.plan AS "plan: _",
                       d.rule_pack_id, d.rule_pack_version, d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.workspace_id = $1 AND a.archived_at IS NULL
@@ -163,12 +166,13 @@ impl PgAgentRepo {
         };
         sqlx::query!(
             "UPDATE agent_drafts
-             SET persona = $2, settings = $3, rule_pack_id = $4, rule_pack_version = $5,
-                 content_hash = $6, updated_at = $7, updated_by = $8
+             SET persona = $2, settings = $3, plan = $4, rule_pack_id = $5,
+                 rule_pack_version = $6, content_hash = $7, updated_at = $8, updated_by = $9
              WHERE agent_id = $1",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
             SettingsRecord::of(draft) as _,
+            PlanRecord::of(draft) as _,
             draft.rule_pack().id(),
             i32::try_from(draft.rule_pack().version()).map_err(RepoError::unavailable)?,
             content_hash.as_str(),

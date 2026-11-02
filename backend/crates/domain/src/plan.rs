@@ -2,6 +2,9 @@
 //! The decision model picks among a step's paths at call time (M4); here the graph is built,
 //! checked for shape, and validated against the agent's rule pack.
 
+mod templates;
+mod validate;
+
 use std::fmt;
 
 use crate::{LockedText, RulePack, RulePackRef, UseCase};
@@ -14,14 +17,27 @@ pub struct NodeId(String);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EdgeId(String);
 
+/// Longest step or path ID.
+const MAX_ID: usize = 64;
+
+fn valid_id(raw: &str) -> bool {
+    (1..=MAX_ID).contains(&raw.len())
+        && raw
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
 impl NodeId {
     /// Longest ID, in characters.
-    pub const MAX: usize = 64;
+    pub const MAX: usize = MAX_ID;
 
+    /// Accepts the ID exactly as given: IDs are machine names, so nothing is trimmed.
     pub fn parse(raw: &str) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop(raw.to_owned());
-        Err(PlanShapeError::InvalidId)
+        if valid_id(raw) {
+            Ok(Self(raw.to_owned()))
+        } else {
+            Err(PlanShapeError::InvalidId)
+        }
     }
 
     #[must_use]
@@ -38,12 +54,15 @@ impl fmt::Display for NodeId {
 
 impl EdgeId {
     /// Longest ID, in characters.
-    pub const MAX: usize = 64;
+    pub const MAX: usize = MAX_ID;
 
+    /// Accepts the ID exactly as given, like [`NodeId::parse`].
     pub fn parse(raw: &str) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop(raw.to_owned());
-        Err(PlanShapeError::InvalidId)
+        if valid_id(raw) {
+            Ok(Self(raw.to_owned()))
+        } else {
+            Err(PlanShapeError::InvalidId)
+        }
     }
 
     #[must_use]
@@ -105,9 +124,11 @@ impl NodeKind {
 
     /// Accepts a name in any case, with surrounding whitespace (Postel).
     pub fn parse(raw: &str) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop(raw.to_owned());
-        Err(PlanShapeError::UnknownKind)
+        let raw = raw.trim();
+        Self::ALL
+            .into_iter()
+            .find(|kind| kind.as_str().eq_ignore_ascii_case(raw))
+            .ok_or(PlanShapeError::UnknownKind)
     }
 }
 
@@ -127,16 +148,39 @@ impl PlanNode {
     pub const MAX_TEXT: usize = 2_000;
 
     /// A step. The label (1–80 characters, no control characters) and the text (what the
-    /// agent says or does, up to 2,000 characters) are trimmed.
+    /// agent says or does, up to 2,000 characters, line endings normalised to `\n`) are
+    /// trimmed.
     pub fn new(
         id: NodeId,
         kind: NodeKind,
         label: &str,
         text: &str,
     ) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop((id, kind, label.to_owned(), text.to_owned()));
-        Err(PlanShapeError::EmptyLabel)
+        let label = label.trim();
+        match label.chars().count() {
+            0 => return Err(PlanShapeError::EmptyLabel),
+            n if n > Self::MAX_LABEL => {
+                return Err(PlanShapeError::LabelTooLong {
+                    max: Self::MAX_LABEL,
+                });
+            }
+            _ if label.chars().any(char::is_control) => {
+                return Err(PlanShapeError::ControlCharacter);
+            }
+            _ => {}
+        }
+        let text = text.trim().replace("\r\n", "\n").replace('\r', "\n");
+        if text.chars().count() > Self::MAX_TEXT {
+            return Err(PlanShapeError::TextTooLong {
+                max: Self::MAX_TEXT,
+            });
+        }
+        Ok(Self {
+            id,
+            kind,
+            label: label.to_owned(),
+            text,
+        })
     }
 
     #[must_use]
@@ -181,9 +225,18 @@ impl PlanEdge {
         to: NodeId,
         condition: &str,
     ) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop((id, from, to, condition.to_owned()));
-        Err(PlanShapeError::InvalidId)
+        let condition = condition.trim();
+        if condition.chars().count() > Self::MAX_CONDITION {
+            return Err(PlanShapeError::ConditionTooLong {
+                max: Self::MAX_CONDITION,
+            });
+        }
+        Ok(Self {
+            id,
+            from,
+            to,
+            condition: condition.to_owned(),
+        })
     }
 
     #[must_use]
@@ -247,19 +300,19 @@ pub enum PlanShapeError {
 pub enum PlanError {
     #[error("the plan has no start step")]
     MissingStart,
-    #[error("the plan has more than one start step")]
+    #[error("step {node} is one of several start steps")]
     MultipleStarts { node: NodeId },
-    #[error("no path leads to this step from the start")]
+    #[error("no path leads to step {node} from the start")]
     UnreachableNode { node: NodeId },
-    #[error("this step has no path out, and only an end step may stop there")]
+    #[error("step {node} has no path out, and only an end step may stop there")]
     MissingExit { node: NodeId },
-    #[error("this path has no condition")]
+    #[error("path {edge} has no condition")]
     EmptyCondition { edge: EdgeId },
-    #[error("this path leads to or from a step that doesn't exist")]
+    #[error("path {edge} leads to or from a step that doesn't exist")]
     DanglingEdge { edge: EdgeId },
-    #[error("the start step must open with the rule pack's {key} text")]
+    #[error("start step {node} doesn't open with the rule pack's {key} text")]
     MissingLockedText { node: NodeId, key: String },
-    #[error("there is no rule pack {pack:?} to check the plan against")]
+    #[error("there is no rule pack {} v{} to check the plan against", pack.id(), pack.version())]
     RulePackUnavailable { pack: RulePackRef },
 }
 
@@ -267,23 +320,47 @@ impl PlanError {
     /// The stable wire name, e.g. `unreachable_node`.
     #[must_use]
     pub const fn code(&self) -> &'static str {
-        // CONTRACT-STUB
-        "stub"
+        match self {
+            Self::MissingStart => "missing_start",
+            Self::MultipleStarts { .. } => "multiple_starts",
+            Self::UnreachableNode { .. } => "unreachable_node",
+            Self::MissingExit { .. } => "missing_exit",
+            Self::EmptyCondition { .. } => "empty_condition",
+            Self::DanglingEdge { .. } => "dangling_edge",
+            Self::MissingLockedText { .. } => "missing_locked_text",
+            Self::RulePackUnavailable { .. } => "rule_pack_unavailable",
+        }
     }
 
     /// The step the error is on, if any.
     #[must_use]
     pub fn node(&self) -> Option<&NodeId> {
-        // CONTRACT-STUB
-        None
+        match self {
+            Self::MultipleStarts { node }
+            | Self::UnreachableNode { node }
+            | Self::MissingExit { node }
+            | Self::MissingLockedText { node, .. } => Some(node),
+            Self::MissingStart
+            | Self::EmptyCondition { .. }
+            | Self::DanglingEdge { .. }
+            | Self::RulePackUnavailable { .. } => None,
+        }
     }
 
     /// The path the error is on, if any.
     #[must_use]
     pub fn edge(&self) -> Option<&EdgeId> {
-        // CONTRACT-STUB
-        None
+        match self {
+            Self::EmptyCondition { edge } | Self::DanglingEdge { edge } => Some(edge),
+            _ => None,
+        }
     }
+}
+
+/// The first value that occurs twice in `values`, in order.
+fn first_duplicate<'a, T: Ord>(values: impl Iterator<Item = &'a T>) -> Option<&'a T> {
+    let mut seen = std::collections::BTreeSet::new();
+    values.into_iter().find(|value| !seen.insert(*value))
 }
 
 impl Plan {
@@ -294,26 +371,41 @@ impl Plan {
 
     /// A well-formed plan: unique step and path IDs, within the size limits.
     pub fn new(nodes: Vec<PlanNode>, edges: Vec<PlanEdge>) -> Result<Self, PlanShapeError> {
-        // CONTRACT-STUB
-        drop((nodes, edges));
-        Err(PlanShapeError::TooManyNodes {
-            max: Self::MAX_NODES,
-        })
+        if nodes.len() > Self::MAX_NODES {
+            return Err(PlanShapeError::TooManyNodes {
+                max: Self::MAX_NODES,
+            });
+        }
+        if edges.len() > Self::MAX_EDGES {
+            return Err(PlanShapeError::TooManyEdges {
+                max: Self::MAX_EDGES,
+            });
+        }
+        if let Some(id) = first_duplicate(nodes.iter().map(PlanNode::id)) {
+            return Err(PlanShapeError::DuplicateNode { id: id.clone() });
+        }
+        if let Some(id) = first_duplicate(edges.iter().map(PlanEdge::id)) {
+            return Err(PlanShapeError::DuplicateEdge { id: id.clone() });
+        }
+        Ok(Self { nodes, edges })
     }
 
     /// The use case's starting plan. Its start step opens with `locked`, in order.
     #[must_use]
     pub fn template(use_case: UseCase, locked: &[LockedText]) -> Self {
-        // CONTRACT-STUB
-        let _ = (use_case, locked.len());
-        Self::default()
+        templates::template(use_case, locked)
     }
 
-    /// Every graph rule this plan breaks against `pack`, or `Ok` when it has none.
+    /// Every graph rule this plan breaks against `pack`, or `Ok` when it has none. Errors
+    /// come in a stable order: the whole plan, then steps, then paths, then locked texts in
+    /// the pack's order.
     pub fn validate(&self, pack: &RulePack) -> Result<(), Vec<PlanError>> {
-        // CONTRACT-STUB
-        drop(pack.clone());
-        Ok(())
+        let errors = validate::errors(self, pack);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     #[must_use]

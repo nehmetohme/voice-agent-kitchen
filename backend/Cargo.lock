@@ -2654,8 +2654,10 @@ name = "vak-services"
 version = "0.1.0"
 dependencies = [
  "jiff",
+ "serde",
  "thiserror",
  "tokio",
+ "toml",
  "uuid",
  "vak-domain",
  "vak-repositories",

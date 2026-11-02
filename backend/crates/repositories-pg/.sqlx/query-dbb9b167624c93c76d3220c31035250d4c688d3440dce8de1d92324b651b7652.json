@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE agent_drafts\n             SET persona = $2, settings = $3, plan = $4, rule_pack_id = $5,\n                 rule_pack_version = $6, content_hash = $7, updated_at = $8, updated_by = $9\n             WHERE agent_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Jsonb",
+        "Jsonb",
+        "Text",
+        "Int4",
+        "Text",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dbb9b167624c93c76d3220c31035250d4c688d3440dce8de1d92324b651b7652"
+}

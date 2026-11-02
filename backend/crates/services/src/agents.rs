@@ -1,4 +1,5 @@
-//! Agent use cases: create, list, get, update the draft (autosave), archive, progress.
+//! Agent use cases: create, list, get, update the draft (autosave), archive, progress, and
+//! the agent's plan (`plans.rs`).
 //!
 //! Every mutation hands its audit event to the same `AgentRepo` call that stores the change,
 //! so both land in one transaction.
@@ -11,8 +12,8 @@ use jiff::{Timestamp, Unit};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, SetupProgress, TurnDetection,
-    UseCase, VoiceId,
+    DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
+    SetupProgress, TurnDetection, UseCase, VoiceId,
 };
 use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision};
 
@@ -117,19 +118,32 @@ impl From<FindAgentError> for UpdateDraftError {
     }
 }
 
-/// The agent use cases, over an [`AgentRepo`].
+/// The agent use cases, over an [`AgentRepo`] and the rule packs plans are checked against.
 #[derive(Clone)]
 pub struct AgentService {
     repo: Arc<dyn AgentRepo>,
     deadline: Duration,
+    pub(crate) rule_packs: Arc<RulePackCatalog>,
 }
 
 impl AgentService {
+    /// The service with the shipped rule packs. If they didn't load, it has none, and every
+    /// plan is invalid: `vak-server` loads them first and refuses to start instead.
     #[must_use]
     pub fn new(repo: Arc<dyn AgentRepo>) -> Self {
         Self {
             repo,
             deadline: DEFAULT_DEADLINE,
+            rule_packs: Arc::new(crate::rule_packs::shipped().unwrap_or_default()),
+        }
+    }
+
+    /// The same service with these rule packs.
+    #[must_use]
+    pub fn with_rule_packs(self, rule_packs: RulePackCatalog) -> Self {
+        Self {
+            rule_packs: Arc::new(rule_packs),
+            ..self
         }
     }
 
@@ -177,7 +191,7 @@ impl AgentService {
         Ok(agents
             .into_iter()
             .map(|agent| AgentSummary {
-                progress: progress_of(&agent),
+                progress: self.progress_of(&agent),
                 agent,
             })
             .collect())
@@ -190,7 +204,7 @@ impl AgentService {
 
     /// The agent's setup progress, derived from its current state.
     pub async fn progress(&self, id: AgentId) -> Result<SetupProgress, FindAgentError> {
-        Ok(progress_of(&self.get(id).await?))
+        Ok(self.progress_of(&self.get(id).await?))
     }
 
     /// Applies `patch` to the draft (autosave). A patch that changes nothing stores nothing
@@ -252,6 +266,13 @@ impl AgentService {
         Err(ArchiveAgentError::Conflict)
     }
 
+    /// Progress derived from the agent and what its draft says about the plan. Test runs
+    /// and versions arrive in later milestones.
+    fn progress_of(&self, agent: &Agent) -> SetupProgress {
+        let facts = ProgressFacts::from_draft(agent.draft(), &self.rule_packs);
+        SetupProgress::derive(agent.draft(), &facts)
+    }
+
     async fn save(
         &self,
         agent: &Agent,
@@ -272,11 +293,6 @@ impl AgentService {
             .await
             .unwrap_or_else(|elapsed| Err(RepoError::unavailable(elapsed)))
     }
-}
-
-/// Progress from the agent alone: plans, test runs and versions arrive in later milestones.
-fn progress_of(agent: &Agent) -> SetupProgress {
-    SetupProgress::derive(agent.draft(), &ProgressFacts::default())
 }
 
 fn audit_event(actor: &Actor, agent: &Agent, action: AuditAction) -> Result<AuditEvent, RepoError> {

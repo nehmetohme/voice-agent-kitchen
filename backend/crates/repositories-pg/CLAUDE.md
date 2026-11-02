@@ -22,6 +22,7 @@ Today:
 | `20261030120000_workspaces_operators` | `workspaces` (one seeded default, `01923a00-0000-7000-8000-000000000001`), `operators` (from the forwarded identity) |
 | `20261030120100_agents` | `agents` (name, use case, jurisdiction, revision, archived_at), `agent_drafts` (persona and settings JSONB, rule pack, content hash) |
 | `20261030120200_audit_events` | `audit_events`, append-only: triggers reject UPDATE, DELETE and TRUNCATE (SQLSTATE 42501) |
+| `20261102120000_agent_draft_plans` | `agent_drafts.plan` (the saved plan, `NULL` until one is saved) must be an object with `nodes` and `edges` arrays; rows read back through `PlanRecord` and the domain's constructors |
 
 ## Dependencies
 

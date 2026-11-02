@@ -4,7 +4,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use vak_domain::{
-    Agent, AgentNameError, ModelProfile, SetupProgress, SetupStep, TurnDetection, UseCase,
+    Agent, AgentNameError, ModelProfile, RulePackRef, SetupProgress, SetupStep, TurnDetection,
+    UseCase,
 };
 use vak_services::AgentSummary;
 
@@ -84,6 +85,15 @@ pub(crate) struct RulePackDto {
     version: u32,
 }
 
+impl From<&RulePackRef> for RulePackDto {
+    fn from(pack: &RulePackRef) -> Self {
+        Self {
+            id: pack.id().to_owned(),
+            version: pack.version(),
+        }
+    }
+}
+
 /// A voice agent and its current draft.
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -130,10 +140,7 @@ impl From<&Agent> for AgentDto {
             voice: persona.voice().to_string(),
             language: persona.language().to_string(),
             jurisdiction: draft.jurisdiction().to_string(),
-            rule_pack: RulePackDto {
-                id: draft.rule_pack().id().to_owned(),
-                version: draft.rule_pack().version(),
-            },
+            rule_pack: draft.rule_pack().into(),
             model: settings.model().into(),
             turn_detection: settings.turn_detection().into(),
             draft_hash: draft.content_hash().to_string(),

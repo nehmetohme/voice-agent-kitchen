@@ -8,7 +8,7 @@
 import * as zod from 'zod';
 
 export const FieldError = zod.object({
-  "field": zod.string().describe('The field\'s name in the request body, e.g. `useCase`.'),
+  "field": zod.string().describe('The field\'s path in the request body, e.g. `useCase` or `nodes[2].label`.'),
   "message": zod.string().describe('What to change, e.g. `Enter a name.`')
 }).describe('An invalid request field and how to fix it.')
 

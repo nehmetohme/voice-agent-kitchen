@@ -49,9 +49,12 @@ impl ProgressFacts {
     /// validates against its pinned rule pack in `packs`. The other facts start empty.
     #[must_use]
     pub fn from_draft(draft: &AgentDraft, packs: &RulePackCatalog) -> Self {
-        // CONTRACT-STUB
-        drop((draft.clone(), packs.clone()));
-        Self::default()
+        Self {
+            plan_valid: draft
+                .plan()
+                .is_some_and(|plan| packs.validate(plan, draft.rule_pack()).is_ok()),
+            ..Self::default()
+        }
     }
 }
 

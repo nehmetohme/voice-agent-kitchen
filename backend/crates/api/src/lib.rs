@@ -15,6 +15,7 @@ mod health;
 mod identity;
 mod json;
 mod openapi;
+mod plans;
 mod problem;
 mod state;
 
@@ -53,6 +54,8 @@ pub fn router() -> Router {
 /// | `PATCH /api/v1/agents/{id}` | change the draft (autosave) |
 /// | `DELETE /api/v1/agents/{id}` | archive |
 /// | `GET /api/v1/agents/{id}/progress` | setup progress |
+/// | `GET`, `PUT /api/v1/agents/{id}/plan` | the plan (or the template), save it (autosave) |
+/// | `POST /api/v1/agents/{id}/plan/validate` | check a plan without saving it |
 /// | `GET /api/v1/catalog/voices`, `/languages` | what an agent can use |
 pub fn app(state: AppState) -> Router {
     let (v1, _) = openapi::v1().split_for_parts();

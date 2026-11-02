@@ -85,10 +85,22 @@ impl LockedText {
     /// Longest locked text, in characters. The opt-out confirmation has the same limit.
     pub const MAX: usize = 500;
 
+    /// Longest key, in characters.
+    const MAX_KEY: usize = 32;
+
     pub fn new(key: &str, text: &str) -> Result<Self, RulePackError> {
-        // CONTRACT-STUB
-        drop((key.to_owned(), text.to_owned()));
-        Err(RulePackError::InvalidLockedText)
+        let valid_key = (1..=Self::MAX_KEY).contains(&key.len())
+            && key
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        let text = spoken_text(text).ok_or(RulePackError::InvalidLockedText)?;
+        if !valid_key {
+            return Err(RulePackError::InvalidLockedText);
+        }
+        Ok(Self {
+            key: key.to_owned(),
+            text,
+        })
     }
 
     #[must_use]
@@ -116,9 +128,14 @@ impl Retention {
         transcripts_days: u32,
         audit_days: u32,
     ) -> Result<Self, RulePackError> {
-        // CONTRACT-STUB
-        let _ = (recordings_days, transcripts_days, audit_days);
-        Err(RulePackError::InvalidRetention)
+        if recordings_days == 0 || transcripts_days == 0 || audit_days == 0 {
+            return Err(RulePackError::InvalidRetention);
+        }
+        Ok(Self {
+            recordings: recordings_days,
+            transcripts: transcripts_days,
+            audit: audit_days,
+        })
     }
 
     #[must_use]
@@ -199,11 +216,82 @@ pub enum RulePackError {
     Duplicate { id: String, version: u32 },
 }
 
+/// Text the agent says word for word: trimmed, 1 to [`LockedText::MAX`] characters.
+fn spoken_text(raw: &str) -> Option<String> {
+    let text = raw.trim();
+    (1..=LockedText::MAX)
+        .contains(&text.chars().count())
+        .then(|| text.to_owned())
+}
+
+/// Trimmed, non-empty phrases; `lower` also lower-cases them.
+fn phrases(raw: Vec<String>, lower: bool) -> Result<Vec<String>, RulePackError> {
+    raw.into_iter()
+        .map(|phrase| {
+            let phrase = phrase.trim();
+            match (phrase.is_empty(), lower) {
+                (true, _) => Err(RulePackError::EmptyPhrase),
+                (false, true) => Ok(phrase.to_lowercase()),
+                (false, false) => Ok(phrase.to_owned()),
+            }
+        })
+        .collect()
+}
+
+/// The locked texts, if their keys are unique and include the two every pack needs.
+fn checked_locked(locked: Vec<LockedText>) -> Result<Vec<LockedText>, RulePackError> {
+    let mut keys = std::collections::BTreeSet::new();
+    if let Some(twice) = locked.iter().find(|text| !keys.insert(text.key())) {
+        return Err(RulePackError::DuplicateLockedText {
+            key: twice.key().to_owned(),
+        });
+    }
+    for required in [LockedText::AI_DISCLOSURE, LockedText::RECORDING_NOTICE] {
+        if !keys.contains(required) {
+            return Err(RulePackError::MissingLockedText {
+                key: required.to_owned(),
+            });
+        }
+    }
+    Ok(locked)
+}
+
 impl RulePack {
+    /// Checks `spec`: the ID follows the jurisdiction and use case, the version is 1 or more,
+    /// the AI disclosure and the recording notice are there (each key once), there is at
+    /// least one opt-out phrase (stored trimmed and lower case), and the opt-out
+    /// confirmation is a spoken text like a locked one.
     pub fn new(spec: RulePackSpec) -> Result<Self, RulePackError> {
-        // CONTRACT-STUB
-        drop(spec);
-        Err(RulePackError::InvalidVersion)
+        let expected = RulePackRef::for_agent(spec.use_case, &spec.jurisdiction);
+        if spec.id != expected.id() {
+            return Err(RulePackError::IdMismatch {
+                expected: expected.id().to_owned(),
+            });
+        }
+        let reference = RulePackRef::new(&spec.id, spec.version).map_err(|error| match error {
+            RulePackRefError::InvalidVersion => RulePackError::InvalidVersion,
+            RulePackRefError::InvalidId => RulePackError::IdMismatch {
+                expected: expected.id().to_owned(),
+            },
+        })?;
+        let locked = checked_locked(spec.locked)?;
+        if spec.opt_out_phrases.is_empty() {
+            return Err(RulePackError::NoOptOutPhrases);
+        }
+        let opt_out_phrases = phrases(spec.opt_out_phrases, true)?;
+        let opt_out_confirmation = spoken_text(&spec.opt_out_confirmation)
+            .ok_or(RulePackError::InvalidOptOutConfirmation)?;
+        Ok(Self {
+            reference,
+            jurisdiction: spec.jurisdiction,
+            use_case: spec.use_case,
+            effective: spec.effective,
+            locked,
+            opt_out_phrases,
+            opt_out_confirmation,
+            forbidden_claims: phrases(spec.forbidden_claims, false)?,
+            retention: spec.retention,
+        })
     }
 
     /// The pack's ID and version.
@@ -264,26 +352,38 @@ pub struct RulePackCatalog {
 }
 
 impl RulePackCatalog {
-    pub fn new(packs: Vec<RulePack>) -> Result<Self, RulePackError> {
-        // CONTRACT-STUB
-        drop(packs);
-        Ok(Self::default())
+    /// Fails when two packs share an ID and version, even with the same content: a
+    /// published version is defined once.
+    pub fn new(mut packs: Vec<RulePack>) -> Result<Self, RulePackError> {
+        packs.sort_by(|a, b| key_of(a.reference()).cmp(&key_of(b.reference())));
+        if let Some(pair) = packs.windows(2).find(|pair| {
+            pair.first().map(RulePack::reference) == pair.get(1).map(RulePack::reference)
+        }) && let Some(twice) = pair.first()
+        {
+            return Err(RulePackError::Duplicate {
+                id: twice.reference().id().to_owned(),
+                version: twice.reference().version(),
+            });
+        }
+        Ok(Self { packs })
     }
 
     /// Exactly the pinned version, if the catalog has it.
     #[must_use]
     pub fn get(&self, pack: &RulePackRef) -> Option<&RulePack> {
-        // CONTRACT-STUB
-        drop(pack.clone());
-        None
+        self.packs
+            .binary_search_by(|stored| key_of(stored.reference()).cmp(&key_of(pack)))
+            .ok()
+            .and_then(|index| self.packs.get(index))
     }
 
     /// The highest version of `id`.
     #[must_use]
     pub fn latest(&self, id: &str) -> Option<&RulePack> {
-        // CONTRACT-STUB
-        drop(id.to_owned());
-        None
+        self.packs
+            .iter()
+            .filter(|pack| pack.reference().id() == id)
+            .max_by_key(|pack| pack.reference().version())
     }
 
     /// Every pack, by id and then version.
@@ -304,10 +404,16 @@ impl RulePackCatalog {
     /// Validates `plan` against the pack `pack` names. A pack the catalog doesn't have makes
     /// the plan invalid: there is nothing to check its locked texts against.
     pub fn validate(&self, plan: &Plan, pack: &RulePackRef) -> Result<(), Vec<PlanError>> {
-        // CONTRACT-STUB
-        drop((plan.clone(), pack.clone()));
-        Ok(())
+        match self.get(pack) {
+            Some(rules) => plan.validate(rules),
+            None => Err(vec![PlanError::RulePackUnavailable { pack: pack.clone() }]),
+        }
     }
+}
+
+/// How the catalog orders packs: by ID, then version.
+fn key_of(pack: &RulePackRef) -> (&str, u32) {
+    (pack.id(), pack.version())
 }
 
 #[cfg(test)]

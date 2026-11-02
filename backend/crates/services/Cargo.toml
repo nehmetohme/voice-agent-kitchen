@@ -10,8 +10,11 @@ publish.workspace = true
 
 [dependencies]
 jiff = { workspace = true }
+# Rule packs: contracts/rule-packs/*.toml, embedded at build time and parsed at startup.
+serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
+toml = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
 vak-domain = { workspace = true }
 vak-repositories = { workspace = true }

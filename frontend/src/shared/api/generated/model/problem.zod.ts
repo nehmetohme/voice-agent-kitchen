@@ -13,7 +13,7 @@ export const problemStatusMin = 0;
 export const Problem = zod.object({
   "detail": zod.string().describe('What went wrong, for people.'),
   "errors": zod.array(zod.object({
-  "field": zod.string().describe('The field\'s name in the request body, e.g. `useCase`.'),
+  "field": zod.string().describe('The field\'s path in the request body, e.g. `useCase` or `nodes[2].label`.'),
   "message": zod.string().describe('What to change, e.g. `Enter a name.`')
 }).describe('An invalid request field and how to fix it.')).optional().describe('One entry per invalid field (validation errors only).'),
   "status": zod.int().min(problemStatusMin).describe('The HTTP status code.'),
