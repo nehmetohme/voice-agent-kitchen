@@ -45,7 +45,7 @@ Work expands to fill the time it is given, so tasks are short, defaults are smar
 |---|---|---|---|
 | PARK-1 | Drafts autosave within 1 s of the last edit and show a visible "Saved" status; no Save button is needed. | `frontend/e2e/contract/agent-provisioning/`: edit → not "Saved" → "Saved" within 2 s → reload → value persists; no Save button | A |
 | PARK-2 | The create-agent golden path takes at most 8 interactions and 60 s. | Interaction counter and clock in the `@golden` create-agent spec and the agent-provisioning contract spec | A |
-| PARK-3 | Templates exist for common jobs: support, booking, survey, outbound. | Domain tests that each template produces a valid plan; usefulness is R | Planned, M3 |
+| PARK-3 | Templates exist for common jobs: support, booking, survey, outbound. | `plan` contract: every use case has its own template, valid for any rule pack (`backend/crates/domain/tests/contract_plan.rs`) and for every shipped pack, end to end too; usefulness is R | A |
 | PARK-4 | A task can end as soon as its required parts are done; optional work does not block. | Reading the flow | R |
 
 Reviewer checklist:

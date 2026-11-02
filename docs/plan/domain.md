@@ -62,8 +62,8 @@ Connecting ─► Greeting (locked disclosure) ─► Conversing ⇄ Agent speak
 | `agent_drafts` | agent_id (PK), persona JSONB, plan JSONB, settings JSONB, rule_pack_id, rule_pack_version, content_hash, updated_at, updated_by | JSONB validated by domain types on every read and write |
 | `agent_versions` | id, agent_id, number, snapshot JSONB, content_hash, test_run_id, created_by, created_at | Append-only; a DB trigger forbids UPDATE and DELETE |
 | `publications` | agent_id, channel, version_id, updated_at | One row per agent and channel |
-| `rule_packs` | id, version, jurisdiction, use_case, body JSONB | Seeded from `contracts/rule-packs/*.toml`; immutable per version |
-| `templates` | id, use_case, body JSONB | Seeded; starting plans per use case |
+| `rule_packs` | id, version, jurisdiction, use_case, body JSONB | Later. Since M3 the packs are `contracts/rule-packs/*.toml`, embedded in the server (`vak-services`); immutable per version |
+| `templates` | id, use_case, body JSONB | Later. Since M3 the starting plan per use case is domain code (`Plan::template`); the draft stores a plan only once it is saved (`agent_drafts.plan`) |
 | `test_scenarios` | id, agent_id, name, persona JSONB, rubric JSONB, required | |
 | `test_runs` | id, agent_id, draft_hash, status, verdict, started_at, finished_at | |
 | `test_results` | test_run_id, scenario_id, session_id, scores JSONB, passed | |
