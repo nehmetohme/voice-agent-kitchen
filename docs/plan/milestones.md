@@ -1,6 +1,6 @@
 # Milestones and build order
 
-Every task follows the same loop: worktree → contract tests first → you sign the contract tag → implement → `verify` + reviewers → PR → merge queue. The contract tests listed per milestone are what gets written and tagged **before** any implementation.
+Every task follows the same loop: worktree → contract tests first → the coordinating session pins the contract tag → implement → `verify` + reviewers → PR → merge queue. The contract tests listed per milestone are what gets written and tagged **before** any implementation.
 
 ## M0: Foundation
 

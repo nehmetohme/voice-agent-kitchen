@@ -21,7 +21,7 @@ A platform where an operator creates a voice agent in four steps:
 | Backend | Rust, layered Cargo workspace: axum, tokio, sqlx, utoipa |
 | Frontend | React + Vite SPA, TypeScript, shadcn/Base UI, TanStack, XState, React Flow |
 | Repo | Public GitHub repo in a free organization; merge queue, rulesets, CodeQL, secret scanning, Dependabot, dependency review |
-| Process | Contract tests first, signed `contract/<feature>/vN` tags, one worktree per task, merge only through the merge queue when CI is green |
+| Process | Contract tests first, `contract/<feature>/vN` tags (unsigned for now), one worktree per task, merge only through the merge queue when CI is green |
 
 ## Plan documents
 

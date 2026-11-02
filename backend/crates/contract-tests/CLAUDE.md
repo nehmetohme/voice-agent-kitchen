@@ -19,8 +19,8 @@ The tests live in `tests/`. `src/lib.rs` holds only shared helpers, such as load
 
 ## Conventions
 
-- **Contract files** match `**/tests/contract_*.rs` and are pinned by signed `contract/<feature>/vN` tags.
-  - **Never edit a tagged file.** To change a contract, add a new version and get it signed.
+- **Contract files** match `**/tests/contract_*.rs` and are pinned by `contract/<feature>/vN` tags (unsigned for now; `contracts/CLAUDE.md`).
+  - **Never edit a tagged file.** To change a contract, add a new version; the coordinating session pins its tag.
   - Register every contract file in `contracts/contracts.toml`.
 - **The spec is the source of truth.** Never edit `contracts/openapi.json` by hand; regenerate it with `just openapi`.
 - **No network:** drive the router in-process with `tower::ServiceExt::oneshot`, no sockets.

@@ -9,7 +9,7 @@ A platform to provision, plan, test and publish real-time AI voice agents. Read 
 ## Ground rules
 
 1. **Work in a task worktree, never on `main`.** Start with `just task <name>` and finish with a PR.
-2. **Write contract tests first.** Register them in `contracts/contracts.toml` and commit. The owner reviews them and signs `contract/<feature>/vN`. Never edit a file covered by a contract tag. To change a contract, bump its version.
+2. **Write contract tests first.** Register them in `contracts/contracts.toml` and commit. The coordinating session pins them with an unsigned tag `contract/<feature>/vN` (`just contract-pin`). Never edit a file covered by a contract tag. To change a contract, bump its version.
 3. **`just verify` must pass before you say a task is done.** The Stop hook runs it, plus the relevant reviewer agents, and blocks on failure.
 4. **Respect the layers.**
    - Backend: `backend/layers.toml`, enforced by crates, `xtask check-layers` and cargo-deny.
@@ -19,7 +19,7 @@ A platform to provision, plan, test and publish real-time AI voice agents. Read 
    - `contracts/openapi.json`: regenerate with `just openapi`.
    - `frontend/src/shared/api/generated/**`
    - `backend/**/.sqlx/**`
-6. **Never create, move or push git tags.** Only the owner signs tags.
+6. **Never create, move or delete git tags by hand.** Contract tags are created only with `just contract-pin` and pushed with `just contract-push`, by the coordinating session, never by task agents.
 7. **Models:** production uses Databricks Model Serving, and local development uses local models. They switch through configuration only. Never add an outside model vendor.
 8. **No secrets in files. No PII in logs or traces.**
 

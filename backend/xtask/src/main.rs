@@ -2,7 +2,8 @@
 //!
 //! - `check-layers`: every dependency edge in every manifest is allowed by `layers.toml`.
 //! - `coverage-gate`: every crate meets its line-coverage floor in `coverage.toml`.
-//! - `contract-check`: every contract file matches a contract tag the owner signed.
+//! - `contract-check`: every contract file matches its `contract/<feature>/v<N>` tag
+//!   (signatures only with `--require-signatures`).
 //! - `contract-status`: each contract feature with its version and tag state.
 //!
 //! Exit codes: 0 when every check passes, 1 when a check fails, 2 on a usage or I/O error.
@@ -42,10 +43,11 @@ enum Command {
         #[arg(long)]
         config: Option<PathBuf>,
     },
-    /// Fail unless every contract file is byte-identical to a contract tag the owner signed.
+    /// Fail unless every contract file is byte-identical to its contract/<feature>/v<N> tag.
     ContractCheck {
-        /// Trusted ref (a pull request's base): its .github/contract-signers verifies the
-        /// tags and its contracts.toml sets the minimum versions
+        /// Trusted ref (a pull request's base): its contracts.toml sets the minimum
+        /// versions, and with --require-signatures its .github/contract-signers verifies
+        /// the tags
         #[arg(long)]
         base: String,
         /// The ref under test
@@ -54,15 +56,18 @@ enum Command {
         /// Any directory inside the repository [default: the current directory]
         #[arg(long)]
         repo: Option<PathBuf>,
-        /// Local gates only: contracts awaiting the owner's signature (missing tag,
-        /// untagged contract file) warn instead of failing. Violations of signed
-        /// contracts still fail. CI runs without it.
+        /// Local gates only: contracts awaiting their tag (missing tag, untagged contract
+        /// file) warn instead of failing. Violations of pinned contracts still fail. CI
+        /// runs without it.
         #[arg(long)]
         allow_pending: bool,
+        #[command(flatten)]
+        signatures: SignaturesArg,
     },
     /// List contract features with their versions and tag state. Never fails on findings.
     ContractStatus {
-        /// Trusted ref whose .github/contract-signers verifies the tags
+        /// Trusted ref: its contracts.toml sets the minimum versions, and with
+        /// --require-signatures its .github/contract-signers verifies the tags
         #[arg(long, default_value = "origin/main")]
         base: String,
         /// The ref to report on
@@ -71,7 +76,25 @@ enum Command {
         /// Any directory inside the repository [default: the current directory]
         #[arg(long)]
         repo: Option<PathBuf>,
+        #[command(flatten)]
+        signatures: SignaturesArg,
     },
+}
+
+/// `--require-signatures`, shared by the contract commands.
+#[derive(clap::Args)]
+struct SignaturesArg {
+    /// Also require every contract tag to be signed by a key in the base's
+    /// .github/contract-signers (`git verify-tag`). Off by default: signed and unsigned
+    /// tags pin alike, and the signers file is not read
+    #[arg(long)]
+    require_signatures: bool,
+}
+
+impl SignaturesArg {
+    fn mode(&self) -> contracts::Signatures {
+        contracts::Signatures::required_if(self.require_signatures)
+    }
 }
 
 fn main() -> ExitCode {
@@ -95,10 +118,20 @@ fn run(cli: Cli) -> anyhow::Result<bool> {
             head,
             repo,
             allow_pending,
-        } => contract_check(&base, &head, repo.as_deref(), allow_pending),
-        Command::ContractStatus { base, head, repo } => {
-            contract_status(&base, &head, repo.as_deref()).map(|()| true)
-        }
+            signatures,
+        } => contract_check(
+            &base,
+            &head,
+            repo.as_deref(),
+            allow_pending,
+            signatures.mode(),
+        ),
+        Command::ContractStatus {
+            base,
+            head,
+            repo,
+            signatures,
+        } => contract_status(&base, &head, repo.as_deref(), signatures.mode()).map(|()| true),
     }
 }
 
@@ -156,15 +189,16 @@ fn contract_report(
     base: &str,
     head: &str,
     repo: Option<&Path>,
+    signatures: contracts::Signatures,
 ) -> anyhow::Result<contracts::Report> {
     let git = git::Git::open(repo)?;
     let (base_id, head_id) = (git.commit(base)?, git.commit(head)?);
     eprintln!(
-        "{command}: base {base} ({}), head {head} ({})",
+        "{command}: base {base} ({}), head {head} ({}), {signatures}",
         short(&base_id),
         short(&head_id)
     );
-    let report = contracts::check(&git, &base_id, &head_id)?;
+    let report = contracts::check(&git, &base_id, &head_id, signatures)?;
     for notice in &report.notices {
         eprintln!("{command}: notice: {notice}");
     }
@@ -176,11 +210,12 @@ fn contract_check(
     head: &str,
     repo: Option<&Path>,
     allow_pending: bool,
+    signatures: contracts::Signatures,
 ) -> anyhow::Result<bool> {
-    let report = contract_report("contract-check", base, head, repo)?;
+    let report = contract_report("contract-check", base, head, repo, signatures)?;
     for problem in &report.problems {
         if allow_pending && problem.is_pending() {
-            eprintln!("contract-check: warning: awaiting owner signature: {problem}");
+            eprintln!("contract-check: warning: awaiting its contract tag: {problem}");
         } else {
             eprintln!("contract-check: error: {problem}");
         }
@@ -189,28 +224,34 @@ fn contract_check(
     let violations = report.problems.len() - pending;
     if passed && pending == 0 {
         eprintln!(
-            "contract-check: ok ({} feature(s), {} file(s) match their signed tags)",
+            "contract-check: ok ({} feature(s), {} file(s) match their contract tags)",
             report.features.len(),
             report.pinned
         );
     } else if passed {
         eprintln!(
-            "contract-check: ok locally, {pending} finding(s) awaiting the owner's signature \
-             (see `just contract-status`). CI is strict and fails until the owner signs."
+            "contract-check: ok locally, {pending} finding(s) awaiting a contract tag (see \
+             `just contract-status`). CI is strict and fails until the coordinating session \
+             pins and pushes the tag."
         );
     } else {
         eprintln!(
-            "contract-check: failed: {violations} violation(s), {pending} awaiting the owner's \
-             signature{}. Contract files stay byte-identical to the tags the owner signed; \
-             see contracts/CLAUDE.md",
+            "contract-check: failed: {violations} violation(s), {pending} awaiting a contract \
+             tag{}. Contract files stay byte-identical to their contract tags; see \
+             contracts/CLAUDE.md",
             if allow_pending { " (allowed)" } else { "" }
         );
     }
     Ok(passed)
 }
 
-fn contract_status(base: &str, head: &str, repo: Option<&Path>) -> anyhow::Result<()> {
-    let report = contract_report("contract-status", base, head, repo)?;
+fn contract_status(
+    base: &str,
+    head: &str,
+    repo: Option<&Path>,
+    signatures: contracts::Signatures,
+) -> anyhow::Result<()> {
+    let report = contract_report("contract-status", base, head, repo, signatures)?;
     let header = ["feature", "version", "tag", "state"].map(str::to_owned);
     let rows: Vec<[String; 4]> = report
         .features
@@ -244,7 +285,7 @@ fn contract_status(base: &str, head: &str, repo: Option<&Path>) -> anyhow::Resul
     }
     let pending = report.pending();
     eprintln!(
-        "contract-status: {pending} finding(s) awaiting the owner's signature, {} violation(s). \
+        "contract-status: {pending} finding(s) awaiting a contract tag, {} violation(s). \
          Local gates fail only on violations; CI fails on both.",
         report.problems.len() - pending
     );

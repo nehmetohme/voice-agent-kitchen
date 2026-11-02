@@ -130,7 +130,7 @@ src/
 | REST + WebSocket API | `contracts/openapi.json`, generated from Rust (utoipa) and committed | Drift check, `oasdiff breaking`, regenerated-client drift, `vak-contract-tests` |
 | Model serving | `contracts/serving/{stt,tts}.json` request/response schemas | Adapter contract tests run against the local shim and, in staging, against Databricks |
 | Decisions | `contracts/decisions/*.toml`: platform questions (opt-out, escalation, outcome) | Domain unit tests; offline eval set |
-| Feature behaviour | Contract tests pinned by signed `contract/<feature>/vN` tags | `contract-check` in CI |
+| Feature behaviour | Contract tests pinned by `contract/<feature>/vN` tags (unsigned for now) | `contract-check` in CI |
 
 ## 6. Deployment
 

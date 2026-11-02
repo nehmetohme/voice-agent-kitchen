@@ -15,8 +15,8 @@ import 'deploy/local/dev.just'
 default:
     @just --list
 
-# Contracts run last: when everything else is green, a contract file still waiting for the
-# owner's signed tag is the only failure left (see contracts/CLAUDE.md).
+# Contracts run last: when everything else is green, a contract file still waiting for its
+# contract tag is the only failure left (see contracts/CLAUDE.md).
 
 # Every gate: must pass before a task is done (hooks and CI run this)
 verify: backend-verify frontend-verify repo-verify ci-verify contracts-verify

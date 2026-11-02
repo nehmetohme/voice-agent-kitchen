@@ -37,7 +37,7 @@ just dev-doctor         # checks every dependency, the LLM box included
 **Every day:** `just dev` starts the whole local stack (Postgres, speech, decisions, model shim, server on :3000, frontend on :5173). `just dev-smoke` calls every endpoint and prints latencies, and `just dev-down` stops it all. Details: [deploy/CLAUDE.md](deploy/CLAUDE.md).
 
 Every change follows test-driven development:
-- Contract tests are written first and pinned by signed tags.
+- Contract tests are written first and pinned by `contract/<feature>/vN` tags. The tags are unsigned for now (`contracts/CLAUDE.md`).
 - Each task gets its own git worktree.
 - Changes merge only when CI is green.
 

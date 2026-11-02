@@ -50,30 +50,31 @@ For every feature:
    - `**/*.contract.test.ts`
    - `e2e/contract/**`
 
-   Register them in `contracts/contracts.toml`, then commit and push. Local gates only warn ("awaiting owner signature"), so the agent can push the tests for review. CI fails with "untagged contract file", and that failure is the approval gate.
-2. **You review and sign.** `just contract-approve <feature> 1` creates and pushes the signed tag `contract/<feature>/v1`. Only admins can create these tags (tag ruleset).
+   Register them in `contracts/contracts.toml`, then commit and push. Local gates only warn ("awaiting its contract tag"), so the agent can push the tests for review. CI fails with "untagged contract file", and that failure is the approval gate.
+2. **The coordinating session pins them.** `just contract-pin <feature> 1` creates the unsigned annotated tag `contract/<feature>/v1` at HEAD, and `just contract-push <feature> 1` pushes it. Task agents never do this. Only admins can create these tags (tag ruleset), so the push uses the owner's credentials.
 3. **Implement.** CI stays green only while every contract file is byte-identical to its tag.
-4. **To change a contract**, bump the version in `contracts.toml` and sign `contract/<feature>/v2`.
+4. **To change a contract**, bump the version in `contracts.toml`, and the coordinating session pins `contract/<feature>/v2`.
 
 `cargo xtask contract-check` runs in two modes:
 
-| Mode | Where | Pending approval (tag not signed yet, untagged contract file) | Violation (tagged file changed or deleted, bad or unknown signature, signer added only in HEAD, lower version, removed contract) |
+| Mode | Where | Pending (tag not pinned yet, untagged contract file) | Violation (tagged file changed or deleted, lower version, removed contract, misnamed or lightweight tag) |
 |---|---|---|---|
 | strict | CI: `just contracts-check-ci`, the base branch's copy of the checker | fails, so the PR can't merge | fails |
 | `--allow-pending` | local: `just verify`, `just verify-fast`, git hooks, the Stop gate | warns and passes | fails |
 
 Defence layers:
-- signature checked against the base branch's `.github/contract-signers` file
+- **Signatures are off for now.** The owner chose this: tags are unsigned, and the checker doesn't verify them. `cargo xtask contract-check --require-signatures` turns signature checks back on, against the base branch's `.github/contract-signers`. That file stays in place, unused while signatures are off. `contracts/CLAUDE.md` lists the steps.
 - CI runs the base branch's copy of the checker
+- the `contract-tags` ruleset: only admins create, move or delete contract tags
 - CODEOWNERS on contract paths
 - a Claude Code `PreToolUse` hook that blocks edits to tagged files
-- permission rules that deny `git tag` and pushing tags
+- permission rules that deny `git tag` and pushing tags to task agents
 
 ## 3. Worktrees and branches
 
 ```
 just task <name>         → git worktree at .claude/worktrees/<name>, branch task/<name>
-  write contract tests   → commit → draft PR → you sign the contract tag
+  write contract tests   → commit → draft PR → the coordinating session pins the contract tag
   implement              → hooks run on every edit; Stop hook runs verify + reviewers
   PR ready               → CI green → merge queue → re-run on the merged result → merge
   just task-done <name>  → remove the worktree

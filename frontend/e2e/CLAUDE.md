@@ -20,7 +20,7 @@ hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, datab
 
 | Folder                | What                                                                              | Edit?                               |
 | --------------------- | --------------------------------------------------------------------------------- | ----------------------------------- |
-| `contract/<feature>/` | Contract specs, pinned by signed `contract/<feature>/vN` tags                     | **Never** after tagging; add `vN+1` |
+| `contract/<feature>/` | Contract specs, pinned by `contract/<feature>/vN` tags                            | **Never** after tagging; add `vN+1` |
 | `golden/`             | One `<id>.golden.spec.ts` per golden path in `docs/ux-guardrails/golden-paths.md` | Yes                                 |
 | `support/`            | Shared helpers: `ux-audit.ts` (`auditScreen`), `ports.ts`, `backend-server.ts`    | Yes                                 |
 

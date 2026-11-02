@@ -1,13 +1,14 @@
 # Contract-test manifest, checked by `cargo xtask contract-check` (`just contracts-verify`,
 # CI). Workflow: contracts/CLAUDE.md.
 #
-# - HEAD's copy pins each feature's version: tag contract/<feature>/v<version> must exist,
-#   signed by a key in the base branch's .github/contract-signers.
-# - The file set of a version comes from the manifest inside its signed tag, so editing
-#   `paths` here changes nothing until the owner signs a new version.
+# - HEAD's copy pins each feature's version: the annotated tag contract/<feature>/v<version>
+#   must exist (`just contract-pin`). Signatures are off for now; `--require-signatures`
+#   would also need it signed by a key in the base branch's .github/contract-signers.
+# - The file set of a version comes from the manifest inside its tag, so editing `paths`
+#   here changes nothing until a new version is pinned.
 # - Versions only go up. To change a contract, bump its version, then edit its files.
 
-# Every file matching one of these is a contract file and must be covered by a signed tag.
+# Every file matching one of these is a contract file and must be covered by a contract tag.
 # The base branch's globs apply too, so removing a glob here hides nothing.
 contract_globs = [
   "**/tests/contract_*.rs",
