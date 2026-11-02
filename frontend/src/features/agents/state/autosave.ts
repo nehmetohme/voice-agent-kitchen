@@ -9,13 +9,7 @@ import { checkSettings } from '../api/request-checks';
 /** Quiet time after the last edit before saving: well inside the 1 s budget. */
 export const AUTOSAVE_DELAY_MS = 500;
 
-/**
- * - `saved`: everything on the page is stored.
- * - `unsaved`: an edit is waiting for the quiet time to pass.
- * - `saving`: a save is in flight.
- * - `invalid`: a field must be fixed before anything can be saved.
- * - `failed`: the last save failed; editing again, or retrying, saves again.
- */
+/** What the page says about saving; `shared/ui/save-status.tsx` describes each state. */
 export type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'invalid' | 'failed';
 
 const SETTINGS_KEYS = [

@@ -4,9 +4,9 @@ import { Bot, Plus } from 'lucide-react';
 
 import { buttonLook } from '../../../shared/ui/button';
 import { EmptyState } from '../../../shared/ui/empty-state';
+import { LoadFailed, Loading } from '../../../shared/ui/load-states';
 import { agentsQueryOptions } from '../state/agents-queries';
 import { AgentList } from './agent-list';
-import { LoadFailed, Loading } from './load-states';
 
 /** The one primary action of the Agents screen (Von Restorff). */
 function CreateAgentLink() {

@@ -45,7 +45,8 @@
   "container": {
     "$type": "dimension",
     "sidebar": { "$value": "16rem", "$description": "Width of the app sidebar" },
-    "readable": { "$value": "40rem", "$description": "Maximum width of a text column" }
+    "readable": { "$value": "40rem", "$description": "Maximum width of a text column" },
+    "step": { "$value": "18rem", "$description": "Width of a step card on the plan canvas" }
   },
   "radius": {
     "$type": "dimension",
