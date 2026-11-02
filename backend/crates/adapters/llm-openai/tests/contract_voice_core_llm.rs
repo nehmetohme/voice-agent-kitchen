@@ -292,7 +292,7 @@ async fn a_tool_call_split_over_deltas_arrives_complete() {
         })
         .collect();
     assert_eq!(calls.len(), 1, "one tool call");
-    assert_eq!(calls[0].id(), "KNQYlCGEC0hUE2os1t7X1en6A5H7BnuK");
+    assert_eq!(calls[0].id(), "CSmArN5Z41GcseGT2vT3sA5sKQYgiOw2");
     assert_eq!(calls[0].name(), "mark_do_not_call");
     assert_eq!(calls[0].arguments(), "{}");
     assert!(
