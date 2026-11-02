@@ -1,0 +1,210 @@
+{
+  "description": "Examples of vak.media.v1 text events, checked against vak.media.v1.json by both sides: the server's types (vak-providers) and the browser's parser (frontend/src/shared/voice). Every valid example must be accepted and every invalid one refused, for the reason given in `why`. Together the valid examples use every event type.",
+  "client": {
+    "valid": [
+      { "type": "session.start" },
+      { "type": "session.start", "audio": { "encoding": "pcm_s16le", "sample_rate": 16000 } },
+      { "type": "client.mute", "muted": true },
+      { "type": "client.mute", "muted": false },
+      { "type": "session.end" }
+    ],
+    "invalid": [
+      { "why": "no type", "event": { "muted": true } },
+      { "why": "unknown type", "event": { "type": "session.begin" } },
+      { "why": "type is not a string", "event": { "type": 3 } },
+      { "why": "not an object", "event": "session.end" },
+      { "why": "client.mute without muted", "event": { "type": "client.mute" } },
+      { "why": "muted is not a boolean", "event": { "type": "client.mute", "muted": "yes" } },
+      {
+        "why": "8 kHz input is not supported",
+        "event": { "type": "session.start", "audio": { "encoding": "pcm_s16le", "sample_rate": 8000 } }
+      },
+      {
+        "why": "Opus input is not supported",
+        "event": { "type": "session.start", "audio": { "encoding": "opus", "sample_rate": 16000 } }
+      },
+      {
+        "why": "audio without its sample rate",
+        "event": { "type": "session.start", "audio": { "encoding": "pcm_s16le" } }
+      }
+    ]
+  },
+  "server": {
+    "valid": [
+      {
+        "type": "session.started",
+        "session_id": "0192f4c1-7c1e-7d34-9a51-3c2b1d0e9f87",
+        "audio": {
+          "input": { "encoding": "pcm_s16le", "sample_rate": 16000, "frame_ms": 20 },
+          "output": { "encoding": "pcm_s16le", "sample_rate": 24000, "frame_ms": 20 }
+        }
+      },
+      { "type": "transcript.partial", "turn_id": 1, "speaker": "caller", "text": "Hi, I would like" },
+      {
+        "type": "transcript.final",
+        "turn_id": 0,
+        "speaker": "agent",
+        "text": "Hi, this is Ava, an automated assistant for Bistro Verde. This call may be recorded.",
+        "interrupted": false
+      },
+      {
+        "type": "transcript.final",
+        "turn_id": 1,
+        "speaker": "caller",
+        "text": "Hi, I would like to book a table for two tomorrow at seven.",
+        "interrupted": false
+      },
+      { "type": "transcript.final", "turn_id": 2, "speaker": "agent", "text": "Let me check", "interrupted": true },
+      { "type": "agent.audio.start", "turn_id": 0 },
+      { "type": "agent.audio.end", "turn_id": 0 },
+      { "type": "agent.interrupted", "turn_id": 2 },
+      { "type": "plan.node", "turn_id": 3, "node_id": "collect_party_size" },
+      {
+        "type": "decision",
+        "turn_id": 1,
+        "question": "opt_out",
+        "status": "answered",
+        "latency_ms": 182,
+        "probability": 0.013
+      },
+      {
+        "type": "decision",
+        "turn_id": 3,
+        "question": "branch",
+        "status": "answered",
+        "latency_ms": 204,
+        "choice": "collect_party_size",
+        "probability": 0.87
+      },
+      { "type": "decision", "turn_id": 5, "question": "opt_out", "status": "timeout", "latency_ms": 2000 },
+      { "type": "decision", "turn_id": 7, "question": "opt_out", "status": "error", "latency_ms": 31 },
+      {
+        "type": "latency",
+        "turn_id": 2,
+        "stt_ms": 48,
+        "llm_ttft_ms": 112,
+        "tts_first_audio_ms": 131,
+        "mouth_to_ear_ms": 811
+      },
+      {
+        "type": "latency",
+        "turn_id": 4,
+        "stt_ms": null,
+        "llm_ttft_ms": null,
+        "tts_first_audio_ms": 95,
+        "mouth_to_ear_ms": null
+      },
+      { "type": "error", "code": "bad_message", "message": "the text frame is not a vak.media.v1 client event" },
+      { "type": "error", "code": "provider_unavailable", "message": "speech recognition is unavailable; please repeat" },
+      { "type": "session.ended", "reason": "client_ended" },
+      { "type": "session.ended", "reason": "opt_out", "opt_out_layer": "phrase" },
+      { "type": "session.ended", "reason": "opt_out", "opt_out_layer": "llm_tool" }
+    ],
+    "invalid": [
+      { "why": "unknown type", "event": { "type": "agent.state", "state": "speaking" } },
+      { "why": "no type", "event": { "turn_id": 2 } },
+      {
+        "why": "transcript.final without interrupted",
+        "event": { "type": "transcript.final", "turn_id": 1, "speaker": "caller", "text": "Hello" }
+      },
+      {
+        "why": "unknown speaker",
+        "event": { "type": "transcript.final", "turn_id": 1, "speaker": "bot", "text": "Hello", "interrupted": false }
+      },
+      {
+        "why": "empty transcript",
+        "event": { "type": "transcript.final", "turn_id": 1, "speaker": "caller", "text": "", "interrupted": false }
+      },
+      {
+        "why": "a partial transcript is always the caller's",
+        "event": { "type": "transcript.partial", "turn_id": 2, "speaker": "agent", "text": "Let me" }
+      },
+      { "why": "negative turn", "event": { "type": "agent.audio.start", "turn_id": -1 } },
+      { "why": "turn as a string", "event": { "type": "agent.audio.start", "turn_id": "2" } },
+      { "why": "fractional turn", "event": { "type": "agent.interrupted", "turn_id": 2.5 } },
+      {
+        "why": "latency without mouth_to_ear_ms",
+        "event": { "type": "latency", "turn_id": 2, "stt_ms": 48, "llm_ttft_ms": 112, "tts_first_audio_ms": 131 }
+      },
+      {
+        "why": "negative latency",
+        "event": {
+          "type": "latency",
+          "turn_id": 2,
+          "stt_ms": -1,
+          "llm_ttft_ms": 112,
+          "tts_first_audio_ms": 131,
+          "mouth_to_ear_ms": 811
+        }
+      },
+      {
+        "why": "a timed-out decision carries no probability: a timeout is never a no",
+        "event": {
+          "type": "decision",
+          "turn_id": 1,
+          "question": "opt_out",
+          "status": "timeout",
+          "latency_ms": 2000,
+          "probability": 0
+        }
+      },
+      {
+        "why": "an answered decision without its answer",
+        "event": { "type": "decision", "turn_id": 1, "question": "opt_out", "status": "answered", "latency_ms": 90 }
+      },
+      {
+        "why": "probability above 1",
+        "event": {
+          "type": "decision",
+          "turn_id": 1,
+          "question": "opt_out",
+          "status": "answered",
+          "latency_ms": 90,
+          "probability": 1.5
+        }
+      },
+      {
+        "why": "question id is not snake_case",
+        "event": {
+          "type": "decision",
+          "turn_id": 1,
+          "question": "Opt Out",
+          "status": "answered",
+          "latency_ms": 90,
+          "probability": 0.2
+        }
+      },
+      { "why": "an opt-out names its layer", "event": { "type": "session.ended", "reason": "opt_out" } },
+      {
+        "why": "only an opt-out names a layer",
+        "event": { "type": "session.ended", "reason": "client_ended", "opt_out_layer": "phrase" }
+      },
+      { "why": "unknown end reason", "event": { "type": "session.ended", "reason": "hangup" } },
+      { "why": "unknown opt-out layer", "event": { "type": "session.ended", "reason": "opt_out", "opt_out_layer": "dtmf" } },
+      { "why": "unknown error code", "event": { "type": "error", "code": "oops", "message": "something broke" } },
+      { "why": "error without a message", "event": { "type": "error", "code": "internal", "message": "" } },
+      {
+        "why": "server audio is 24 kHz",
+        "event": {
+          "type": "session.started",
+          "session_id": "s1",
+          "audio": {
+            "input": { "encoding": "pcm_s16le", "sample_rate": 16000, "frame_ms": 20 },
+            "output": { "encoding": "pcm_s16le", "sample_rate": 16000, "frame_ms": 20 }
+          }
+        }
+      },
+      {
+        "why": "session id with a space",
+        "event": {
+          "type": "session.started",
+          "session_id": "my session",
+          "audio": {
+            "input": { "encoding": "pcm_s16le", "sample_rate": 16000, "frame_ms": 20 },
+            "output": { "encoding": "pcm_s16le", "sample_rate": 24000, "frame_ms": 20 }
+          }
+        }
+      }
+    ]
+  }
+}

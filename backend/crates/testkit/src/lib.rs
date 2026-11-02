@@ -5,4 +5,9 @@
 //! `cargo xtask check-layers` fails if any crate uses this as a normal or build
 //! dependency.
 
+pub mod audio;
+pub mod conformance;
+pub mod fixtures;
+pub mod media;
+pub mod providers;
 pub mod repositories;

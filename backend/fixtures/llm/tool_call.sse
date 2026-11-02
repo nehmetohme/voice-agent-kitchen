@@ -1,0 +1,10 @@
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"role":"assistant","content":null}}],"created":1793601823,"id":"chatcmpl-eb9tRiZpcdAur4h3BbRUKjch6K1nktKB","model":"KAT-Coder-V2.5-Dev","system_fingerprint":"b1-8330e96","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"id":"CSmArN5Z41GcseGT2vT3sA5sKQYgiOw2","type":"function","function":{"name":"mark_do_not_call","arguments":"{"}}]}}],"created":1793601823,"id":"chatcmpl-eb9tRiZpcdAur4h3BbRUKjch6K1nktKB","model":"KAT-Coder-V2.5-Dev","system_fingerprint":"b1-8330e96","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]}}],"created":1793601823,"id":"chatcmpl-eb9tRiZpcdAur4h3BbRUKjch6K1nktKB","model":"KAT-Coder-V2.5-Dev","system_fingerprint":"b1-8330e96","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":"tool_calls","index":0,"delta":{}}],"created":1793601823,"id":"chatcmpl-eb9tRiZpcdAur4h3BbRUKjch6K1nktKB","model":"KAT-Coder-V2.5-Dev","system_fingerprint":"b1-8330e96","object":"chat.completion.chunk","timings":{"cache_n":296,"prompt_n":26,"prompt_ms":122.241,"prompt_per_token_ms":4.701576923076923,"prompt_per_second":212.69459510311597,"predicted_n":17,"predicted_ms":117.017,"predicted_per_token_ms":7.3135625,"predicted_per_second":136.73226967021887}}
+
+data: [DONE]
+

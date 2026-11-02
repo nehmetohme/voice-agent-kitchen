@@ -10,7 +10,8 @@ A change here can break the other side. Treat every file as a published interfac
 | `contracts.toml` | Contract-test manifest: `contract_globs` and one `[features.<name>]` per contract with its `version` and `paths` | Yes, to register a contract or bump a version (never lower one) |
 | `contracts.just` | Recipes: drift checks, `oasdiff`, `contract-check`, `contract-status`, `contract-pin`, `contract-push` | Yes |
 | `serving/` | `stt.json`, `tts.json`: JSON Schemas of the Databricks STT/TTS invocation bodies (`serving/README.md`) | Only with a version bump: the `model-shim` contract tag pins both |
-| `media/`, `decisions/`, `rule-packs/` | Media protocol, decision questions, compliance packs | Placeholders until their milestones |
+| `media/` | `vak.media.v1.json`, `examples.json`: the media WebSocket's events (`media/README.md`) | Only with a version bump: the `voice-core` contract tag pins both |
+| `decisions/`, `rule-packs/` | Decision questions, compliance packs | Placeholders until their milestones |
 
 The checker lives in `backend/xtask/src/contracts.rs`. `.github/contract-signers` (owner-only) holds the SSH public keys allowed to sign contract tags. It is kept but unused while signatures are off (see [Signatures](#signatures-off-for-now)).
 

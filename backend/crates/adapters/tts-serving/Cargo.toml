@@ -8,5 +8,18 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+secrecy = { workspace = true }
+thiserror = { workspace = true }
+vak-providers = { workspace = true }
+
+[dev-dependencies]
+base64 = { workspace = true }
+jsonschema = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
+vak-testkit = { workspace = true }
+wiremock = { workspace = true }
+
 [lints]
 workspace = true
