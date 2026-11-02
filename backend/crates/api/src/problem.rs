@@ -36,8 +36,8 @@ pub(crate) struct Problem {
 /// An invalid request field and how to fix it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, ToSchema)]
 pub(crate) struct FieldError {
-    /// The field's name in the request body, e.g. `useCase`.
-    pub(crate) field: &'static str,
+    /// The field's path in the request body, e.g. `useCase` or `nodes[2].label`.
+    pub(crate) field: String,
     /// What to change, e.g. `Enter a name.`
     pub(crate) message: &'static str,
 }

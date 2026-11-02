@@ -1,8 +1,6 @@
-import { Link } from '@tanstack/react-router';
 import { LoaderCircle } from 'lucide-react';
 
-import { Button } from '../../../shared/ui/button';
-import { EmptyState } from '../../../shared/ui/empty-state';
+import { Button } from './button';
 
 /** Shown at once while data loads (Doherty: feedback within 100 ms). */
 export function Loading({ label }: { label: string }) {
@@ -27,20 +25,5 @@ export function LoadFailed({ what, onRetry }: { what: string; onRetry: () => voi
       </div>
       <Button onClick={onRetry}>Try again</Button>
     </section>
-  );
-}
-
-/** An agent that doesn't exist (or no longer does), with a way back. */
-export function AgentMissing() {
-  return (
-    <EmptyState
-      title="This agent doesn't exist"
-      description="It may have been archived, or the address is wrong."
-      action={
-        <Link to="/agents" className="font-medium underline underline-offset-4">
-          Go to Agents
-        </Link>
-      }
-    />
   );
 }

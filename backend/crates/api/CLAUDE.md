@@ -21,14 +21,16 @@ Today it exposes:
 | `GET /agents` | `listAgents`: active agents, newest first, with `progressPercent` |
 | `GET`, `PATCH`, `DELETE /agents/{id}` | `getAgent`, `updateAgent` (autosave; send changed fields only), `archiveAgent` (204, idempotent) |
 | `GET /agents/{id}/progress` | `getAgentProgress`: four steps, `percent`, `nextStep` |
+| `GET`, `PUT /agents/{id}/plan` | `getAgentPlan` (the saved plan, or the template with `saved: false`, with `rulePack`, `lockedTexts`, `optOutConfirmation` and `validation`), `saveAgentPlan` (replaces the plan; graph problems come back as located errors, malformed fields are a 422; 409 when archived) |
+| `POST /agents/{id}/plan/validate` | `validateAgentPlan`: `{valid, errors: [{code, message, nodeId?, edgeId?}]}`, nothing saved |
 | `GET /catalog/voices`, `/catalog/languages` | `listVoices`, `listLanguages` |
 
 - **Identity** (`src/identity.rs`): middleware on the whole `/api/v1` router, unknown paths included. Databricks Apps signs the user in and forwards `X-Forwarded-User` (stable IdP user ID) and `X-Forwarded-Email`; both must be present and valid, or the answer is 401. The app is reachable only through that proxy, which sets the headers, so they are trusted.
-- **Errors** (`src/problem.rs`): `ApiError` → `application/problem+json` with `type: about:blank`; 400 malformed JSON, 401, 404 (also for an ID that can't name an agent), 409 (archived, or still conflicting after retries), 415, 422 (with `errors: [{field, message}]`, one per invalid field), 503 (storage unavailable or request deadline passed; a source is logged once, never sent).
-- **Body limit:** 64 KiB on `/api/v1`.
+- **Errors** (`src/problem.rs`): `ApiError` → `application/problem+json` with `type: about:blank`; 400 malformed JSON, 401, 404 (also for an ID that can't name an agent), 409 (archived, or still conflicting after retries), 415, 422 (with `errors: [{field, message}]`, one per invalid field; plan fields are paths such as `nodes[2].label`), 503 (storage unavailable or request deadline passed; a source is logged once, never sent).
+- **Body limit:** 64 KiB on `/api/v1`; the plan routes raise it to 512 KiB (`plans::BODY_LIMIT`), enough for 50 steps of 2,000 characters.
 - **Request deadline** (`src/deadline.rs`): every `/api/v1` request runs under `AppState::with_request_timeout` (default 10 s; `vak-server` passes `VAK_HTTP_REQUEST_TIMEOUT_MS`); past it the handler is dropped and the answer is a 503 problem. `/health` is outside it. The media WebSocket (M4) must be mounted outside this layer, or every session would be cut at the deadline.
 
-Every route comes from one `OpenApiRouter` (`src/openapi.rs`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`.
+Every route comes from one `OpenApiRouter` (`src/openapi.rs`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`, `tests/contract_plan_api.rs`.
 
 ## Dependencies
 

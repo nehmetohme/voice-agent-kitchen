@@ -75,7 +75,10 @@ fn database(settings: &Settings) -> anyhow::Result<Database> {
 
 /// The application: Postgres repositories behind the services, behind the API.
 fn app(settings: &Settings, database: &Database) -> anyhow::Result<Router> {
-    let agents = AgentService::new(Arc::new(database.agents()));
+    // A rule pack that doesn't load stops the server: plans can't be checked without them.
+    let rule_packs =
+        vak_services::rule_packs::shipped().context("the shipped rule packs don't load")?;
+    let agents = AgentService::new(Arc::new(database.agents())).with_rule_packs(rule_packs);
     let mut state = AppState::new(agents).with_request_timeout(settings.http.request_timeout);
     if let Some(email) = &settings.auth.dev_operator_email {
         let operator = Actor::new(DEV_OPERATOR_ID, email)

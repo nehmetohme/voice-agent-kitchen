@@ -27,9 +27,21 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    // Contract specs run first: agent-provisioning starts from an empty agent list, so no
-    // other spec may create agents while it runs.
-    { name: 'contract', testMatch: 'contract/**/*.spec.ts', use: chrome },
+    // The agent-provisioning contract starts from an empty agent list, so it runs first and
+    // alone: no other spec may create agents while it runs. The other contracts follow, then
+    // every other spec.
+    {
+      name: 'contract-empty-list',
+      testMatch: 'contract/agent-provisioning/**/*.spec.ts',
+      use: chrome,
+    },
+    {
+      name: 'contract',
+      testMatch: 'contract/**/*.spec.ts',
+      testIgnore: 'contract/agent-provisioning/**',
+      dependencies: ['contract-empty-list'],
+      use: chrome,
+    },
     { name: 'chromium', testIgnore: 'contract/**', dependencies: ['contract'], use: chrome },
   ],
   webServer: [

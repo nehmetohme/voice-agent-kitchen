@@ -52,3 +52,17 @@ paths = [
   "frontend/e2e/contract/app-shell/**",
   "frontend/src/shared/ui/button.contract.test.tsx",
 ]
+
+# M3 Plan: the plan graph and its located validation errors (property-based), a valid template
+# per use case, versioned rule packs (the version 1 pack files are pinned too, so a published
+# pack never changes), GET/PUT /agents/{id}/plan and POST …/plan/validate, 50 % setup progress
+# for a saved valid plan, and the keyboard flow editor end to end against the real server.
+[features.plan]
+version = 1
+paths = [
+  "backend/crates/domain/tests/contract_plan.rs",
+  "backend/crates/services/tests/contract_plan_rule_packs.rs",
+  "backend/crates/api/tests/contract_plan_api.rs",
+  "frontend/e2e/contract/plan/**",
+  "contracts/rule-packs/*.v1.toml",
+]

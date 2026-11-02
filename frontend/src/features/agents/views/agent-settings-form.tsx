@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
 
+import { SaveStatus } from '../../../shared/ui/save-status';
 import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { languagesQueryOptions, voicesQueryOptions } from '../state/agents-queries';
@@ -8,7 +9,6 @@ import { PURPOSES, toUseCase, withCurrent } from '../state/choices';
 import { LIMITS, type AgentDetails } from '../state/models';
 import { useAutosave } from '../state/use-autosave';
 import { AdvancedSettings } from './advanced-settings';
-import { SaveStatus } from './save-status';
 
 /**
  * The agent's settings, saved automatically shortly after each edit (Parkinson): no Save

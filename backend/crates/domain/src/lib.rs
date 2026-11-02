@@ -28,9 +28,11 @@ mod agent_name;
 mod audit;
 pub mod catalog;
 mod draft;
+mod draft_plan;
 mod hash;
 mod ids;
 mod jurisdiction;
+mod plan;
 mod progress;
 mod rule_pack;
 mod settings;
@@ -42,11 +44,16 @@ pub use agent_name::{AgentName, AgentNameError};
 pub use audit::{AuditAction, AuditEvent};
 pub use catalog::{Language, LanguageError, VoiceId, VoiceIdError};
 pub use draft::{AgentDraft, DraftField, DraftPatch, Persona};
+pub use draft_plan::DraftPlan;
 pub use hash::{ContentHash, ContentHashError};
 pub use ids::{AgentId, AuditEventId, IdError};
 pub use jurisdiction::{Jurisdiction, JurisdictionError};
+pub use plan::{EdgeId, NodeId, NodeKind, Plan, PlanEdge, PlanError, PlanNode, PlanShapeError};
 pub use progress::{ProgressFacts, SetupProgress, SetupStep, StepProgress};
-pub use rule_pack::{RulePackRef, RulePackRefError};
+pub use rule_pack::{
+    LockedText, Retention, RulePack, RulePackCatalog, RulePackError, RulePackRef, RulePackRefError,
+    RulePackSpec,
+};
 pub use settings::{
     AgentSettings, ModelProfile, ModelProfileError, TurnDetection, TurnDetectionError,
 };

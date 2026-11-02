@@ -11,7 +11,7 @@ This crate holds test support shared across the workspace:
 - **Postgres:** the test container (testcontainers `postgres` module) for `vak-repositories-pg`.
 - **Fake WebSocket server:** it replays recorded provider sessions for adapter tests.
 
-Today: `repositories::InMemoryAgentRepo` (with `audit_events()`, `set_unavailable(bool)` and `fail_next_updates_with_conflict(n)` for error paths) and `repositories::agent_repo_conformance(repo, audit_trail)`, which the fake passes here and `PgAgentRepo` passes in `vak-repositories-pg`. Postgres for tests comes from `backend/tools/test-db.sh` through a nextest setup script, not from a testcontainers helper: nextest runs each test in its own process, and one shared container per worktree is faster than one per test.
+Today: `repositories::InMemoryAgentRepo` (with `audit_events()`, `set_unavailable(bool)` and `fail_next_updates_with_conflict(n)` for error paths) and `repositories::agent_repo_conformance(repo, audit_trail)` (including that a saved plan is stored, read back and replaced), which the fake passes here and `PgAgentRepo` passes in `vak-repositories-pg`. Postgres for tests comes from `backend/tools/test-db.sh` through a nextest setup script, not from a testcontainers helper: nextest runs each test in its own process, and one shared container per worktree is faster than one per test.
 
 ## Dependencies
 

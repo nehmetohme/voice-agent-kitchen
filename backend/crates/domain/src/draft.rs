@@ -1,7 +1,7 @@
 //! The agent's draft: its current, editable configuration.
 
 use crate::{
-    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, RulePackRef,
+    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, Plan, RulePackRef,
     TurnDetection, UseCase, VoiceId,
 };
 
@@ -48,13 +48,14 @@ impl Persona {
 
 /// The agent's editable configuration. Creating one needs only a name, a use case and a
 /// voice; everything else starts from a default (Tesler). The rule pack always follows the
-/// use case and jurisdiction.
+/// use case and jurisdiction. The plan is `None` until the operator saves one.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AgentDraft {
     persona: Persona,
     jurisdiction: Jurisdiction,
     rule_pack: RulePackRef,
     settings: AgentSettings,
+    plan: Option<Plan>,
 }
 
 /// Changes to a draft. `None` leaves a field as it is.
@@ -67,6 +68,8 @@ pub struct DraftPatch {
     pub jurisdiction: Option<Jurisdiction>,
     pub model: Option<ModelProfile>,
     pub turn_detection: Option<TurnDetection>,
+    /// Replaces the saved plan.
+    pub plan: Option<Plan>,
 }
 
 /// A part of the draft, as named in audit events.
@@ -80,6 +83,7 @@ pub enum DraftField {
     RulePack,
     Model,
     TurnDetection,
+    Plan,
 }
 
 impl DraftField {
@@ -95,6 +99,7 @@ impl DraftField {
             Self::RulePack => "rule_pack",
             Self::Model => "model",
             Self::TurnDetection => "turn_detection",
+            Self::Plan => "plan",
         }
     }
 }
@@ -109,6 +114,7 @@ impl AgentDraft {
             persona: Persona::new(name, use_case, voice, Language::default()),
             jurisdiction,
             settings: AgentSettings::default(),
+            plan: None,
         }
     }
 
@@ -119,17 +125,20 @@ impl AgentDraft {
         jurisdiction: Jurisdiction,
         rule_pack: RulePackRef,
         settings: AgentSettings,
+        plan: Option<Plan>,
     ) -> Self {
         Self {
             persona,
             jurisdiction,
             rule_pack,
             settings,
+            plan,
         }
     }
 
     /// This draft with `patch` applied. When the use case or the jurisdiction changes, the
-    /// rule pack moves to the default pack for the new pair.
+    /// rule pack moves to the default pack for the new pair; a saved plan stays, so the
+    /// operator's work is kept and checked against the new pack.
     #[must_use]
     pub fn apply(&self, patch: &DraftPatch) -> Self {
         let persona = Persona {
@@ -162,6 +171,7 @@ impl AgentDraft {
             jurisdiction,
             rule_pack,
             settings,
+            plan: patch.plan.clone().or_else(|| self.plan.clone()),
         }
     }
 
@@ -187,6 +197,7 @@ impl AgentDraft {
                 DraftField::TurnDetection,
                 self.settings.turn_detection() != other.settings.turn_detection(),
             ),
+            (DraftField::Plan, self.plan != other.plan),
         ]
         .into_iter()
         .filter_map(|(field, changed)| changed.then_some(field))
@@ -201,7 +212,8 @@ impl AgentDraft {
 
     /// A versioned, length-prefixed `key=<length>:<value>` line per field, in a fixed order.
     /// Length prefixes keep any value from forging another field. Changing this encoding
-    /// changes every hash, so it carries a version.
+    /// changes every hash, so it carries a version. A saved plan adds its lines at the end;
+    /// a draft without one encodes exactly as before plans existed, so its hash is unchanged.
     fn canonical_bytes(&self) -> Vec<u8> {
         let turn = self.settings.turn_detection();
         let fields: [(&str, String); 10] = [
@@ -217,8 +229,27 @@ impl AgentDraft {
             ("turn.barge_in", turn.barge_in().to_string()),
         ];
         let mut bytes = b"vak.agent-draft.v1\n".to_vec();
-        for (key, value) in fields {
+        let mut line = |key: &str, value: &str| {
             bytes.extend_from_slice(format!("{key}={}:{value}\n", value.len()).as_bytes());
+        };
+        for (key, value) in fields {
+            line(key, &value);
+        }
+        if let Some(plan) = &self.plan {
+            line("plan.nodes", &plan.nodes().len().to_string());
+            for (i, node) in plan.nodes().iter().enumerate() {
+                line(&format!("plan.node.{i}.id"), node.id().as_str());
+                line(&format!("plan.node.{i}.kind"), node.kind().as_str());
+                line(&format!("plan.node.{i}.label"), node.label());
+                line(&format!("plan.node.{i}.text"), node.text());
+            }
+            line("plan.edges", &plan.edges().len().to_string());
+            for (i, edge) in plan.edges().iter().enumerate() {
+                line(&format!("plan.edge.{i}.id"), edge.id().as_str());
+                line(&format!("plan.edge.{i}.from"), edge.from().as_str());
+                line(&format!("plan.edge.{i}.to"), edge.to().as_str());
+                line(&format!("plan.edge.{i}.condition"), edge.condition());
+            }
         }
         bytes
     }
@@ -241,6 +272,12 @@ impl AgentDraft {
     #[must_use]
     pub fn settings(&self) -> &AgentSettings {
         &self.settings
+    }
+
+    /// The saved plan, if the operator has saved one.
+    #[must_use]
+    pub fn plan(&self) -> Option<&Plan> {
+        self.plan.as_ref()
     }
 }
 
@@ -269,6 +306,39 @@ mod tests {
              rule_pack.version=1:1\nmodel=8:balanced\nturn.silence_ms=3:500\n\
              turn.barge_in=4:true\n"
         );
+    }
+
+    #[test]
+    fn a_saved_plan_adds_its_lines_after_the_draft_fields() {
+        // Drafts without a plan keep the encoding above, so their stored hashes stay valid.
+        let start = crate::PlanNode::new(
+            crate::NodeId::parse("s").expect("valid"),
+            crate::NodeKind::Start,
+            "Hi",
+            "Hello.",
+        )
+        .expect("valid");
+        let path = crate::PlanEdge::new(
+            crate::EdgeId::parse("p").expect("valid"),
+            crate::NodeId::parse("s").expect("valid"),
+            crate::NodeId::parse("s").expect("valid"),
+            "Again",
+        )
+        .expect("valid");
+        let plan = Plan::new(vec![start], vec![path]).expect("well-formed");
+        let draft = front_desk().apply(&DraftPatch {
+            plan: Some(plan),
+            ..DraftPatch::default()
+        });
+
+        let text = String::from_utf8(draft.canonical_bytes()).expect("UTF-8");
+
+        assert!(text.ends_with(
+            "turn.barge_in=4:true\nplan.nodes=1:1\nplan.node.0.id=1:s\n\
+             plan.node.0.kind=5:start\nplan.node.0.label=2:Hi\nplan.node.0.text=6:Hello.\n\
+             plan.edges=1:1\nplan.edge.0.id=1:p\nplan.edge.0.from=1:s\nplan.edge.0.to=1:s\n\
+             plan.edge.0.condition=5:Again\n"
+        ));
     }
 
     #[test]
@@ -306,6 +376,7 @@ mod tests {
             draft.jurisdiction().clone(),
             pinned.clone(),
             *draft.settings(),
+            None,
         );
         let renamed = restored.apply(&DraftPatch {
             name: Some(AgentName::parse("Desk").expect("valid")),
@@ -337,6 +408,7 @@ mod tests {
                     model,
                     turn_detection: turn
                         .and_then(|(ms, barge_in)| TurnDetection::new(ms, barge_in).ok()),
+                    plan: None,
                 },
             )
     }

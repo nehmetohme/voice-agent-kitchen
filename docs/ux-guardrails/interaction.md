@@ -12,7 +12,7 @@ Time to hit a target grows with its distance and shrinks with its size, so targe
 | FITTS-2 | Target size comes from the `spacing.target` token (44 px), not from ad-hoc sizes. | `frontend/tokens/tokens.test.ts` (`spacing.target` ≥ 44 px); `frontend/src/shared/ui/button.contract.test.tsx` (44 px through token classes) | A |
 | FITTS-3 | Every button is the `shared/ui` `Button`, which carries the target size. | Oxlint `vak-ux/no-raw-button` (off only in `frontend/src/shared/ui`) | A |
 | FITTS-4 | The commit button sits inside the form or panel it commits, at its end. | Planned: `auditScreen` asserts every `form` contains a `button[type=submit]`. Placement within the form stays reviewer judgement. | R today; check planned with the first form, M2 |
-| FITTS-5 | Node actions sit on the node's own toolbar in the flow editor, not in a global toolbar. | Reading the screen | R (M3) |
+| FITTS-5 | Node actions sit on the node's own toolbar in the flow editor, not in a global toolbar. | Each step card carries its own Edit step, Add path and Delete step (`frontend/src/features/plans/views/step-card.tsx`); the plan contract spec finds them inside the step's group | R; contract spec covers the placement |
 | FITTS-6 | A destructive action is not placed next to the primary action. | Reading the screen | R |
 | FITTS-7 | Frequent actions sit close to the content they act on (for example "End call" next to the live transcript). | Reading the screen | R |
 

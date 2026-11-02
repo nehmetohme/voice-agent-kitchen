@@ -1,5 +1,6 @@
 //! The OpenAPI document, built from the same `OpenApiRouter`s the server serves.
 
+use axum::extract::DefaultBodyLimit;
 use serde_json::{Map, Value};
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
@@ -7,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::state::AppState;
-use crate::{agents, catalog, health};
+use crate::{agents, catalog, health, plans};
 
 /// Document-level metadata. Paths and schemas come from the routes themselves.
 #[derive(OpenApi)]
@@ -21,6 +22,7 @@ use crate::{agents, catalog, health};
     tags(
         (name = "health", description = "Process liveness"),
         (name = "agents", description = "Create, list, edit (autosave) and archive agents"),
+        (name = "plans", description = "An agent's plan: steps and paths, checked against its rule pack"),
         (name = "catalog", description = "The voices and languages an agent can use"),
     ),
     modifiers(&ForwardedIdentity)
@@ -56,6 +58,13 @@ pub(crate) fn v1() -> OpenApiRouter<AppState> {
         .routes(routes!(agents::create, agents::list))
         .routes(routes!(agents::get, agents::update, agents::archive))
         .routes(routes!(agents::progress))
+        .merge(
+            OpenApiRouter::new()
+                .routes(routes!(plans::get, plans::save))
+                .routes(routes!(plans::validate))
+                // Plans are larger than the other bodies; this limit replaces the default.
+                .layer(DefaultBodyLimit::max(plans::BODY_LIMIT)),
+        )
         .routes(routes!(catalog::voices))
         .routes(routes!(catalog::languages))
 }

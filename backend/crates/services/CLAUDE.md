@@ -13,15 +13,17 @@ This crate holds the application use cases:
 
 It orchestrates repositories, providers and the pipeline, and re-exports the few port types `vak-api` needs, such as `MediaTransport` for WebSocket bridging.
 
-Today (M2):
+Today (M2, M3):
 
 - `AgentService::new(Arc<dyn AgentRepo>)`: `create` (defaults from the domain), `list` (active agents with their `SetupProgress`, newest first, at most `LIST_LIMIT` = 200), `get`, `progress`, `update_draft` (autosave; a no-op patch stores and audits nothing; retries up to 3 times on a stale revision) and `archive` (idempotent). Errors: `CreateAgentError`, `ListAgentsError`, `FindAgentError`, `UpdateDraftError`.
+- Plans (`src/plans.rs`): `plan` (the saved plan or the template, as a domain `DraftPlan`), `save_plan` (through `update_draft`, so one `agent.draft_updated` event for `plan`; a plan that breaks a graph rule is saved with its errors) and `validate_plan` (no save). Progress uses `ProgressFacts::from_draft`, so a saved valid plan makes 50 %.
+- `rule_packs::shipped()` and `rule_packs::parse(file, text)`: the TOML packs in `contracts/rule-packs/`, embedded with `include_str!` (`FILES`) and checked by the domain. `AgentService::new` uses them (none if they don't load, so every plan is invalid); `with_rule_packs(catalog)` sets them, and `vak-server` loads them first and refuses to start when one is broken.
 - `catalog::voices()` and `catalog::languages()`: the domain's static catalog.
 
 ## Dependencies
 
 - **May depend on:** `vak-repositories`, `vak-providers`, `vak-pipeline`, `vak-domain`. Dev-only: `vak-testkit`.
-- **External crates:** `thiserror`, `tracing`, `tokio` (only what orchestration needs).
+- **External crates:** `thiserror`, `tracing`, `tokio` (only what orchestration needs), `serde` and `toml` (rule pack files).
 - **Must not depend on:** repositories-pg, any adapter, api, axum, sqlx, reqwest.
 
 ## Conventions

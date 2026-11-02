@@ -10,9 +10,9 @@ frontend-verify` does both). Chromium only. The web server is `vite preview`.
 `pnpm e2e` needs Docker and the Rust toolchain; the first run builds `vak-server`. Stopping
 the run removes the container.
 
-**Order.** The `contract` project runs first and every other spec waits for it
-(`dependencies`): the agent-provisioning contract starts from an empty agent list, so nothing
-else may create agents while it runs.
+**Order.** The agent-provisioning contract starts from an empty agent list, so it runs first
+and alone (project `contract-empty-list`). The other contracts (`contract`) wait for it, and
+every other spec (`chromium`) waits for them (`dependencies`).
 
 **Ports.** Parallel worktrees run their own servers, so each worktree derives its ports from a
 hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, database 24200–24999.

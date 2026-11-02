@@ -93,6 +93,58 @@
         ],
         "type": "object"
       },
+      "AgentPlan": {
+        "description": "An agent's plan: the saved one, or its use case's template until one is saved.",
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/PlanPath"
+            },
+            "type": "array"
+          },
+          "lockedTexts": {
+            "description": "What the start step must open with, word for word and in order. Empty when no rule\npack covers the agent yet.",
+            "items": {
+              "$ref": "#/components/schemas/LockedText"
+            },
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/PlanStep"
+            },
+            "type": "array"
+          },
+          "optOutConfirmation": {
+            "description": "What the agent says, word for word, when the caller opts out, before the call ends.\n`null` when no rule pack covers the agent yet.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rulePack": {
+            "$ref": "#/components/schemas/RulePack",
+            "description": "The rule pack the plan is checked against."
+          },
+          "saved": {
+            "description": "`false` while this is the template: nothing is stored until a plan is saved.",
+            "type": "boolean"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/PlanValidation"
+          }
+        },
+        "required": [
+          "saved",
+          "rulePack",
+          "lockedTexts",
+          "optOutConfirmation",
+          "nodes",
+          "edges",
+          "validation"
+        ],
+        "type": "object"
+      },
       "AgentSummary": {
         "description": "An agent as lists show it.",
         "properties": {
@@ -184,7 +236,7 @@
         "description": "An invalid request field and how to fix it.",
         "properties": {
           "field": {
-            "description": "The field's name in the request body, e.g. `useCase`.",
+            "description": "The field's path in the request body, e.g. `useCase` or `nodes[2].label`.",
             "type": "string"
           },
           "message": {
@@ -254,6 +306,24 @@
         ],
         "type": "object"
       },
+      "LockedText": {
+        "description": "Text the agent says word for word, from the rule pack.",
+        "properties": {
+          "key": {
+            "description": "E.g. `ai_disclosure`, `recording_notice`.",
+            "example": "ai_disclosure",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text"
+        ],
+        "type": "object"
+      },
       "ModelProfile": {
         "description": "Which LLM profile answers: `balanced` (the main voice model) or `fast` (quicker first\nwords, simpler answers).",
         "enum": [
@@ -261,6 +331,194 @@
           "fast"
         ],
         "type": "string"
+      },
+      "PlanInput": {
+        "description": "A whole plan: every step and every path. It replaces the saved plan.",
+        "properties": {
+          "edges": {
+            "description": "The paths, in order: at most 200.",
+            "items": {
+              "$ref": "#/components/schemas/PlanPathInput"
+            },
+            "maxItems": 200,
+            "type": "array"
+          },
+          "nodes": {
+            "description": "The steps, in order: at most 50.",
+            "items": {
+              "$ref": "#/components/schemas/PlanStepInput"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges"
+        ],
+        "type": "object"
+      },
+      "PlanPath": {
+        "description": "A path between two steps.",
+        "properties": {
+          "condition": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "condition"
+        ],
+        "type": "object"
+      },
+      "PlanPathInput": {
+        "description": "A path between two steps, taken when its condition holds.",
+        "properties": {
+          "condition": {
+            "default": "",
+            "description": "When to take the path, in plain words, up to 200 characters.",
+            "example": "The caller wants to book",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "from": {
+            "description": "The ID of the step the path leaves.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique within the plan: 1 to 64 letters, digits, `-` or `_`.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "type": "string"
+          },
+          "to": {
+            "description": "The ID of the step the path leads to.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "PlanProblem": {
+        "description": "The rule a plan breaks, in words, located on a step (`nodeId`), a path (`edgeId`), or\nneither (the whole plan).",
+        "properties": {
+          "code": {
+            "description": "`missing_start`, `multiple_starts`, `unreachable_node`, `missing_exit`,\n`empty_condition`, `dangling_edge`, `missing_locked_text` or `rule_pack_unavailable`.",
+            "example": "unreachable_node",
+            "type": "string"
+          },
+          "edgeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "description": "What is wrong and how to fix it.",
+            "type": "string"
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "PlanStep": {
+        "description": "A step of the plan.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StepKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "text"
+        ],
+        "type": "object"
+      },
+      "PlanStepInput": {
+        "description": "A step of the plan.",
+        "properties": {
+          "id": {
+            "description": "Unique within the plan: 1 to 64 letters, digits, `-` or `_`.",
+            "example": "greeting",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StepKind"
+          },
+          "label": {
+            "description": "The step's name on the canvas, 1 to 80 characters.",
+            "example": "Greeting",
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "description": "What the agent says or does here, up to 2,000 characters.",
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "type": "object"
+      },
+      "PlanValidation": {
+        "description": "Whether the plan follows every rule, and every rule it breaks.",
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/PlanProblem"
+            },
+            "type": "array"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "errors"
+        ],
+        "type": "object"
       },
       "Problem": {
         "description": "An RFC 9457 problem. `type` is always `about:blank`, so `title` is the HTTP status phrase;\n`detail` says what went wrong and how to fix it.",
@@ -380,6 +638,19 @@
           "done"
         ],
         "type": "object"
+      },
+      "StepKind": {
+        "description": "What a step does: `start` opens the call (the locked texts first), `end` ends it.",
+        "enum": [
+          "start",
+          "say",
+          "ask",
+          "collect",
+          "tool",
+          "transfer",
+          "end"
+        ],
+        "type": "string"
       },
       "TurnDetection": {
         "description": "When the caller has finished speaking, and whether they may interrupt the agent.",
@@ -883,6 +1154,278 @@
         ]
       }
     },
+    "/api/v1/agents/{id}/plan": {
+      "get": {
+        "operationId": "getAgentPlan",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlan"
+                }
+              }
+            },
+            "description": "The plan, checked against the agent's rule pack"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The agent's plan: the saved one, or its use case's template until one is saved, with the\nrule pack it is checked against and its problems.",
+        "tags": [
+          "plans"
+        ]
+      },
+      "put": {
+        "operationId": "saveAgentPlan",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlan"
+                }
+              }
+            },
+            "description": "The saved plan and its problems"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived, or kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Malformed steps or paths, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Replace the agent's plan (autosave). A plan that breaks a graph rule is saved too and\nanswers with its problems; a malformed one is refused and nothing is stored.",
+        "tags": [
+          "plans"
+        ]
+      }
+    },
+    "/api/v1/agents/{id}/plan/validate": {
+      "post": {
+        "operationId": "validateAgentPlan",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanValidation"
+                }
+              }
+            },
+            "description": "Whether the plan is valid, and its problems"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Malformed steps or paths, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Check a plan against the agent's rule pack without saving it.",
+        "tags": [
+          "plans"
+        ]
+      }
+    },
     "/api/v1/agents/{id}/progress": {
       "get": {
         "operationId": "getAgentProgress",
@@ -1053,6 +1596,10 @@
     {
       "description": "Create, list, edit (autosave) and archive agents",
       "name": "agents"
+    },
+    {
+      "description": "An agent's plan: steps and paths, checked against its rule pack",
+      "name": "plans"
     },
     {
       "description": "The voices and languages an agent can use",

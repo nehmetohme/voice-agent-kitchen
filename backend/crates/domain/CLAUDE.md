@@ -12,7 +12,7 @@ This crate holds the domain model and nothing else:
 
 It is the bottom of the stack, and every other layer speaks its types.
 
-Today (M2 Provision):
+Today (M2 Provision, M3 Plan):
 
 | Module | Holds |
 |---|---|
@@ -20,14 +20,16 @@ Today (M2 Provision):
 | `agent_name`, `use_case`, `jurisdiction` | `AgentName` (1–80 chars, trimmed, no control chars), `UseCase` (six purposes), `Jurisdiction` (`US`, `US-CA`, `UK`…, default `US`) |
 | `catalog` | `VOICES` (six Kokoro voices) and `LANGUAGES` (`en-US` default, `en-GB`); `VoiceId`, `Language` parse against them |
 | `settings` | `ModelProfile` (`balanced` default, `fast`), `TurnDetection` (200–2000 ms silence, default 500; barge-in on), `AgentSettings` |
-| `rule_pack` | `RulePackRef::for_agent` → `<jurisdiction>-<use case>` v1 |
-| `draft` | `Persona`, `AgentDraft` (`new` needs name, use case and voice; `apply(DraftPatch)` keeps the rule pack in step; `changed_fields`; `content_hash`) |
+| `rule_pack` | `RulePackRef::for_agent` → `<jurisdiction>-<use case>` v1; `RulePack` (built from a `RulePackSpec`: locked texts with the AI disclosure and recording notice required, opt-out phrases and confirmation, forbidden claims, `Retention`); `RulePackCatalog` (each id and version once; `get` the pinned version, `latest`, `validate(plan, pack)`) |
+| `plan` | `Plan` of `PlanNode`s (seven `NodeKind`s) and `PlanEdge`s with conditions; shape checks (`PlanShapeError`: IDs, labels, sizes, duplicates); `validate(&RulePack)` → located `PlanError`s (one start, reachable, a path out, non-empty conditions, no dangling paths, the opening starts with the locked texts); `Plan::template(use_case, locked)` |
+| `draft` | `Persona`, `AgentDraft` (`new` needs name, use case and voice; `apply(DraftPatch)` keeps the rule pack in step and replaces the saved plan; `changed_fields`; `content_hash`, with plan lines only when a plan is saved) |
+| `draft_plan` | `DraftPlan::of(draft, packs)`: the saved plan or the use case's template, with the pinned pack's locked texts, opt-out confirmation and validation |
 | `hash` | `ContentHash` (`sha256:` + 64 lowercase hex), computed with the RustCrypto `sha2` crate |
 | `agent` | `Agent`: `create`, `update_draft` (`None` when nothing changes, `AgentError::Archived` when archived), `archive` (once) |
-| `progress` | `SetupProgress::derive(draft, facts)`: Provision, Plan, Test, Publish, 25 % each, never stored |
+| `progress` | `SetupProgress::derive(draft, facts)`: Provision, Plan, Test, Publish, 25 % each, never stored; `ProgressFacts::from_draft(draft, packs)`: Plan is done when a saved plan validates against the pinned pack |
 | `actor`, `audit` | `Actor` (forwarded user ID and email), `AuditEvent` and `AuditAction` (`agent.created`, `agent.draft_updated`, `agent.archived`) |
 
-Contract: `tests/contract_agent_provisioning.rs` (`agent-provisioning` v1).
+Contracts: `tests/contract_agent_provisioning.rs` (`agent-provisioning` v1), `tests/contract_plan.rs` (`plan` v1). The packs themselves are TOML in `contracts/rule-packs/`, loaded by `vak-services` (this crate can't parse TOML).
 
 ## Dependencies
 
@@ -46,7 +48,7 @@ Contract: `tests/contract_agent_provisioning.rs` (`agent-provisioning` v1).
 - **Liberal input:** parsers trim and case-fold (`UseCase::parse(" Booking ")`, `Jurisdiction::parse("us_ca")`); stored values are canonical.
 - **IDs:** typed wrappers over `uuid::Uuid` v7 (`AgentId`, `VersionId`), never bare `Uuid` in signatures.
 - **Serde:** DTOs live in `vak-api`, not here. Serde derives exist only for persisted snapshots, such as published versions stored as JSONB.
-- **Content hash:** the canonical encoding (`AgentDraft::canonical_bytes`) is versioned (`vak.agent-draft.v1`) and pinned by a test. Changing it changes every stored hash: bump the version tag.
+- **Content hash:** the canonical encoding (`AgentDraft::canonical_bytes`) is versioned (`vak.agent-draft.v1`) and pinned by tests. Changing it changes every stored hash: bump the version tag. A saved plan appends its lines, so drafts without one keep their hash.
 - **Panics:** never use `unwrap`, `expect` or `panic!`. Index safely (`get`) and return errors.
 - **Visibility:** `pub(crate)` is the default; export only what other layers need.
 

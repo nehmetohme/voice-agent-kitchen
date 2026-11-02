@@ -1,9 +1,17 @@
 import { CircleAlert, CircleCheck } from 'lucide-react';
 
-import { Button } from '../../../shared/ui/button';
-import type { SaveStatus as Status } from '../state/autosave';
+import { Button } from './button';
 
-const TEXT: Record<Status, string> = {
+/**
+ * - `saved`: everything on the page is stored.
+ * - `unsaved`: an edit is waiting to be saved.
+ * - `saving`: a save is in flight.
+ * - `invalid`: a field must be fixed before anything can be saved.
+ * - `failed`: the last save failed; editing again, or retrying, saves again.
+ */
+export type SaveState = 'saved' | 'unsaved' | 'saving' | 'invalid' | 'failed';
+
+const TEXT: Record<SaveState, string> = {
   saved: 'Saved',
   unsaved: 'Unsaved changes',
   saving: 'Saving…',
@@ -15,11 +23,12 @@ const TEXT: Record<Status, string> = {
  * Whether every edit is stored (PARK-1). Announced politely; a failed save offers a retry, so
  * the state never ends in a dead end.
  */
-export function SaveStatus({ status, onRetry }: { status: Status; onRetry: () => void }) {
+export function SaveStatus({ status, onRetry }: { status: SaveState; onRetry: () => void }) {
   const problem = status === 'invalid' || status === 'failed';
   return (
     <div className="flex items-center gap-2">
       <output
+        aria-label="Save status"
         aria-live="polite"
         className={
           problem

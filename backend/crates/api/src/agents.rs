@@ -11,6 +11,7 @@ use axum::{Extension, Json};
 use vak_domain::{Actor, AgentId, DraftPatch};
 use vak_services::CreateAgent;
 
+pub(crate) use self::dto::RulePackDto;
 use self::dto::{AgentDto, AgentListDto, AgentSummaryDto, SetupProgressDto};
 pub(crate) use self::requests::{CreateAgentRequest, UpdateAgentRequest};
 use crate::json::JsonBody;
@@ -18,7 +19,7 @@ use crate::problem::{ApiError, Problem};
 use crate::state::AppState;
 
 /// An ID that can't name an agent is the same as one that names no agent.
-fn agent_id(raw: &str) -> Result<AgentId, ApiError> {
+pub(crate) fn agent_id(raw: &str) -> Result<AgentId, ApiError> {
     AgentId::parse(raw).map_err(|_| ApiError::NotFound)
 }
 

@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use uuid::Uuid;
 use vak_domain::{
-    Agent, AgentDraft, AgentId, AgentName, AgentSettings, AuditAction, ContentHash, Jurisdiction,
-    Language, ModelProfile, Persona, RulePackRef, TurnDetection, UseCase, VoiceId,
+    Agent, AgentDraft, AgentId, AgentName, AgentSettings, AuditAction, ContentHash, EdgeId,
+    Jurisdiction, Language, ModelProfile, NodeId, NodeKind, Persona, Plan, PlanEdge, PlanNode,
+    RulePackRef, TurnDetection, UseCase, VoiceId,
 };
 use vak_repositories::{RepoError, Revision, Versioned};
 
@@ -31,6 +32,32 @@ pub(crate) struct SettingsRecord {
 struct TurnRecord {
     silence_ms: u32,
     barge_in: bool,
+}
+
+/// `agent_drafts.plan`: the saved plan, `NULL` until the operator saves one.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PlanRecord {
+    nodes: Vec<StepRecord>,
+    edges: Vec<PathRecord>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StepRecord {
+    id: String,
+    kind: String,
+    label: String,
+    text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PathRecord {
+    id: String,
+    from: String,
+    to: String,
+    condition: String,
 }
 
 /// `audit_events.details`.
@@ -62,6 +89,65 @@ impl SettingsRecord {
                 barge_in: settings.turn_detection().barge_in(),
             },
         })
+    }
+}
+
+impl PlanRecord {
+    pub(crate) fn of(draft: &AgentDraft) -> Option<Json<Self>> {
+        let plan = draft.plan()?;
+        Some(Json(Self {
+            nodes: plan
+                .nodes()
+                .iter()
+                .map(|node| StepRecord {
+                    id: node.id().as_str().to_owned(),
+                    kind: node.kind().as_str().to_owned(),
+                    label: node.label().to_owned(),
+                    text: node.text().to_owned(),
+                })
+                .collect(),
+            edges: plan
+                .edges()
+                .iter()
+                .map(|edge| PathRecord {
+                    id: edge.id().as_str().to_owned(),
+                    from: edge.from().as_str().to_owned(),
+                    to: edge.to().as_str().to_owned(),
+                    condition: edge.condition().to_owned(),
+                })
+                .collect(),
+        }))
+    }
+
+    /// The plan, through the domain's constructors.
+    fn into_plan(self) -> Result<Plan, RepoError> {
+        let nodes = self
+            .nodes
+            .into_iter()
+            .map(|step| {
+                PlanNode::new(
+                    NodeId::parse(&step.id).map_err(corrupt("plan.node.id"))?,
+                    NodeKind::parse(&step.kind).map_err(corrupt("plan.node.kind"))?,
+                    &step.label,
+                    &step.text,
+                )
+                .map_err(corrupt("plan.node"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let edges = self
+            .edges
+            .into_iter()
+            .map(|path| {
+                PlanEdge::new(
+                    EdgeId::parse(&path.id).map_err(corrupt("plan.edge.id"))?,
+                    NodeId::parse(&path.from).map_err(corrupt("plan.edge.from"))?,
+                    NodeId::parse(&path.to).map_err(corrupt("plan.edge.to"))?,
+                    &path.condition,
+                )
+                .map_err(corrupt("plan.edge"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Plan::new(nodes, edges).map_err(corrupt("plan"))
     }
 }
 
@@ -106,6 +192,7 @@ pub(crate) struct AgentRow {
     pub(crate) archived_at: Option<jiff_sqlx::Timestamp>,
     pub(crate) persona: Json<PersonaRecord>,
     pub(crate) settings: Json<SettingsRecord>,
+    pub(crate) plan: Option<Json<PlanRecord>>,
     pub(crate) rule_pack_id: String,
     pub(crate) rule_pack_version: i32,
     pub(crate) content_hash: String,
@@ -136,11 +223,13 @@ impl TryFrom<AgentRow> for Versioned<Agent> {
             u32::try_from(row.rule_pack_version).map_err(corrupt("rule_pack_version"))?,
         )
         .map_err(corrupt("rule_pack"))?;
+        let plan = row.plan.map(|Json(plan)| plan.into_plan()).transpose()?;
         let draft = AgentDraft::restore(
             persona,
             Jurisdiction::parse(&row.jurisdiction).map_err(corrupt("jurisdiction"))?,
             rule_pack,
             settings,
+            plan,
         );
         let stored_hash = ContentHash::parse(&row.content_hash).map_err(corrupt("content_hash"))?;
         if draft.content_hash() != stored_hash {

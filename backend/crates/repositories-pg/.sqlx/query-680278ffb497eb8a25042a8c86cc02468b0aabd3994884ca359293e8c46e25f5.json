@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.workspace_id = $1 AND a.archived_at IS NULL\n               ORDER BY a.updated_at DESC, a.id DESC\n               LIMIT $2",
+  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.plan AS \"plan: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.id = $1 AND a.workspace_id = $2",
   "describe": {
     "columns": [
       {
@@ -115,6 +115,17 @@
       },
       {
         "ordinal": 10,
+        "name": "plan: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "agent_drafts",
+            "name": "plan"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "rule_pack_id",
         "type_info": "Text",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "rule_pack_version",
         "type_info": "Int4",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "content_hash",
         "type_info": "Text",
         "origin": {
@@ -150,7 +161,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -164,10 +175,11 @@
       true,
       false,
       false,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "9f45579b44a101c6d1661444224b570548a27bde761cf351a7edd21af0fbfd39"
+  "hash": "680278ffb497eb8a25042a8c86cc02468b0aabd3994884ca359293e8c46e25f5"
 }
