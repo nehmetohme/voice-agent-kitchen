@@ -25,6 +25,9 @@ tokio = { workspace = true, features = [
 tracing = { workspace = true }
 vak-api = { workspace = true }
 vak-config = { workspace = true }
+vak-domain = { workspace = true }
+vak-repositories-pg = { workspace = true }
+vak-services = { workspace = true }
 vak-telemetry = { workspace = true }
 
 [dev-dependencies]

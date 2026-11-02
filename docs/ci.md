@@ -42,8 +42,8 @@ To skip hooks for one command, use `LEFTHOOK=0 git commit ...`. CI runs the same
 
 | Job | Runs | Skips when |
 |---|---|---|
-| `rust` | `just backend-verify` | PR doesn't touch `backend/`, `contracts/`, `justfile` or CI files |
-| `web` | `just frontend-verify` (pnpm 12, Node from `devEngines.runtime`, Playwright Chromium) | PR doesn't touch `frontend/`, `contracts/`, `justfile` or CI files, or there is no `frontend/package.json` |
+| `rust` | `just backend-verify`. The Postgres tests start their own Postgres in Docker (nextest setup script, `backend/tools/test-db.sh`) | PR doesn't touch `backend/`, `contracts/`, `justfile` or CI files |
+| `web` | `just frontend-verify` (pnpm 12, Node from `devEngines.runtime`, Playwright Chromium). Its E2E run builds `vak-server` with the pinned Rust toolchain and serves it on a throwaway Postgres in Docker | PR doesn't touch `frontend/`, `backend/`, `contracts/`, `justfile` or CI files, or there is no `frontend/package.json` |
 | `contracts` | `just contracts-check-ci origin/<base> HEAD`, `just contracts-verify` | no `contracts/contracts.just` |
 | `repo` | `just ci-secrets <base> HEAD` (gitleaks over the new commits), then `just repo-verify` (secrets in git-visible files, TOML format, Claude Code hook tests, shellcheck) | never |
 | `workflows` | `just ci-verify` (actionlint, zizmor) | never |

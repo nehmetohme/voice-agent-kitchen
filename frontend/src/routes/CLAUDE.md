@@ -4,13 +4,15 @@ TanStack Router file routes. A route maps a URL to a feature view and nothing mo
 design. The router plugin turns this folder into `src/app/routeTree.gen.ts` on `pnpm dev` and
 `pnpm build`; commit the regenerated file with your route change.
 
-| File                                                        | URL                                                                       |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `__root.tsx`                                                | Root layout: `AppShell` with the primary navigation and the top bar title |
-| `index.tsx`                                                 | `/` → redirects to `/agents`                                              |
-| `agents/index.tsx`                                          | `/agents`                                                                 |
-| `settings.tsx`                                              | `/settings`                                                               |
-| (later) `agents/$agentId/{provision,plan,test,publish}.tsx` | One per flow step                                                         |
+| File                                              | URL                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------- |
+| `__root.tsx`                                      | Root layout: `AppShell` with the primary navigation and the top bar title |
+| `index.tsx`                                       | `/` → redirects to `/agents`                                              |
+| `agents/index.tsx`                                | `/agents`: `AgentsOverview`                                               |
+| `agents/new.tsx`                                  | `/agents/new`: `CreateAgentPage` (title "Create agent")                   |
+| `agents/$agentId/provision.tsx`                   | `/agents/:agentId/provision`: `ProvisionPage` (title "Provision")         |
+| `settings.tsx`                                    | `/settings`                                                               |
+| (later) `agents/$agentId/{plan,test,publish}.tsx` | One per flow step                                                         |
 
 ## May import
 

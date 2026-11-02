@@ -41,7 +41,12 @@ publish = false
 # Internal crates
 vak-api = { path = "crates/api" }
 vak-config = { path = "crates/config" }
+vak-domain = { path = "crates/domain" }
+vak-repositories = { path = "crates/repositories" }
+vak-repositories-pg = { path = "crates/repositories-pg" }
+vak-services = { path = "crates/services" }
 vak-telemetry = { path = "crates/telemetry" }
+vak-testkit = { path = "crates/testkit" }
 
 # External crates
 anyhow = "1.0.104"
@@ -55,14 +60,31 @@ base64 = "0.23.1"
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 http-body-util = "0.1.5"
-# Dev-only (vak-model-shim contract tests), like wiremock below. They add the only duplicate
-# versions in Cargo.lock, all in the dev graph: syn 2 (strum_macros, zerocopy-derive) and
-# base64 0.22 (wiremock). cargo-deny's multiple-versions ban skips dev-only duplicates
-# (`multiple-versions-include-dev` defaults to false), so `cargo deny check` passes.
+jiff = { version = "0.2.38", default-features = false, features = ["std"] }
+# sqlx has no jiff feature; jiff-sqlx maps Timestamp to timestamptz.
+jiff-sqlx = { version = "0.2.0", features = ["postgres"] }
+# jsonschema and reqwest are dev-only (vak-model-shim contract tests), like wiremock below.
+# Their dev graph brings syn 2 (strum_macros, zerocopy-derive) and base64 0.22 (wiremock).
+# sqlx 0.9.0 uses both in the normal graph as well, so deny.toml's `skip` list names them.
 jsonschema = { version = "0.60.2", default-features = false }
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 reqwest = { version = "0.13.5", default-features = false }
+secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
+# RustCrypto SHA-256 for the draft content hash (vak-domain); 0.11 is the generation
+# sqlx-postgres already uses.
+sha2 = { version = "0.11.1", default-features = false }
 serde_json = "1.0.154"
+# Postgres only, tokio runtime, compile-time checked queries (offline cache in
+# crates/repositories-pg/.sqlx), embedded migrations. Only vak-repositories-pg uses it.
+sqlx = { version = "0.9.0", default-features = false, features = [
+  "json",
+  "macros",
+  "migrate",
+  "postgres",
+  "runtime-tokio",
+  "uuid",
+] }
 thiserror = "2.0.21"
 # >= 1.54.1: RUSTSEC-2026-0384 (use-after-free in `Interval`) affects 1.54.0.
 tokio = { version = "1.54.1", default-features = false }
@@ -80,6 +102,7 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 # Code-first OpenAPI 3.1 (research 02 §4). Only vak-api uses them.
 utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
 utoipa-axum = "0.3.0"
+uuid = { version = "1.29.0", default-features = false, features = ["std"] }
 wiremock = "0.6.5"
 
 [workspace.lints.rust]

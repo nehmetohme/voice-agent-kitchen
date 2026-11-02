@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO agents (id, workspace_id, name, use_case, jurisdiction, revision,\n                                 created_at, created_by, updated_at, archived_at)\n             VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1dd30941d79ea6138ac3ff0eb72f4f5f4ed04adfa7c30b5d0a2fb5439a755488"
+}

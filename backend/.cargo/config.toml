@@ -1,3 +1,9 @@
 [alias]
 # `cargo xtask <command>`: check-layers, coverage-gate (see xtask/CLAUDE.md).
 xtask = "run --package vak-xtask --bin xtask --quiet --"
+
+[env]
+# sqlx query macros check against the committed cache (crates/repositories-pg/.sqlx), never
+# a live database, even when DATABASE_URL is set for tests or the server. `just db-prepare`
+# overrides it to regenerate the cache.
+SQLX_OFFLINE = "true"
