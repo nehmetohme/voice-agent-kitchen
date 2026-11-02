@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vak:contracts:media:v1",
+  "title": "vak.media.v1: text events of the media WebSocket",
+  "description": "JSON text frames of GET /api/v1/sessions/{id}/media (subprotocol vak.media.v1). $defs/client_event is what the browser sends, $defs/server_event what the server sends. Binary frames carry audio: client to server PCM s16le mono 16 kHz, server to client PCM s16le mono 24 kHz, in 20 ms frames. Server audio belongs to the turn of the latest agent.audio.start; after agent.interrupted the client drops queued audio and every binary frame until the next agent.audio.start. Text never echoes audio. See README.md.",
+  "$defs": {
+    "client_event": {
+      "description": "Any event the client sends.",
+      "oneOf": [
+        { "$ref": "#/$defs/session_start" },
+        { "$ref": "#/$defs/client_mute" },
+        { "$ref": "#/$defs/session_end" }
+      ]
+    },
+    "server_event": {
+      "description": "Any event the server sends.",
+      "oneOf": [
+        { "$ref": "#/$defs/session_started" },
+        { "$ref": "#/$defs/transcript_partial" },
+        { "$ref": "#/$defs/transcript_final" },
+        { "$ref": "#/$defs/agent_audio_start" },
+        { "$ref": "#/$defs/agent_audio_end" },
+        { "$ref": "#/$defs/agent_interrupted" },
+        { "$ref": "#/$defs/plan_node" },
+        { "$ref": "#/$defs/decision" },
+        { "$ref": "#/$defs/latency" },
+        { "$ref": "#/$defs/error" },
+        { "$ref": "#/$defs/session_ended" }
+      ]
+    },
+
+    "turn_id": {
+      "description": "One utterance of the caller or the agent. Turn 0 is the agent's locked disclosure; later turns count up by one in the order they are committed, whoever speaks.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "milliseconds": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "stage_milliseconds": {
+      "description": "A stage latency in whole milliseconds, or null when the stage did not run in this turn.",
+      "oneOf": [{ "$ref": "#/$defs/milliseconds" }, { "type": "null" }]
+    },
+    "text": {
+      "description": "Spoken words: a transcript of the caller or what the agent said. Personal data.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "input_audio": {
+      "description": "Binary frames from the client: PCM s16le mono 16 kHz.",
+      "type": "object",
+      "required": ["encoding", "sample_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "encoding": { "const": "pcm_s16le" },
+        "sample_rate": { "const": 16000 }
+      }
+    },
+
+    "session_start": {
+      "description": "The client is ready: its microphone is open and it can play audio. The server sends nothing before it.",
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "session.start" },
+        "audio": { "$ref": "#/$defs/input_audio" }
+      }
+    },
+    "client_mute": {
+      "description": "The caller muted or unmuted the microphone. While muted, the server treats incoming audio as silence.",
+      "type": "object",
+      "required": ["type", "muted"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "client.mute" },
+        "muted": { "type": "boolean" }
+      }
+    },
+    "session_end": {
+      "description": "The caller hung up. The server answers session.ended with reason client_ended and closes the socket.",
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "session.end" }
+      }
+    },
+
+    "session_started": {
+      "description": "First server event, the answer to session.start: the session and its audio formats.",
+      "type": "object",
+      "required": ["type", "session_id", "audio"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "session.started" },
+        "session_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "audio": {
+          "type": "object",
+          "required": ["input", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "type": "object",
+              "required": ["encoding", "sample_rate", "frame_ms"],
+              "additionalProperties": false,
+              "properties": {
+                "encoding": { "const": "pcm_s16le" },
+                "sample_rate": { "const": 16000 },
+                "frame_ms": { "const": 20 }
+              }
+            },
+            "output": {
+              "type": "object",
+              "required": ["encoding", "sample_rate", "frame_ms"],
+              "additionalProperties": false,
+              "properties": {
+                "encoding": { "const": "pcm_s16le" },
+                "sample_rate": { "const": 24000 },
+                "frame_ms": { "const": 20 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "transcript_partial": {
+      "description": "An interim transcript of the caller's turn; a later partial or the final replaces it.",
+      "type": "object",
+      "required": ["type", "turn_id", "speaker", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "transcript.partial" },
+        "turn_id": { "$ref": "#/$defs/turn_id" },
+        "speaker": { "const": "caller" },
+        "text": { "$ref": "#/$defs/text" }
+      }
+    },
+    "transcript_final": {
+      "description": "The final text of a turn. Caller turns arrive in the order spoken. For an agent turn it is what was actually spoken: when the caller interrupted, interrupted is true and the text stops where playback stopped.",
+      "type": "object",
+      "required": ["type", "turn_id", "speaker", "text", "interrupted"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "transcript.final" },
+        "turn_id": { "$ref": "#/$defs/turn_id" },
+        "speaker": { "enum": ["caller", "agent"] },
+        "text": { "$ref": "#/$defs/text" },
+        "interrupted": { "type": "boolean" }
+      }
+    },
+    "agent_audio_start": {
+      "description": "The agent starts speaking turn_id; the binary frames that follow belong to it.",
+      "type": "object",
+      "required": ["type", "turn_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "agent.audio.start" },
+        "turn_id": { "$ref": "#/$defs/turn_id" }
+      }
+    },
+    "agent_audio_end": {
+      "description": "Every frame of turn_id has been sent. An agent turn ends with exactly one of agent.audio.end or agent.interrupted.",
+      "type": "object",
+      "required": ["type", "turn_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "agent.audio.end" },
+        "turn_id": { "$ref": "#/$defs/turn_id" }
+      }
+    },
+    "agent_interrupted": {
+      "description": "Barge-in: the caller talked over turn_id. The client stops playback at once and drops queued audio.",
+      "type": "object",
+      "required": ["type", "turn_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "agent.interrupted" },
+        "turn_id": { "$ref": "#/$defs/turn_id" }
+      }
+    },
+    "plan_node": {
+      "description": "The conversation moved to plan node node_id after caller turn turn_id (plan routing, M4b).",
+      "type": "object",
+      "required": ["type", "turn_id", "node_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "plan.node" },
+        "turn_id": { "$ref": "#/$defs/turn_id" },
+        "node_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "decision": {
+      "description": "A decision-model answer about caller turn turn_id. An answered yes/no question carries probability, an answered choice carries choice (and its confidence as probability). A timeout or error carries neither: it is never reported as a no.",
+      "type": "object",
+      "required": ["type", "turn_id", "question", "status", "latency_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "decision" },
+        "turn_id": { "$ref": "#/$defs/turn_id" },
+        "question": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "status": { "enum": ["answered", "timeout", "error"] },
+        "latency_ms": { "$ref": "#/$defs/milliseconds" },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "choice": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "if": { "properties": { "status": { "const": "answered" } } },
+      "then": { "anyOf": [{ "required": ["probability"] }, { "required": ["choice"] }] },
+      "else": { "not": { "anyOf": [{ "required": ["probability"] }, { "required": ["choice"] }] } }
+    },
+    "latency": {
+      "description": "Stage timings of agent reply turn turn_id: STT (request to transcript), LLM time to first token, TTS time to first audio, and mouth-to-ear (end of the caller's speech to the reply's first audio frame).",
+      "type": "object",
+      "required": ["type", "turn_id", "stt_ms", "llm_ttft_ms", "tts_first_audio_ms", "mouth_to_ear_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "latency" },
+        "turn_id": { "$ref": "#/$defs/turn_id" },
+        "stt_ms": { "$ref": "#/$defs/stage_milliseconds" },
+        "llm_ttft_ms": { "$ref": "#/$defs/stage_milliseconds" },
+        "tts_first_audio_ms": { "$ref": "#/$defs/stage_milliseconds" },
+        "mouth_to_ear_ms": { "$ref": "#/$defs/stage_milliseconds" }
+      }
+    },
+    "error": {
+      "description": "Something went wrong; the session goes on unless session.ended follows. The message is for developers and never quotes what the caller said or sent.",
+      "type": "object",
+      "required": ["type", "code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "enum": ["bad_message", "unsupported_audio", "provider_unavailable", "internal"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "session_ended": {
+      "description": "Last server event; the server closes the socket after it. An opt-out names the layer that caught it.",
+      "type": "object",
+      "required": ["type", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "session.ended" },
+        "reason": { "enum": ["client_ended", "opt_out", "escalation", "end_node", "timeout", "error"] },
+        "opt_out_layer": { "enum": ["phrase", "decision", "llm_tool"] }
+      },
+      "if": { "properties": { "reason": { "const": "opt_out" } } },
+      "then": { "required": ["opt_out_layer"] },
+      "else": { "not": { "required": ["opt_out_layer"] } }
+    }
+  }
+}

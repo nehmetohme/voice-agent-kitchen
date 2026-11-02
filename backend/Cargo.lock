@@ -2519,18 +2519,59 @@ dependencies = [
 [[package]]
 name = "vak-adapter-decision-systemone"
 version = "0.1.0"
+dependencies = [
+ "secrecy",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vak-domain",
+ "vak-providers",
+ "vak-testkit",
+ "wiremock",
+]
 
 [[package]]
 name = "vak-adapter-llm-openai"
 version = "0.1.0"
+dependencies = [
+ "secrecy",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vak-providers",
+ "vak-testkit",
+ "wiremock",
+]
 
 [[package]]
 name = "vak-adapter-stt-serving"
 version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "jsonschema",
+ "secrecy",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vak-providers",
+ "vak-testkit",
+ "wiremock",
+]
 
 [[package]]
 name = "vak-adapter-tts-serving"
 version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "jsonschema",
+ "secrecy",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vak-providers",
+ "vak-testkit",
+ "wiremock",
+]
 
 [[package]]
 name = "vak-api"
@@ -2553,6 +2594,9 @@ dependencies = [
 [[package]]
 name = "vak-audio"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "vak-config"
@@ -2603,10 +2647,28 @@ dependencies = [
 [[package]]
 name = "vak-pipeline"
 version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "serde_json",
+ "tokio",
+ "vak-audio",
+ "vak-domain",
+ "vak-providers",
+ "vak-testkit",
+]
 
 [[package]]
 name = "vak-providers"
 version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vak-audio",
+ "vak-domain",
+]
 
 [[package]]
 name = "vak-repositories"
@@ -2677,9 +2739,12 @@ name = "vak-testkit"
 version = "0.1.0"
 dependencies = [
  "jiff",
+ "serde_json",
  "tokio",
  "uuid",
+ "vak-audio",
  "vak-domain",
+ "vak-providers",
  "vak-repositories",
 ]
 

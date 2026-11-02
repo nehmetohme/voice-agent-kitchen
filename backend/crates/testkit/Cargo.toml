@@ -10,12 +10,17 @@ publish.workspace = true
 
 [dependencies]
 jiff = { workspace = true }
+serde_json = { workspace = true }
+# Fakes wait on tokio's clock, so paused-time tests run them in virtual time.
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
 uuid = { workspace = true, features = ["v7"] }
+vak-audio = { workspace = true }
 vak-domain = { workspace = true }
+vak-providers = { workspace = true }
 vak-repositories = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 
 [lints]
 workspace = true
