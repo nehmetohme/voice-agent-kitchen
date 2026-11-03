@@ -73,6 +73,15 @@ paths = [
   "frontend/src/shared/voice/media-protocol.contract.test.ts",
 ]
 
+# Opt-out confirm band (after the first live test call): a decision score from 0.3 up to the
+# 0.8 end threshold makes the agent ask a fixed check question instead of ending the call; a
+# clear yes to it ends the call with the locked confirmation, anything else carries on. The
+# phrase list, the LLM tool and a score of 0.8 or more still end the call at once. In the
+# voice-core simulation (its shared setup is reused, pinned by voice-core).
+[features.opt-out-confirm]
+version = 1
+paths = ["backend/crates/pipeline/tests/contract_opt_out_confirm.rs"]
+
 # The app shell (navigation, layout, landing on Agents) and the shared Button.
 [features.app-shell]
 version = 1
