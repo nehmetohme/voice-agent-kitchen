@@ -113,12 +113,13 @@ impl OptOutPolicy {
     }
 
     /// The question the agent asks, word for word and uninterruptible, when the decision
-    /// model's answer is in the confirm band. A blank question turns the band off: an
-    /// answer in it then ends the session, as one above the decision threshold does.
+    /// model's answer is in the confirm band; surrounding whitespace is dropped. A blank
+    /// question turns the band off: an answer in it then ends the session, as one above the
+    /// decision threshold does.
     #[must_use]
     pub fn with_check_question(self, question: impl Into<String>) -> Self {
         Self {
-            check_question: question.into(),
+            check_question: question.into().trim().to_owned(),
             ..self
         }
     }

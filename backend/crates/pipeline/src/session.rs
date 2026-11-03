@@ -618,13 +618,11 @@ impl Session {
         if self.ending() || self.check.is_some() {
             return;
         }
-        let question = self.config.opt_out.check_question.trim();
-        if question.is_empty() {
+        if self.config.opt_out.check_question.is_empty() {
             // No check question: unsure counts as an opt-out.
             self.opt_out(OptOutLayer::Decision).await;
             return;
         }
-        let question = question.to_owned();
         tracing::info!("the opt-out decision is unsure; asking the caller");
         if self
             .reply
@@ -637,7 +635,7 @@ impl Session {
         self.stages.synthesize(
             self.engines.tts.clone(),
             Synthesis::Check,
-            question,
+            self.config.opt_out.check_question.clone(),
             self.config.voice.clone(),
             self.config.deadlines.tts,
             cancel.clone(),
@@ -969,7 +967,7 @@ impl Session {
         else {
             return;
         };
-        let text = self.config.opt_out.check_question.trim().to_owned();
+        let text = self.config.opt_out.check_question.clone();
         // Locked and uninterruptible, so it is in the history as soon as it starts: speech
         // over it is the answer, judged with the question in context.
         self.history.push(Line {
