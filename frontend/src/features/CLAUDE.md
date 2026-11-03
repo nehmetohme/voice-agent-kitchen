@@ -3,16 +3,18 @@
 One folder per step of the product flow. Each feature is a small vertical slice with its own
 layers. This file covers every feature and its `views/`, `state/` and `api/` folders.
 
-| Feature       | Step                                                                                      | Milestone |
-| ------------- | ----------------------------------------------------------------------------------------- | --------- |
-| `agents/`     | Provision: list, create (3 fields), edit with autosave, archive, setup checklist          | M2        |
-| `plans/`      | Plan: flow editor (steps, paths, located problems, autosave); later guardrails, knowledge | M3        |
-| `testing/`    | Test: live call, transcript, latency (M4); summary, scenarios (M5)                        | M4, M5    |
-| `publishing/` | Publish: versions, channels, rollback                                                     | M6        |
+| Feature       | Step                                                                                          | Milestone |
+| ------------- | --------------------------------------------------------------------------------------------- | --------- |
+| `agents/`     | Provision: list, create (3 fields), edit with autosave, archive, the agent header and stepper | M2        |
+| `plans/`      | Plan: flow editor (steps, paths, located problems, autosave); later guardrails, knowledge     | M3        |
+| `testing/`    | Test: live call, transcript, latency (M4); summary, scenarios (M5)                            | M4, M5    |
+| `publishing/` | Publish: versions, channels, rollback                                                         | M6        |
 
-Until M5 adds the Test page, the route `agents/$agentId/provision` composes the test call
-(`TestCallPanel`, `LatencyPanel`) into the agents feature's `ProvisionPage` through its
-`testCall` slot.
+**Agent workspace** (contract `agent-workspace` v1): each step of an agent starts with
+`AgentHeader` (name, `SetupStepper` as the steps' navigation, "More actions" with archiving).
+`ProvisionPage` fits the viewport from `lg`: settings left, and the route's `TestCallPanel`
+right (`testCall` slot, until M5). Its transcript orders lines by turn: `state/test-call.ts`
+reserves the agent's line on `agent.audio.start` and fills it on `transcript.final`.
 
 ## Shape and direction
 
@@ -44,7 +46,7 @@ the template exists. The canvas lays steps out in columns by distance from the s
 (`state/layout.ts`, pure) and draws paths as SVG; every step is a named group with its paths
 in words, its problems, and its own Edit, Add path and Delete actions, so the whole editor
 works by keyboard. No graph library: plans are small (≤ 50 steps), and a fixed scale keeps
-every target at 44 px for `auditScreen`. The agents feature exports `SetupProgressPanel` and
+every target at 44 px for `auditScreen`. The agents feature exports `AgentHeader` and
 `useRefreshSetupProgress` for the Plan route.
 
 ## Conventions by layer

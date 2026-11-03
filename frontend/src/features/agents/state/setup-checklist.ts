@@ -22,7 +22,8 @@ export interface Checklist {
 const STEPS: Record<SetupStep, { label: string; hint: string }> = {
   provision: { label: 'Provision', hint: 'Name, purpose and voice' },
   plan: { label: 'Plan', hint: 'Goals, flow and guardrails' },
-  test: { label: 'Test', hint: 'Talk to the agent and run scenarios' },
+  // Talking to the agent already works on the Provision page; the Test step adds scenarios (M5).
+  test: { label: 'Test', hint: 'Run test scenarios and scores' },
   publish: { label: 'Publish', hint: 'Release a version to a channel' },
 };
 

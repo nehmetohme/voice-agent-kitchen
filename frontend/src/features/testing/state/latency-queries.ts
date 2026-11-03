@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { getVoiceLatency } from '../api/voice-api';
 
-export type { LatencyBucket, VoiceStage } from '../api/voice-api';
+export type { LatencyBucket, StageLatency, VoiceStage } from '../api/voice-api';
 
 export const latencyKeys = {
   all: ['voice', 'latency'] as const,

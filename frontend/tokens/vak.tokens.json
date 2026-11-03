@@ -23,7 +23,11 @@
     "danger-hover": { "$value": "#991b1b" },
     "on-danger": { "$value": "#ffffff" },
     "success": { "$value": "#15803d" },
-    "warning": { "$value": "#b45309" }
+    "warning": { "$value": "#b45309" },
+    "caller": {
+      "$value": "#eef2ff",
+      "$description": "Background of the caller's lines in a call transcript; the agent's use surface"
+    }
   },
   "spacing": {
     "$type": "dimension",
@@ -40,6 +44,13 @@
     "target": {
       "$value": "2.75rem",
       "$description": "Minimum interactive target: 44 CSS px (Fitts, WCAG 2.5.5)"
+    }
+  },
+  "breakpoint": {
+    "$type": "dimension",
+    "lg": {
+      "$value": "64rem",
+      "$description": "From this viewport width, workspaces sit side by side and fit the screen"
     }
   },
   "container": {

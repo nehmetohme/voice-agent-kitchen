@@ -90,6 +90,7 @@ describe('useTestCall', () => {
 
     fake.emit(started);
     expect(result.current.state.phase).toBe('live');
+    fake.emit({ type: 'agent.audio.start', turn_id: 1 });
     fake.emit({
       type: 'latency',
       turn_id: 1,
@@ -98,7 +99,7 @@ describe('useTestCall', () => {
       tts_first_audio_ms: 120,
       mouth_to_ear_ms: 640,
     });
-    expect(result.current.state.lastReplyMs).toBe(640);
+    expect(result.current.state.lines).toMatchObject([{ key: 'agent-1', replyMs: 640 }]);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: latencyKeys.all });
 
     act(() => {

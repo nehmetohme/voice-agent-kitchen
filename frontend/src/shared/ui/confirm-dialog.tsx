@@ -2,9 +2,22 @@ import { AlertDialog } from '@base-ui/react/alert-dialog';
 
 import { Button } from './button';
 
-interface ConfirmDialogProps {
-  /** The danger button that opens the dialog. */
-  triggerLabel: string;
+/** Either the dialog's own danger trigger, or opened from elsewhere, such as a menu item. */
+type Opening =
+  | {
+      /** The danger button that opens the dialog. */
+      triggerLabel: string;
+      open?: undefined;
+      onOpenChange?: undefined;
+    }
+  | {
+      triggerLabel?: undefined;
+      /** Opened and closed by the caller; Esc and Cancel ask to close through `onOpenChange`. */
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    };
+
+type ConfirmDialogProps = Opening & {
   title: string;
   /** What happens, in one or two sentences. */
   description: string;
@@ -13,25 +26,30 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   /** Shows the confirm button busy while the action runs (Doherty). */
   pending?: boolean | undefined;
-}
+};
 
 /**
  * A destructive action behind a `role=alertdialog` confirmation (VR-4). Esc and Cancel close
- * it without acting; focus returns to the trigger.
+ * it without acting; focus returns to the trigger, or to what had focus before it opened.
  */
 export function ConfirmDialog({
   triggerLabel,
+  open,
+  onOpenChange,
   title,
   description,
   confirmLabel,
   onConfirm,
   pending = false,
 }: ConfirmDialogProps) {
+  const controlled = open === undefined ? {} : { open, onOpenChange };
   return (
-    <AlertDialog.Root>
-      <AlertDialog.Trigger data-slot="confirm-trigger" render={<Button variant="danger" />}>
-        {triggerLabel}
-      </AlertDialog.Trigger>
+    <AlertDialog.Root {...controlled}>
+      {triggerLabel !== undefined && (
+        <AlertDialog.Trigger data-slot="confirm-trigger" render={<Button variant="danger" />}>
+          {triggerLabel}
+        </AlertDialog.Trigger>
+      )}
       <AlertDialog.Portal>
         <AlertDialog.Backdrop data-slot="confirm-backdrop" className="fixed inset-0 bg-ink/40" />
         <AlertDialog.Popup

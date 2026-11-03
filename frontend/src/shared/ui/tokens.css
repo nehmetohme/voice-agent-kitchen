@@ -17,6 +17,7 @@
   --color-on-danger: #ffffff;
   --color-success: #15803d;
   --color-warning: #b45309;
+  --color-caller: #eef2ff;
   --spacing-0: 0rem;
   --spacing-1: 0.25rem;
   --spacing-2: 0.5rem;
@@ -27,6 +28,7 @@
   --spacing-12: 3rem;
   --spacing-16: 4rem;
   --spacing-target: 2.75rem;
+  --breakpoint-lg: 64rem;
   --container-sidebar: 16rem;
   --container-readable: 40rem;
   --container-step: 18rem;

@@ -12,10 +12,14 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-/** The standard app frame users know (Jakob): left sidebar, top bar, main content. */
+/**
+ * The standard app frame users know (Jakob): left sidebar, top bar, main content. From the `lg`
+ * breakpoint the frame is exactly the viewport: the document never scrolls, `main` does, and a
+ * page can fill it (`h-full`) and scroll its own regions instead.
+ */
 export function AppShell({ brand, navigation, topBar, children }: AppShellProps) {
   return (
-    <div className="flex min-h-screen bg-canvas text-ink">
+    <div className="flex min-h-dvh bg-canvas text-ink lg:h-dvh">
       <aside
         aria-label="Sidebar"
         className="flex w-sidebar shrink-0 flex-col gap-6 border-r border-line bg-surface p-4"
@@ -24,8 +28,10 @@ export function AppShell({ brand, navigation, topBar, children }: AppShellProps)
         {navigation}
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-16 items-center border-b border-line px-6">{topBar}</header>
-        <main className="flex-1 px-6 py-8">{children}</main>
+        <header className="flex min-h-16 shrink-0 items-center border-b border-line px-6">
+          {topBar}
+        </header>
+        <main className="flex-1 p-6 lg:min-h-0 lg:overflow-y-auto">{children}</main>
       </div>
     </div>
   );

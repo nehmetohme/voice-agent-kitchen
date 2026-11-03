@@ -60,7 +60,7 @@ Elements inside one container or joined by a line read as related.
 |---|---|---|---|
 | UC-1 | Every radio, and every set of 2+ checkboxes with one name, sits in a named group (`fieldset` + `legend`, or `role=group`/`radiogroup` with a name). | `auditScreen` | A |
 | UC-2 | Related controls share a container with an accessible name (`fieldset`, `role=group`, a `section` with `aria-labelledby`). | axe `aria-*` rules in `auditScreen` | P |
-| UC-3 | Flow nodes are joined by visible edges; stepper steps are joined by a connector. | The plan canvas draws every path as a line between its steps (`features/plans/views/plan-canvas.tsx`), and each step lists its paths in words | R |
+| UC-3 | Flow nodes are joined by visible edges; stepper steps are joined by a connector. | The plan canvas draws every path as a line between its steps (`features/plans/views/plan-canvas.tsx`), and each step lists its paths in words; the setup stepper draws a line between steps, green after a done one (`features/agents/views/setup-stepper.tsx`) | R |
 
 Reviewer checklist:
 - [ ] Groups have a visible boundary or heading as well as an accessible name.

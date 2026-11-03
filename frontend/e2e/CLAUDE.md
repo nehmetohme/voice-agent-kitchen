@@ -10,9 +10,17 @@ frontend-verify` does both). Chromium only. The web server is `vite preview`.
 `pnpm e2e` needs Docker and the Rust toolchain; the first run builds `vak-server`. Stopping
 the run removes the container.
 
+**The one exception: a voice call.** The e2e server has no models, so it refuses test calls.
+A spec that needs a call fakes exactly that, and nothing else: `page.route` answers
+`POST /api/v1/agents/{id}/sessions` with a media path, and `page.routeWebSocket` plays the
+server on that media socket (vak.media.v1 events), with Chromium's fake microphone
+(`--use-fake-device-for-media-stream`). See `contract/agent-workspace/`.
+
 **Order.** The agent-provisioning contract starts from an empty agent list, so it runs first
 and alone (project `contract-empty-list`). The other contracts (`contract`) wait for it, and
-every other spec (`chromium`) waits for them (`dependencies`).
+every other spec (`chromium`) waits for them (`dependencies`). Running a later spec alone
+(`--no-deps`) on a fresh database with several workers can fail its first agent creations
+with 503: the server's first-sight operator upsert races. Use `--workers 1` there.
 
 **Ports.** Parallel worktrees run their own servers, so each worktree derives its ports from a
 hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, database 24200–24999.
@@ -36,7 +44,8 @@ hash of its path (`support/ports.ts`): web 4200–4999, API 14200–14999, datab
 - No fixed waits (`waitForTimeout`); wait for a role, text or URL.
 - Golden specs assert their budget and end state from `golden-paths.md`. Marking a path
   `active` without its spec fails `e2e/support/golden-paths.test.ts` (Vitest).
-- Voice tests (M5) use Chromium's fake media flags with a WAV fixture; never a real mic.
+- Voice tests use Chromium's fake media flags (M5 adds a WAV fixture); never a real mic. Set
+  them with a top-level `test.use({ launchOptions })`: a worker option can't go in a `describe`.
 
 ## May import
 
