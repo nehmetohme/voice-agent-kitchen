@@ -24,13 +24,13 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | `local/dev.just` | the recipes below; imported by the root `justfile` |
 | `local/env.sh` | loads the repo's `.env` and fills in defaults; sourced by every script and recipe |
 | `local/process-compose.yml` | the processes, their readiness probes and start order |
-| `local/docker-compose.yml` | Postgres 18 with a healthcheck and the `vak-local_pgdata` volume |
+| `local/docker-compose.yml` | Postgres 18 with a healthcheck and the `pgdata` volume (`vak-local_pgdata`, or `<COMPOSE_PROJECT_NAME>_pgdata`) |
 | `local/models.sh` | downloads the pinned model files into `VAK_MODELS_DIR`, verified by size and SHA-256 |
 | `local/mlx-audio/` | `pyproject.toml` + `uv.lock`: the pinned mlx-audio environment, synced into a project-local `.venv`. No code |
 | `local/mlx-audio.sh`, `local/speech-warmup.sh` | start mlx-audio; load and warm both speech models before the shim starts |
 | `local/doctor.sh`, `local/smoke.sh` | `dev-doctor` and `dev-smoke` |
 
-**Models** live outside the repo in `${VAK_MODELS_DIR:-~/.cache/vak/models}`, so every worktree shares one copy (5.4 GiB). `models.sh` pins each file to a Hugging Face commit and a SHA-256; add a model there, never by hand. Licences: Parakeet CC-BY-4.0, Kokoro and Kev-4B Apache-2.0. Never fetch `openjev/openjev` (CC-BY-NC); the script refuses it. Kokoro's G2P in the mlx-audio environment pulls in copyleft packages: `phonemizer-fork` and espeak-ng (GPL-3.0), and `num2words` (LGPL). They are fine on a developer's Mac and are exempted by package in `.github/dependency-review.yml`, but they must never ship. The production Kokoro pyfunc (M7) needs its own licence review.
+**Models** live outside the repo in `${VAK_MODELS_DIR:-~/.cache/vak/models}`, so every worktree shares one copy (5.4 GiB). `models.sh` pins each file to a Hugging Face commit and a SHA-256; add a model there, never by hand. It pins a Kokoro voice file for every voice of the agent catalog (`VOICES` in `backend/crates/domain/src/catalog.rs`): mlx-audio runs offline and loads voices from the model folder only, so a missing one fails every call with that voice. A `vak-server` test fails when the two drift, and `just dev-doctor` names a voice that isn't downloaded. mlx-audio loads a new voice file on its next call, with no restart. Licences: Parakeet CC-BY-4.0, Kokoro and Kev-4B Apache-2.0. Never fetch `openjev/openjev` (CC-BY-NC); the script refuses it. Kokoro's G2P in the mlx-audio environment pulls in copyleft packages: `phonemizer-fork` and espeak-ng (GPL-3.0), and `num2words` (LGPL). They are fine on a developer's Mac and are exempted by package in `.github/dependency-review.yml`, but they must never ship. The production Kokoro pyfunc (M7) needs its own licence review.
 
 **Configuration** is the gitignored `.env` at the repo root (`cp .env.example .env`). `.env.example` lists every variable with placeholders; the real LAN address and passwords stay in `.env`. `.worktreeinclude` copies `.env` into worktrees that Claude Code creates; for a `just task` worktree, copy it from the main checkout (`just dev-doctor` prints the command).
 
@@ -51,12 +51,12 @@ Production runs only on Databricks. Local development swaps in local servers beh
 | Recipe | Does |
 |---|---|
 | `just dev [args]` | the whole stack under process-compose (TUI; `--detached` for background). Checks the models, syncs mlx-audio, builds the Rust binaries first |
-| `just dev-light [args]` | Postgres, `vak-server` and the frontend only, no local models |
-| `just dev-down` | stops the process-compose stack and the Postgres container; data is kept |
+| `just dev-light [args]` | Postgres, `vak-server` and the frontend only, no local models. It clears the speech and decision URLs, so `vak-server` reports voice sessions as off and refuses them |
+| `just dev-down` | stops the process-compose stack and the Postgres container; data is kept, in the volume it names |
 | `just db-up` | Postgres only, waits until healthy |
 | `just models-pull` | downloads missing models; idempotent |
 | `just dev-setup` | syncs the mlx-audio environment |
-| `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models, `/v1/systemone` support and ports, with fix hints |
+| `just dev-doctor` | checks tools, Docker, `.env`, the LLM box, models (each missing catalog voice by name), `/v1/systemone` support and ports, with fix hints |
 | `just dev-smoke` | calls every endpoint of the running stack twice (first, warm): LLM with thinking off, STT on `backend/fixtures/audio/utterance_book_table_16k.wav`, TTS, a 4-question decision, Postgres `select 1`, `vak-server`, Vite, and `GET /api/v1/agents` through Vite's proxy (proves the migrations ran and the dev operator is set) |
 | `just adapters-live [args]` | runs the four model adapters' ignored live contract tests against the running stack, one test at a time (the LLM has one slot), with `local/env.sh` loaded. Needs `just dev` and the LAN LLM in `.env`. Defined in `backend/backend.just`; `-p <crate>` runs one adapter |
 

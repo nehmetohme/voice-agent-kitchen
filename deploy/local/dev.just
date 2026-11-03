@@ -22,6 +22,10 @@ dev-light *args:
     #!/usr/bin/env bash
     set -euo pipefail
     . deploy/local/env.sh
+    # No local models run here. Clear the speech and decision URLs env.sh defaults to, so
+    # vak-server reports voice sessions as off (and refuses them) instead of failing calls.
+    export VAK_STT_BASE_URL= VAK_TTS_BASE_URL= VAK_DECISION_BASE_URL=
+    echo "dev-light: no local models, so voice sessions are off; \`just dev\` runs them"
     (cd backend && cargo build --quiet --locked -p vak-server)
     exec process-compose --use-uds --unix-socket '{{ dev_socket }}' --ordered-shutdown \
         up --disable-dotenv --config deploy/local/process-compose.yml "$@" vak-server frontend
@@ -38,7 +42,10 @@ dev-down:
         echo "dev-down: no process-compose stack running"
     fi
     docker compose -f deploy/local/docker-compose.yml stop
-    echo "dev-down: Postgres stopped (data kept in the vak-local_pgdata volume)"
+    # The volume's real name: its prefix is the compose project (COMPOSE_PROJECT_NAME, if set).
+    volume=$(docker compose -f deploy/local/docker-compose.yml config --format json --no-interpolate 2>/dev/null |
+        jq -r '.volumes.pgdata.name // empty' 2>/dev/null)
+    echo "dev-down: Postgres stopped (data kept in the ${volume:-Postgres} volume)"
 
 # Start Postgres 18 in Docker and wait until it is healthy
 db-up:

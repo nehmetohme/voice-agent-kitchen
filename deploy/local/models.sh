@@ -16,7 +16,11 @@ mode=${1:-pull}
 
 # repo  revision  file  bytes  sha256
 # - STT: Parakeet TDT 0.6B v2 (CC-BY-4.0), MLX build.
-# - TTS: Kokoro-82M (Apache-2.0), MLX bf16 build, with two voices (US female, US male).
+# - TTS: Kokoro-82M (Apache-2.0), MLX bf16 build, with every voice of the agent voice catalog
+#   (`VOICES` in backend/crates/domain/src/catalog.rs). mlx-audio runs offline and loads a
+#   voice from the model folder only, so a catalog voice without its file here fails the
+#   call. A vak-server test (`catalog_voices_are_pinned_for_local_tts` in
+#   backend/apps/server/src/voice.rs) keeps the two lists in step.
 # - Decisions: Kev-4B Q4_K_M GGUF (Apache-2.0) for llama-server's /v1/systemone.
 manifest='
 mlx-community/parakeet-tdt-0.6b-v2 8ae155301e23d820d82aa60d24817c900e69e487 config.json 36176 9bd323e60afe2615c983a5d9fc3a2c0470df2a03edf90c0f861bd59509d07264
@@ -24,7 +28,11 @@ mlx-community/parakeet-tdt-0.6b-v2 8ae155301e23d820d82aa60d24817c900e69e487 mode
 mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c config.json 2351 5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f
 mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c kokoro-v1_0.safetensors 327115152 4e9ecdf03b8b6cf906070390237feda473dc13327cb8d56a43deaa374c02acd8
 mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/af_heart.safetensors 522320 2c1c733b0e6576c810e268d3e440c21dea4e0f0131a3ba4cfc98d7fe6136d094
+mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/af_bella.safetensors 522320 112d310468cbb3cf23404d3d0b50ad3adf017b87bf38bf9edd15f4ad572df6a3
 mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/am_michael.safetensors 522320 3940147ded35deba0bb52e8132f89b719298e0520258c34584358aa5a24da2ea
+mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/am_fenrir.safetensors 522320 9abed964b906c4cae6f404d9849e76260689aea862bc6ca85fc3f5207ba96538
+mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/bf_emma.safetensors 522320 8878a75a6661305849eeb1d6293a7177250193616e161b4c3100636434dfe69f
+mlx-community/Kokoro-82M-bf16 a71e4d38b236d968966a2002c4c895dbd12b1c3c voices/bm_george.safetensors 522320 a3d9b8995cbbe5536f954b6be2a0f1f312f077118ba0d4d2178fc41dc8306672
 ggml-org/Kev-4B-GGUF f4624b6bb7072f1bab726a622c1cad3f96030b9e Kev-4B-Q4_K_M.gguf 3033489824 33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9
 '
 

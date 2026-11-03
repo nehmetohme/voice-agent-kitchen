@@ -90,6 +90,43 @@ mod tests {
         assert!(engines(&models(&keyed)).expect("valid").is_some());
     }
 
+    /// Locally the TTS (mlx-audio, offline) loads a voice only from the Kokoro model folder
+    /// that `deploy/local/models.sh` fills, so every voice an agent can pick must be pinned
+    /// there, beside the weights; a missing one fails the call before the disclosure.
+    #[test]
+    fn catalog_voices_are_pinned_for_local_tts() {
+        const MODELS: &str = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../deploy/local/models.sh"
+        ));
+        // The manifest's lines: repo, revision, file, bytes, SHA-256.
+        let pins: Vec<Vec<&str>> = MODELS
+            .lines()
+            .map(|line| line.split_whitespace().collect::<Vec<_>>())
+            .filter(|fields| {
+                fields.len() == 5
+                    && fields[1].len() == 40
+                    && fields[3].parse::<u64>().is_ok()
+                    && fields[4].len() == 64
+            })
+            .collect();
+        let kokoro = pins
+            .iter()
+            .find(|fields| fields[2] == "kokoro-v1_0.safetensors")
+            .map(|fields| fields[0])
+            .expect("models.sh pins the Kokoro weights");
+        for voice in vak_domain::catalog::VOICES {
+            let file = format!("voices/{}.safetensors", voice.id);
+            assert!(
+                pins.iter()
+                    .any(|fields| fields[0] == kokoro && fields[2] == file),
+                "deploy/local/models.sh doesn't pin {kokoro}/{file}: add it (Hugging Face \
+                 revision, size and SHA-256), or local calls with {} fail",
+                voice.name
+            );
+        }
+    }
+
     #[test]
     fn a_missing_model_turns_voice_off_and_bad_settings_fail() {
         assert!(engines(&models(&ALL[..4])).expect("valid").is_none());

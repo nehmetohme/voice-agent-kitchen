@@ -1,6 +1,6 @@
 # Audio fixtures
 
-Short recorded clips that the backend tests replay instead of a live microphone or phone line. `vak-testkit` loads them (with `hound`), and the deterministic pipeline simulations, VAD and codec tests, and the end-to-end caller bot stream them as 20 ms frames.
+Short recorded clips that the backend tests replay instead of a live microphone or phone line. `vak_testkit::fixtures` loads them without a WAV crate: it reads a canonical 44-byte-header WAV (`fmt ` then `data`) itself and refuses anything but 16 kHz mono PCM16. Today the STT conformance suite and the local stack's scripts use them. The deterministic pipeline simulations play a synthetic square wave instead (`vak_testkit::media`); VAD and codec tests and the end-to-end caller bot will stream clips from here as 20 ms frames.
 
 Most fixtures arrive with the voice core (M4). Today there is one:
 
