@@ -81,6 +81,7 @@ pub struct OptOutPolicy {
     pub(crate) decision_threshold: f64,
     pub(crate) decision_wait: Duration,
     pub(crate) decision_deadline: Duration,
+    pub(crate) check_question: String,
 }
 
 impl OptOutPolicy {
@@ -99,6 +100,16 @@ impl OptOutPolicy {
             decision_threshold: 0.3,
             decision_wait: Duration::from_millis(300),
             decision_deadline: Duration::from_secs(2),
+            check_question: String::new(),
+        }
+    }
+
+    /// The check question the agent asks when the decision model is unsure.
+    #[must_use]
+    pub fn with_check_question(self, question: impl Into<String>) -> Self {
+        Self {
+            check_question: question.into(),
+            ..self
         }
     }
 
