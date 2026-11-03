@@ -25,8 +25,8 @@
     "success": { "$value": "#15803d" },
     "warning": { "$value": "#b45309" },
     "caller": {
-      "$value": "#eef2ff",
-      "$description": "Background of the caller's lines in a call transcript; the agent's use surface"
+      "$value": "#f1f5f9",
+      "$description": "Fill of the caller's lines in a call transcript: neutral, so it never reads as selected or primary; the agent's lines are outlined on canvas"
     }
   },
   "spacing": {

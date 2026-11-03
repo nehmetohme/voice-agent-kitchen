@@ -20,7 +20,7 @@ interface BubbleProps {
   children: ReactNode;
 }
 
-/** One line, chat style: the agent on the left, you on the right in your own tint. */
+/** One line, chat style: the agent outlined on the left, you filled on the right. */
 function Bubble({ speaker, pending = false, replyMs = null, children }: BubbleProps) {
   const agent = speaker === 'agent';
   return (
@@ -42,7 +42,7 @@ function Bubble({ speaker, pending = false, replyMs = null, children }: BubblePr
       <p
         className={cn(
           'max-w-readable rounded-md px-3 py-2',
-          agent ? 'border border-line bg-surface' : 'bg-caller',
+          agent ? 'border border-line bg-canvas' : 'bg-caller',
           pending && 'text-muted',
         )}
       >
