@@ -23,6 +23,11 @@ tokio = { workspace = true, features = [
   "signal",
 ] }
 tracing = { workspace = true }
+serde_json = { workspace = true }
+vak-adapter-decision-systemone = { workspace = true }
+vak-adapter-llm-openai = { workspace = true }
+vak-adapter-stt-serving = { workspace = true }
+vak-adapter-tts-serving = { workspace = true }
 vak-api = { workspace = true }
 vak-config = { workspace = true }
 vak-domain = { workspace = true }

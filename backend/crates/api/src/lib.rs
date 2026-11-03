@@ -14,9 +14,11 @@ mod deadline;
 mod health;
 mod identity;
 mod json;
+mod latency;
 mod openapi;
 mod plans;
 mod problem;
+mod sessions;
 mod state;
 
 use axum::Router;
@@ -57,6 +59,12 @@ pub fn router() -> Router {
 /// | `GET`, `PUT /api/v1/agents/{id}/plan` | the plan (or the template), save it (autosave) |
 /// | `POST /api/v1/agents/{id}/plan/validate` | check a plan without saving it |
 /// | `GET /api/v1/catalog/voices`, `/languages` | what an agent can use |
+/// | `POST /api/v1/agents/{id}/sessions` | prepare a live test call |
+/// | `GET /api/v1/sessions/{id}/media` | the call's media WebSocket (`vak.media.v1`) |
+/// | `GET /api/v1/voice/latency` | the voice path's stage latencies |
+///
+/// The media WebSocket has the identity check but not the request deadline: a call lasts
+/// longer than any request.
 pub fn app(state: AppState) -> Router {
     let (v1, _) = openapi::v1().split_for_parts();
     let v1 = v1
@@ -71,8 +79,15 @@ pub fn app(state: AppState) -> Router {
             state.request_timeout,
             deadline::within_deadline,
         ))
+        .with_state(state.clone());
+    let (media, _) = openapi::v1_media().split_for_parts();
+    let media = media
+        .layer(middleware::from_fn_with_state(
+            state.identity.clone(),
+            identity::require_actor,
+        ))
         .with_state(state);
-    router().nest(API_PREFIX, v1)
+    router().nest(API_PREFIX, media.merge(v1))
 }
 
 async fn not_found() -> ApiError {

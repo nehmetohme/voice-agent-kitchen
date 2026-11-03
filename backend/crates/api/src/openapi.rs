@@ -8,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::state::AppState;
-use crate::{agents, catalog, health, plans};
+use crate::{agents, catalog, health, latency, plans, sessions};
 
 /// Document-level metadata. Paths and schemas come from the routes themselves.
 #[derive(OpenApi)]
@@ -24,6 +24,9 @@ use crate::{agents, catalog, health, plans};
         (name = "agents", description = "Create, list, edit (autosave) and archive agents"),
         (name = "plans", description = "An agent's plan: steps and paths, checked against its rule pack"),
         (name = "catalog", description = "The voices and languages an agent can use"),
+        (name = "sessions", description = "Live test calls: a session and its media WebSocket \
+            (subprotocol `vak.media.v1`, `contracts/media/`)"),
+        (name = "voice", description = "The voice path's latency"),
     ),
     modifiers(&ForwardedIdentity)
 )]
@@ -67,13 +70,21 @@ pub(crate) fn v1() -> OpenApiRouter<AppState> {
         )
         .routes(routes!(catalog::voices))
         .routes(routes!(catalog::languages))
+        .routes(routes!(sessions::start))
+        .routes(routes!(latency::get))
+}
+
+/// The `/api/v1` routes that outlive a request (the media WebSocket): identity, but no
+/// request deadline and no body limit.
+pub(crate) fn v1_media() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().routes(routes!(sessions::media))
 }
 
 /// Every route, each registered together with its OpenAPI description.
 fn routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::with_openapi(ApiDoc::openapi())
         .merge(public())
-        .nest(crate::API_PREFIX, v1())
+        .nest(crate::API_PREFIX, v1().merge(v1_media()))
 }
 
 /// The OpenAPI 3.1 document as pretty JSON with every object's keys sorted and a trailing

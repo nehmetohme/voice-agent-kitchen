@@ -86,6 +86,7 @@ The REST API is documented in `contracts/openapi.json`. Errors follow RFC 9457 (
 | Agents | `POST /agents` (3 required fields), `GET /agents`, `GET /agents/{id}`, `PATCH /agents/{id}` (autosave), `DELETE /agents/{id}` (archive), `GET /agents/{id}/progress` |
 | Plan | `GET /agents/{id}/plan`, `PUT /agents/{id}/plan`, `POST /agents/{id}/plan/validate` |
 | Live test | `POST /agents/{id}/sessions` returns a session ID and media URL; `GET /sessions/{id}`; `GET /sessions/{id}/turns` |
+| Voice | `GET /voice/latency`: per-stage latency histograms (STT, the opt-out decision, LLM time to first token, TTS first audio, mouth-to-ear) with p50 and p95 |
 | Scenarios | `GET/POST /agents/{id}/scenarios`, `PUT/DELETE /scenarios/{id}` |
 | Test runs | `POST /agents/{id}/test-runs`, `GET /test-runs/{id}` |
 | Publish | `GET /agents/{id}/versions`, `POST /agents/{id}/versions` (publish), `POST /agents/{id}/rollback`, `GET /agents/{id}/publications` |
@@ -93,9 +94,10 @@ The REST API is documented in `contracts/openapi.json`. Errors follow RFC 9457 (
 
 ### Media WebSocket: `GET /api/v1/sessions/{id}/media`
 
-- Subprotocol `vak.media.v1`.
-- **Binary frames** carry audio: 16 kHz mono PCM16 in MVP, Opus later.
+- Subprotocol `vak.media.v1`. The upgrade must offer it. A session's socket opens once, within a minute of `POST /agents/{id}/sessions`, for the operator who started it.
+- **Binary frames** carry audio in 20 ms frames, PCM s16le mono: 16 kHz from the client, 24 kHz from the server (Kokoro's native rate, so nothing resamples). Opus later.
 - **Text frames** carry JSON events, each with a `type`:
-  - from the client: `session.start`, `session.end`, `client.mute`
-  - from the server: `transcript.partial`, `transcript.final`, `agent.audio.start`, `agent.audio.end`, `agent.interrupted`, `plan.node`, `decision`, `latency`, `error`, `session.ended`
-- Event schemas live in `contracts/media/*.json` and are checked by contract tests on both sides.
+  - from the client: `session.start`, `client.mute`, `session.end`
+  - from the server: `session.started`, `transcript.partial`, `transcript.final`, `agent.audio.start`, `agent.audio.end`, `agent.interrupted`, `plan.node`, `decision`, `latency`, `error`, `session.ended`
+- The server sends nothing before `session.start`. It then answers `session.started` and speaks the locked disclosure as turn 0. `session.ended` is the last event, and on an opt-out it names the layer: `phrase`, `decision` or `llm_tool`.
+- Event schemas live in `contracts/media/vak.media.v1.json` (with `examples.json`) and are checked by contract tests on both sides.

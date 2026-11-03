@@ -306,6 +306,29 @@
         ],
         "type": "object"
       },
+      "LatencyBucket": {
+        "description": "Replies whose stage took at most `leMs` (and more than the previous bucket's bound).",
+        "properties": {
+          "count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "leMs": {
+            "description": "The bucket's upper bound in milliseconds; `null` for the slowest bucket.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "type": "object"
+      },
       "LockedText": {
         "description": "Text the agent says word for word, from the rule pack.",
         "properties": {
@@ -639,6 +662,50 @@
         ],
         "type": "object"
       },
+      "StageLatency": {
+        "description": "One stage's histogram.",
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/LatencyBucket"
+            },
+            "type": "array"
+          },
+          "count": {
+            "description": "Replies measured since the server started.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "p50Ms": {
+            "description": "Median over the last 1000 replies; `null` before the first.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p95Ms": {
+            "description": "95th percentile over the last 1000 replies; `null` before the first.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "stage": {
+            "$ref": "#/components/schemas/VoiceStage"
+          }
+        },
+        "required": [
+          "stage",
+          "count",
+          "buckets"
+        ],
+        "type": "object"
+      },
       "StepKind": {
         "description": "What a step does: `start` opens the call (the locked texts first), `end` ends it.",
         "enum": [
@@ -747,6 +814,21 @@
         ],
         "type": "object"
       },
+      "VoiceLatency": {
+        "description": "Every stage, in pipeline order.",
+        "properties": {
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageLatency"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "type": "object"
+      },
       "VoiceList": {
         "description": "Every voice, recommended first.",
         "properties": {
@@ -761,6 +843,37 @@
           "items"
         ],
         "type": "object"
+      },
+      "VoiceSession": {
+        "description": "A prepared test call: open its media WebSocket within a minute.",
+        "properties": {
+          "id": {
+            "description": "The session's ID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "mediaUrl": {
+            "description": "The media WebSocket, relative to the server: subprotocol `vak.media.v1`, usable once,\nby the operator who started the session.",
+            "example": "/api/v1/sessions/0192f4c1-7c1e-7d34-9a51-3c2b1d0e9f87/media",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mediaUrl"
+        ],
+        "type": "object"
+      },
+      "VoiceStage": {
+        "description": "A stage of the voice path.",
+        "enum": [
+          "stt",
+          "decision",
+          "llm_ttft",
+          "tts_first_audio",
+          "mouth_to_ear"
+        ],
+        "type": "string"
       }
     },
     "securitySchemes": {
@@ -1494,6 +1607,84 @@
         ]
       }
     },
+    "/api/v1/agents/{id}/sessions": {
+      "post": {
+        "operationId": "startSession",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSession"
+                }
+              }
+            },
+            "description": "The session, waiting for its media WebSocket"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Voice isn't set up, too many calls are running, or storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Prepare a live test call with the agent.",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/v1/catalog/languages": {
       "get": {
         "operationId": "listLanguages",
@@ -1566,6 +1757,123 @@
         ]
       }
     },
+    "/api/v1/sessions/{id}/media": {
+      "get": {
+        "operationId": "openSessionMedia",
+        "parameters": [
+          {
+            "description": "The session's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The media WebSocket, subprotocol vak.media.v1"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not a WebSocket upgrade that offers vak.media.v1"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The handshake comes from a page on another site"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such session for this operator, or it expired or was used"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too many calls are running"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The session's media WebSocket. Offer the `vak.media.v1` subprotocol; the text and binary\nframes are described in `contracts/media/`.",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/voice/latency": {
+      "get": {
+        "operationId": "getVoiceLatency",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceLatency"
+                }
+              }
+            },
+            "description": "One histogram per stage"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The voice path's latency so far: one histogram per stage, since the server started.",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -1604,6 +1912,14 @@
     {
       "description": "The voices and languages an agent can use",
       "name": "catalog"
+    },
+    {
+      "description": "Live test calls: a session and its media WebSocket (subprotocol `vak.media.v1`, `contracts/media/`)",
+      "name": "sessions"
+    },
+    {
+      "description": "The voice path's latency",
+      "name": "voice"
     }
   ]
 }

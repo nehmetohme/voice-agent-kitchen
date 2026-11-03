@@ -49,7 +49,7 @@ This folder holds the whole Voice Agent Kitchen server: a layered Cargo workspac
 - **Environment:** only `vak-server` reads it. Inner crates receive typed config.
 - **Lints:** they come from `[workspace.lints]` in `Cargo.toml`, and every crate sets `[lints] workspace = true`. Cargo can't override them per package, so relax a lint only with a crate- or item-level `#[expect(lint, reason = "...")]`.
 - **Dependency versions:** declare them once in `[workspace.dependencies]`, and add each entry in the same change as the first crate that uses it. cargo-shear and cargo-deny reject unused entries.
-- **Internal edges:** add them only when code uses them. That's why most crates have no dependencies yet.
+- **Internal edges:** add them only when code uses them. That's why some crates have fewer edges than `layers.toml` allows.
 
 | Layer | Error convention |
 |---|---|
@@ -71,6 +71,7 @@ Run these from the repo root:
 | `just backend-test` | nextest + doctests |
 | `just backend-fmt` | `cargo fmt --all`, `taplo fmt` |
 | `just backend-coverage` | instrumented nextest run, then `cargo xtask coverage-gate` |
+| `just adapters-live [args]` | the adapters' ignored live contract tests (`--run-ignored only`), one at a time, with `deploy/local/env.sh` loaded. Needs `just dev` (speech, decisions) and the LAN LLM in `.env`. Args replace the package list, e.g. `-p vak-adapter-llm-openai` |
 | `just db-prepare` | regenerate the sqlx offline cache (`crates/repositories-pg/.sqlx`) against a freshly migrated database; commit the result |
 | `just db-test-stop` | remove this worktree's test Postgres container (tests restart it on demand) |
 
@@ -78,7 +79,8 @@ Run these from the repo root:
 
 - **Write contract tests first.** They match `**/tests/contract_*.rs`. Once a file is tagged `contract/<feature>/vN`, never edit it; bump the version instead.
 - **Unit tests** cover every layer, using fakes from `vak-testkit` for the layer below.
-- **nextest profiles** (`.config/nextest.toml`): `default` locally, `ci` in CI (JUnit, no retries). Audio fixtures: `fixtures/audio/README.md`.
+- **nextest profiles** (`.config/nextest.toml`): `default` locally, `ci` in CI (JUnit, no retries). Fixtures: `fixtures/audio/README.md` (recorded speech) and `fixtures/llm/README.md` (recorded LLM streams).
+- **Live tests** against real models are `#[ignore]`d, so `just verify` never runs them; `just adapters-live` does.
 - **Postgres tests** need Docker and nothing else. A nextest setup script (`tools/test-db.sh`) starts, or reuses, this worktree's Postgres 18 container on a port derived from the worktree path (25200–25999) and hands `DATABASE_URL` to the `vak-repositories-pg` tests only; `#[sqlx::test]` creates and drops one database per test inside it.
 - **sqlx offline:** `.cargo/config.toml` sets `SQLX_OFFLINE=true`, so builds check queries against the committed `.sqlx/` cache and never a live database, even when `DATABASE_URL` is set. After changing a query or a migration, run `just db-prepare`.
 

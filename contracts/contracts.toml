@@ -45,6 +45,34 @@ paths = [
   "frontend/e2e/contract/agent-provisioning/**",
 ]
 
+# M4a Voice core: the vak.media.v1 protocol (schema and examples, checked by the server's types
+# and the browser's parser); the pipeline in simulated time (locked disclosure first, barge-in
+# within one frame that cancels the LLM, turn order, per-stage timings); the three-layer
+# opt-out, which a decision timeout never suppresses; and the four model adapters, each passing
+# its port's shared conformance suite against wiremock and, in ignored live tests, the local
+# servers. The suites, the shared pipeline test setup and the recorded fixtures are pinned too.
+[features.voice-core]
+version = 1
+paths = [
+  "contracts/media/vak.media.v1.json",
+  "contracts/media/examples.json",
+  "backend/crates/providers/tests/contract_voice_core_media.rs",
+  "backend/crates/pipeline/tests/contract_voice_core_pipeline.rs",
+  "backend/crates/pipeline/tests/contract_voice_core_opt_out.rs",
+  "backend/crates/pipeline/tests/contract_voice_core/**",
+  "backend/crates/testkit/src/conformance.rs",
+  "backend/crates/testkit/src/conformance/**",
+  "backend/crates/adapters/stt-serving/tests/contract_voice_core_stt.rs",
+  "backend/crates/adapters/tts-serving/tests/contract_voice_core_tts.rs",
+  "backend/crates/adapters/llm-openai/tests/contract_voice_core_llm.rs",
+  "backend/crates/adapters/decision-systemone/tests/contract_voice_core_decisions.rs",
+  "backend/fixtures/audio/utterance_book_table_16k.wav",
+  "backend/fixtures/audio/utterance_book_table_16k.txt",
+  "backend/fixtures/llm/text_reply.sse",
+  "backend/fixtures/llm/tool_call.sse",
+  "frontend/src/shared/voice/media-protocol.contract.test.ts",
+]
+
 # The app shell (navigation, layout, landing on Agents) and the shared Button.
 [features.app-shell]
 version = 1

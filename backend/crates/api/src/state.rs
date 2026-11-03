@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use vak_domain::Actor;
-use vak_services::AgentService;
+use vak_services::{AgentService, VoiceService};
 
 use crate::identity::Identity;
 
@@ -11,6 +11,7 @@ use crate::identity::Identity;
 #[derive(Clone)]
 pub struct AppState {
     pub(crate) agents: AgentService,
+    pub(crate) voice: VoiceService,
     pub(crate) identity: Identity,
     pub(crate) request_timeout: Duration,
 }
@@ -19,14 +20,22 @@ pub struct AppState {
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl AppState {
-    /// State whose routes accept only the identity Databricks Apps forwards.
+    /// State whose routes accept only the identity Databricks Apps forwards. Voice sessions
+    /// are off until [`AppState::with_voice`] provides a service with models.
     #[must_use]
     pub fn new(agents: AgentService) -> Self {
         Self {
+            voice: VoiceService::new(agents.clone(), None),
             agents,
             identity: Identity::default(),
             request_timeout: DEFAULT_REQUEST_TIMEOUT,
         }
+    }
+
+    /// The same state with voice sessions served by `voice`.
+    #[must_use]
+    pub fn with_voice(self, voice: VoiceService) -> Self {
+        Self { voice, ..self }
     }
 
     /// The same state with another request deadline (default 10 s).

@@ -39,9 +39,16 @@ publish = false
 # cargo-deny reject unused workspace dependencies).
 [workspace.dependencies]
 # Internal crates
+vak-adapter-decision-systemone = { path = "crates/adapters/decision-systemone" }
+vak-adapter-llm-openai = { path = "crates/adapters/llm-openai" }
+vak-adapter-stt-serving = { path = "crates/adapters/stt-serving" }
+vak-adapter-tts-serving = { path = "crates/adapters/tts-serving" }
 vak-api = { path = "crates/api" }
+vak-audio = { path = "crates/audio" }
 vak-config = { path = "crates/config" }
 vak-domain = { path = "crates/domain" }
+vak-pipeline = { path = "crates/pipeline" }
+vak-providers = { path = "crates/providers" }
 vak-repositories = { path = "crates/repositories" }
 vak-repositories-pg = { path = "crates/repositories-pg" }
 vak-services = { path = "crates/services" }
@@ -57,8 +64,15 @@ axum = { version = "0.8.9", default-features = false, features = [
   "tracing",
 ] }
 base64 = "0.23.1"
+# BytesMut: the media bridge reuses one buffer for every outbound audio frame. Already in the
+# tree through axum and hyper.
+bytes = { version = "1.12.1", default-features = false }
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
+# Dev-only: the WebSocket client side in vak-api's media socket test.
+futures-util = { version = "0.3.34", default-features = false, features = [
+  "sink",
+] }
 http-body-util = "0.1.5"
 jiff = { version = "0.2.38", default-features = false, features = ["std"] }
 # sqlx has no jiff feature; jiff-sqlx maps Timestamp to timestamptz.
@@ -89,6 +103,12 @@ thiserror = "2.0.21"
 # >= 1.54.1: RUSTSEC-2026-0384 (use-after-free in `Interval`) affects 1.54.0.
 tokio = { version = "1.54.1", default-features = false }
 toml = "1.1.8"
+# Dev-only: a WebSocket client for vak-api's media socket test; the version axum 0.8.9 uses.
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = [
+  "connect",
+] }
+# CancellationToken: barge-in and opt-out cancel a session's model calls in flight.
+tokio-util = { version = "0.7.20", default-features = false }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 # No `attributes` feature: tracing-attributes 0.1.31 still uses syn 2, everything else syn 3
 # (cargo-deny multiple-versions). Revisit when #[instrument] is needed.
