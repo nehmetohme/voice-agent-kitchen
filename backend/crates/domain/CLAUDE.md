@@ -29,10 +29,10 @@ Today (M2 Provision, M3 Plan, M4a voice core):
 | `progress` | `SetupProgress::derive(draft, facts)`: Provision, Plan, Test, Publish, 25 % each, never stored; `ProgressFacts::from_draft(draft, packs)`: Plan is done when a saved plan validates against the pinned pack |
 | `actor`, `audit` | `Actor` (forwarded user ID and email), `AuditEvent` and `AuditAction` (`agent.created`, `agent.draft_updated`, `agent.archived`) |
 | `decision` | System One types: `QuestionId::parse` (lowercase letters, digits and `_`, starting with a letter, 1–64 chars), `Question` (`yes_no`, or `choice` over 1–255 `ChoiceOption`s with unique labels of 1–128 chars), `QuestionKind`, `Answer` (`YesNo { probability }`, `Choice { label, confidence, probabilities }`), `Answer::fits(question)`, `DecisionError` |
-| `opt_out` | `OptOutPhrases` (matches whole words, ignoring case and punctuation; "don't" stays one word), `DEFAULT_OPT_OUT_PHRASES` (nine phrases) and `DEFAULT_OPT_OUT_CONFIRMATION`, until rule packs (M3) supply them |
+| `opt_out` | `OptOutPhrases` (matches whole words, ignoring case and punctuation; "don't" stays one word), `DEFAULT_OPT_OUT_PHRASES` (nine phrases), `DEFAULT_OPT_OUT_CONFIRMATION` and `DEFAULT_OPT_OUT_CHECK_QUESTION` (asked when the decision model is unsure), until rule packs supply them (M4b) |
 | `session` | `Speaker` (`caller`, `agent`), `OptOutLayer` (`Phrase`, `Decision`, `LlmTool`), `SessionEndReason` (`ClientEnded`, `OptOut(layer)`, `Escalation`, `EndNode`, `Timeout`, `Error`); each has a `vak.media.v1` wire name |
 | `timeline` | `TurnTimeline`: one reply's stage stamps, as offsets from the session start (the domain reads no clock). `latencies()` gives its `StageLatencies`: STT, LLM time to first token, TTS time to first audio, mouth-to-ear |
-| `voice` | `SessionScript::for_draft(draft)`: the locked disclosure ("Hi, this is {name}, an automated AI assistant. This call may be recorded."), LLM instructions from the persona and use case, the voice, turn detection, and the default opt-out phrases and confirmation |
+| `voice` | `SessionScript::for_draft(draft)`: the locked disclosure ("Hi, this is {name}, an automated AI assistant. This call may be recorded."), LLM instructions from the persona and use case, the voice, turn detection, and the default opt-out phrases, confirmation and check question |
 
 Contracts: `tests/contract_agent_provisioning.rs` (`agent-provisioning` v1), `tests/contract_plan.rs` (`plan` v1). The packs themselves are TOML in `contracts/rule-packs/`, loaded by `vak-services` (this crate can't parse TOML).
 

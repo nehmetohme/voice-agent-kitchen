@@ -74,21 +74,28 @@ impl TurnPolicy {
 /// each enough on its own: the phrase list, the decision model's `opt_out` question, and
 /// the LLM's `mark_do_not_call` tool. A decision that times out or fails is never read as
 /// a no.
+///
+/// The decision layer confirms when unsure. A probability of yes at or above the decision
+/// threshold ends the session at once; one in the confirm band, from the confirm threshold
+/// up to the decision threshold, makes the agent ask the check question instead of its
+/// reply, and the caller's answer decides (`crates/pipeline/CLAUDE.md`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptOutPolicy {
     pub(crate) phrases: Vec<String>,
     pub(crate) confirmation: String,
+    pub(crate) check_question: String,
     pub(crate) decision_threshold: f64,
+    pub(crate) confirm_threshold: f64,
     pub(crate) decision_wait: Duration,
     pub(crate) decision_deadline: Duration,
-    pub(crate) check_question: String,
 }
 
 impl OptOutPolicy {
     /// `phrases` end the session when the caller says one (any case, any punctuation);
     /// `confirmation` is the locked line the agent says before it ends the session.
-    /// The decision layer opts out at a probability of 0.3 or more (recall first), holds
-    /// the agent's reply for up to 300 ms for its answer and gives up after 2 s.
+    /// The decision layer ends the session at a probability of 0.8 or more and asks
+    /// [`vak_domain::DEFAULT_OPT_OUT_CHECK_QUESTION`] from 0.3 (recall first). It holds the
+    /// agent's reply for up to 300 ms for its answer and gives up after 2 s.
     #[must_use]
     pub fn new(
         phrases: impl IntoIterator<Item = impl Into<String>>,
@@ -97,14 +104,17 @@ impl OptOutPolicy {
         Self {
             phrases: phrases.into_iter().map(Into::into).collect(),
             confirmation: confirmation.into(),
-            decision_threshold: 0.3,
+            check_question: vak_domain::DEFAULT_OPT_OUT_CHECK_QUESTION.to_owned(),
+            decision_threshold: 0.8,
+            confirm_threshold: 0.3,
             decision_wait: Duration::from_millis(300),
             decision_deadline: Duration::from_secs(2),
-            check_question: String::new(),
         }
     }
 
-    /// The check question the agent asks when the decision model is unsure.
+    /// The question the agent asks, word for word and uninterruptible, when the decision
+    /// model's answer is in the confirm band. A blank question turns the band off: an
+    /// answer in it then ends the session, as one above the decision threshold does.
     #[must_use]
     pub fn with_check_question(self, question: impl Into<String>) -> Self {
         Self {
@@ -113,7 +123,8 @@ impl OptOutPolicy {
         }
     }
 
-    /// The decision model opts out at this probability of yes or more.
+    /// The decision model ends the session at once at this probability of yes or more,
+    /// and on the caller's answer to the check question.
     #[must_use]
     pub fn with_decision_threshold(self, threshold: f64) -> Self {
         Self {
@@ -122,8 +133,19 @@ impl OptOutPolicy {
         }
     }
 
+    /// From this probability of yes up to the decision threshold, the agent asks the check
+    /// question. At or above the decision threshold, the band is empty.
+    #[must_use]
+    pub fn with_confirm_threshold(self, threshold: f64) -> Self {
+        Self {
+            confirm_threshold: threshold,
+            ..self
+        }
+    }
+
     /// How long the agent's reply waits for the opt-out answer before it plays anyway.
-    /// An answer that comes later still ends the session.
+    /// An answer that comes later still ends the session, or, in the confirm band, cuts the
+    /// reply for the check question.
     #[must_use]
     pub fn with_decision_wait(self, wait: Duration) -> Self {
         Self {

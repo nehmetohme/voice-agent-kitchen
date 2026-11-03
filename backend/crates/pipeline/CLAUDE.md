@@ -12,7 +12,7 @@ Today (M4a):
 - **Barge-in.** Speaking over a reply for the barge-in threshold (default 300 ms; `TurnPolicy`) cancels it at once. The session sends `agent.interrupted`, then a `transcript.final` with `interrupted: true` and only the words the caller heard. Speaking while a reply is still being prepared cancels it too, and the next reply answers both turns. `TurnPolicy::without_barge_in` lets the agent always finish.
 - **Three-layer opt-out.** Any one layer ends the session:
   1. the phrase list (`vak_domain::OptOutPhrases`)
-  2. the decision model's yes/no `opt_out` question, at or above the threshold (default 0.3)
+  2. the decision model's yes/no `opt_out` question, at or above the decision threshold (default 0.8). From the confirm threshold (default 0.3) up to it, the agent asks first: see [The confirm band](#the-confirm-band)
   3. the LLM calling the `mark_do_not_call` tool, which every LLM request offers
 
   The session then cancels the reply and the pending decisions, speaks the locked confirmation as the next agent turn (uninterruptible), and sends `session.ended` with `reason: opt_out` and the layer. A decision that times out or fails is reported as `status: timeout` or `error`, never as a no. An answer that comes after the wait but before the deadline (default 2 s) still ends the session.
@@ -20,15 +20,36 @@ Today (M4a):
 - **Latency.** When a reply's first audio goes out, its domain `TurnTimeline` gives its `StageLatencies`. The session sends them as a `latency` event, keeps them in the outcome's `TurnRecord`, and passes them to `SessionObserver::reply_latencies`, where `vak-services` keeps the histograms. Each opt-out decision's time goes to `SessionObserver::decision_latency`. The target is P50 ≤ 1.2 s and P95 ≤ 2.0 s mouth-to-ear.
 - `transcript.partial` and `plan.node` are not sent yet.
 
+### The confirm band
+
+Confirm when unsure (the owner's decision after the first live test call, where the survey answer "It's a one." scored 0.343 and ended the call). The band and its evidence are in `contracts/decisions/README.md`; the contract is `opt-out-confirm` v1.
+
+| `opt_out` probability | What happens |
+|---|---|
+| below the confirm threshold (0.3) | nothing: the reply plays |
+| from 0.3 up to the decision threshold (0.8) | the agent asks the check question (`OptOutPolicy::with_check_question`; default `vak_domain::DEFAULT_OPT_OUT_CHECK_QUESTION`, "Just to confirm, do you want us to stop contacting you?") |
+| 0.8 or more | the session ends at once, as before |
+
+The phrase list and the LLM tool are unchanged: they end the session at once, in or out of a check.
+
+- **The reply is replaced.** An in-band score that arrives within the decision wait drops the reply before a word of it plays: its clause syntheses stop (the reply's `tts` token), but its LLM stream keeps running as `listening`, only so that a `mark_do_not_call` call still ends the session. Its text is never spoken or put in the history. `listening` stops when the stream ends, when the next reply starts (the caller has moved on, and a one-slot LLM would queue behind it), or on an opt-out.
+- **A late in-band score** (after the wait, before the 2 s deadline) arrives while the reply plays. The check question is synthesized first, and the moment it is ready the reply is cut the way barge-in cuts it (`agent.interrupted`, then a `transcript.final` with `interrupted: true` and the words heard, which is all the history keeps) and the check question starts in the same tick, so the caller hears no gap. The cut reply's LLM stream goes on listening too. A reply that ends on its own before the question is ready isn't cut. The protocol has no other way to make the browser drop queued audio, so the media schema stays as it is.
+- **While the question is pending** (`CheckState::Synthesizing` or `Ready`) no reply starts or plays; a caller turn that arrives meanwhile is answered by the check question too. It waits for the disclosure to finish.
+- **The check question** is the next agent turn (`TurnKind::Check`): spoken word for word and uninterruptible, like the locked lines. It enters the history when it starts, so speech over it is its answer, judged with the question in context. Its `transcript.final` is the question. It answers the caller's pending turns, so it sends a `latency` event and keeps a `TurnRecord` like a reply, with `llm_ttft_ms: null`; after a cut reply, whose latency was already reported, only `tts_first_audio_ms` is set. The observer records it like a reply.
+- **The answer** is the first caller turn after the question starts (`CheckState::Asked`). Its decision settles the check whatever it says: at or above the decision threshold the session ends (layer `decision`), with the locked confirmation; below it, or on a timeout or failure, the call goes on with the LLM's reply, which saw the question. The answer is judged with the normal decision threshold, not a lower one: with the question in context the decision model scores every answer higher ("No." 0.55, "What?" 0.70, "Yes." 0.94), so a lower threshold would end calls on a no. The answer never asks a second time, even when it scores in the band; a later in-band turn may ask again. One check at a time: an in-band score for another turn while a check is out is ignored (0.8 or more still ends the session).
+- **Recall never drops below the old behavior:** a check question that can't be synthesized (TTS failure) sends an `error` event and ends the session as an opt-out (layer `decision`), as any score from 0.3 did before; so does a blank check question.
+- **An opt-out during a check** (phrase, tool or a score of 0.8 or more) cancels a question not yet spoken; one being spoken finishes, then the confirmation plays.
+- **M4b** moves the check question, the confirmation, the phrases and the thresholds into the rule packs (new pack versions; the v1 files are pinned by the `plan` contract). Until then they are platform defaults: `vak_domain` constants that `SessionScript` hands to `vak-services`, and `OptOutPolicy`'s defaults.
+
 | Module | Holds |
 |---|---|
-| `session` | The actor: turn state, playback, barge-in, opt-out |
+| `session` | The actor: turn state, playback, barge-in, opt-out and its check question |
 | `stages` | Model calls as child tasks reporting `StageEvent`s |
 | `detector` | `TurnDetector`: VAD per frame, utterances, speech runs for barge-in |
 | `chunker` | `ClauseChunker`. The first clause ends at a sentence end, at a comma, semicolon or colon after four words, or after twelve words. Later clauses end at sentence ends or after 25 words. A boundary counts only once whitespace follows it |
-| `playback` | `Playing`: one agent turn's clauses, cut into 20 ms frames, and which words were sent |
+| `playback` | `Playing`: one agent turn's clauses, cut into 20 ms frames, and which words were sent; `TurnKind` (disclosure, reply, check question, confirmation) |
 | `routing` | `Router`, the seam for plan routing (below) |
-| `config` | `Engines`, `SessionConfig`, `TurnPolicy`, `OptOutPolicy`, `StageDeadlines` (STT, LLM first token and TTS; 10 s each by default), `SessionObserver` |
+| `config` | `Engines`, `SessionConfig`, `TurnPolicy`, `OptOutPolicy` (phrases, confirmation, check question, decision and confirm thresholds, decision wait and deadline), `StageDeadlines` (STT, LLM first token and TTS; 10 s each by default), `SessionObserver` |
 | `outcome` | `SessionOutcome` (end reason, turns) and `TurnRecord` |
 
 **The routing seam (M4b).** `Router` builds each turn's decision request and LLM request:
@@ -58,8 +79,8 @@ Later: plan execution (M4b), model VADs and turn detection on inference threads,
   | session → client (media outbound) | 256 items | The actor awaits `send` (backpressure) |
   | stage tasks → actor | `STAGE_CAPACITY` = 64 | Tasks await `send`. The actor drains it continuously, and a task sends at most a few events per stage |
 
-- **Barge-in:** each reply has a child `CancellationToken`, and its clause syntheses get children of that token. Stage reports carry their reply or utterance ID, and reports from a cancelled reply are ignored. An interrupted turn's `Playing` is dropped, so none of its frames go out after it.
-- **Locked lines:** the disclosure and the opt-out confirmation are spoken word for word, and the caller can't interrupt them.
+- **Barge-in:** each reply has a child `CancellationToken`, and its clause syntheses get children of its `tts` token, itself a child (so dropping a reply for the check question stops them and keeps the LLM stream). Stage reports carry their reply or utterance ID, and reports from a cancelled reply are ignored. An interrupted turn's `Playing` is dropped, so none of its frames go out after it.
+- **Locked lines:** the disclosure, the opt-out check question and the opt-out confirmation are spoken word for word, and the caller can't interrupt them.
 - **No blocking in async code:** stay under about 100 µs between `.await`s.
   - ONNX inference (later) runs on dedicated `std::thread` workers.
   - `spawn_blocking` is only for occasional work.
@@ -78,8 +99,10 @@ Later: plan execution (M4b), model VADs and turn detection on inference threads,
 - **Assertions:** they run on the timestamped event log. For example, barge-in sends `agent.interrupted` within one frame and cancels the LLM request, and transcripts keep speech order. Every event a session sends must validate against `contracts/media/vak.media.v1.json`.
 - **Contracts (`voice-core` v1):**
   - `tests/contract_voice_core_pipeline.rs`: disclosure first, barge-in, turn order, stage timings.
-  - `tests/contract_voice_core_opt_out.rs`: each layer alone, the confirmation, and a slow or failing decision model never suppressing an opt-out.
+  - `tests/contract_voice_core_opt_out.rs`: each layer alone, the confirmation, and a slow or failing decision model never suppressing an opt-out. It configures the decision threshold 0.5 and scores 0.0 and 0.9, so the confirm band changes none of it.
   - Both share `tests/contract_voice_core/mod.rs`.
+- **Contract (`opt-out-confirm` v1):** `tests/contract_opt_out_confirm.rs`, on the same shared setup with the default thresholds: the band's edges, the check question replacing the reply (and its latency event), the late cut, a yes ending the call and anything else carrying on without a second check, speech over the question as its answer, the LLM tool while a check is pending, and a check question that can't be synthesized.
+- **Confirm band edges** (`tests/session_confirm.rs`, not a contract): a blank check question, a configured floor, an answer whose decision times out, a later in-band turn asking again, an opt-out while the question plays, and the dropped reply's LLM stream (runs to its end unspoken; cancelled once the caller answers).
 - **Failure and limit paths** (`tests/session_failures.rs`, not a contract; it reuses the contracts' setup as is): the disclosure's synthesis failing ends the session, a failed STT or LLM (or an LLM past its deadline) leaves the turn unanswered and the call going, a failed clause is skipped, an opt-out still ends the call when its confirmation can't be spoken, the time limit, audio that isn't PCM16, and the latencies the observer is told.
 - **Unit tests** next to the code cover the chunker, the turn detector, playback and routing.
 - **Inline inference in simulations,** behind its trait. Paused time doesn't wait for our OS threads.

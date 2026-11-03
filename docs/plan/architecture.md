@@ -97,7 +97,7 @@ mic audio ─► decode/resample ─► VAD (Silero) ─► end-of-turn (Smart T
 ```
 
 - **Plan execution.** The domain plan graph is a state machine. The LLM only sees the current node's prompt and tools. Moving between nodes is decided by the `DecisionEngine` (`choice` over outgoing edges), with an LLM tool call as fallback when confidence is low.
-- **Opt-out has three layers.** These are a deterministic phrase list, the decision model (`noul`, recall-biased threshold) and an LLM tool. A timeout never suppresses an opt-out.
+- **Opt-out has three layers.** These are a deterministic phrase list, the decision model (`noul`, recall-biased: a score from 0.3 asks the caller a check question, one from 0.8 ends the call) and an LLM tool. A timeout never suppresses an opt-out.
 - **Rule packs** inject locked text (AI disclosure, recording notice) that the LLM can't change. They also inject hard guardrails, e.g. never claiming to be human.
 - **Latency budget.** The target is P50 ≤ 1.2 s and P95 ≤ 2.0 s mouth-to-ear in the browser; the aspiration is ≤ 1.0 s. Each stage records a histogram. Spikes S3–S5 and S8 replace these targets with measured numbers.
 - **Determinism in tests.** Use `tokio::time::pause`, recorded audio fixtures and fake engines with scripted timings.

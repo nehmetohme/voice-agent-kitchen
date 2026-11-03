@@ -54,7 +54,10 @@ pub use draft_plan::DraftPlan;
 pub use hash::{ContentHash, ContentHashError};
 pub use ids::{AgentId, AuditEventId, IdError};
 pub use jurisdiction::{Jurisdiction, JurisdictionError};
-pub use opt_out::{DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES, OptOutPhrases};
+pub use opt_out::{
+    DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES,
+    OptOutPhrases,
+};
 pub use plan::{EdgeId, NodeId, NodeKind, Plan, PlanEdge, PlanError, PlanNode, PlanShapeError};
 pub use progress::{ProgressFacts, SetupProgress, SetupStep, StepProgress};
 pub use rule_pack::{

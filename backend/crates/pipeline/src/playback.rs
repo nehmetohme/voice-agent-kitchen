@@ -17,6 +17,9 @@ pub(crate) enum TurnKind {
     Disclosure,
     /// An LLM reply: the caller may barge in.
     Reply,
+    /// The opt-out check question, asked when the decision model is unsure: the caller
+    /// can't interrupt it.
+    Check,
     /// The locked opt-out confirmation: the caller can't interrupt it.
     Confirmation,
 }
