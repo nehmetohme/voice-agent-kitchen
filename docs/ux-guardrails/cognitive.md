@@ -15,7 +15,7 @@ Every extra choice slows the decision, so each step offers few choices and one o
 
 Reviewer checklist:
 - [ ] Each action group that renders buttons carries `data-region="actions"`, so HICK-2 can see it.
-- [ ] Secondary actions that are rarely used sit in a "More" menu, not beside the primary.
+- [ ] Secondary actions that are rarely used sit in a "More" menu (`ActionMenu` in `frontend/src/shared/ui/action-menu.tsx`), not beside the primary.
 - [ ] Long option lists use a Combobox with search.
 - [ ] No screen asks the user to decide something the system could default (see TES-4).
 

@@ -94,3 +94,13 @@ paths = [
   "frontend/e2e/contract/plan/**",
   "contracts/rule-packs/*.v1.toml",
 ]
+
+# The agent's page as a workspace that fits the screen (frontend only): at 1280×800, 1440×900
+# and 1920×1080 the document never scrolls, with the settings, setup progress, "Start test
+# call" and the transcript in view, settings beside the transcript; the transcript orders lines
+# by turn, not arrival, follows the newest line in its own scroll region and offers "Jump to
+# latest" when scrolled up; a call ends on why it ended. End to end against the real server,
+# with only the voice call faked (session start and media socket).
+[features.agent-workspace]
+version = 1
+paths = ["frontend/e2e/contract/agent-workspace/**"]

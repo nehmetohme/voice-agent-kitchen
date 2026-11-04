@@ -15,15 +15,21 @@ interface AdvancedSettingsProps {
 
 /**
  * Model and timing, behind the form's one "Advanced" disclosure (Tesler, TES-3): the defaults
- * suit most agents, so these stay out of the way until someone needs them.
+ * suit most agents, so these stay out of the way until someone needs them. Opened, it scrolls
+ * itself into view inside the settings column.
  */
 export function AdvancedSettings({ draft, edit, errors }: AdvancedSettingsProps) {
   const turn = draft.turnDetection;
   return (
-    <details className="group rounded-md border border-line">
+    <details
+      className="group rounded-md border border-line"
+      onToggle={(event) => {
+        if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: 'nearest' });
+      }}
+    >
       <summary className="flex min-h-target cursor-pointer items-center gap-2 rounded-md px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <ChevronRight aria-hidden className="size-4 transition-transform group-open:rotate-90" />
-        Advanced
+        <span>Advanced</span>
         <span className="text-sm font-normal text-muted">Model and timing</span>
       </summary>
       <fieldset className="flex flex-col gap-4 px-4 pb-4">

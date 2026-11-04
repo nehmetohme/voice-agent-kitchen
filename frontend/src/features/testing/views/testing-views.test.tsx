@@ -1,5 +1,5 @@
-// The test call and latency panels through the user's eyes, against the voice API fake and a
-// fake browser: the real session code runs, only the socket and Web Audio are pretend.
+// The test call panel through the user's eyes, against the voice API fake and a fake browser:
+// the real session code runs, only the socket and Web Audio are pretend.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http, type RequestHandler } from 'msw';
@@ -9,7 +9,6 @@ import { AGENT_ID } from '../../../test/agents-api';
 import { installFakeVoiceBrowser, lastSocket, microphone } from '../../../test/fake-voice-browser';
 import { startMswServer } from '../../../test/msw-server';
 import { emptyLatencyBody, fakeVoiceApi, measuredLatencyBody } from '../../../test/voice-api';
-import { LatencyPanel } from './latency-panel';
 import { TestCallPanel } from './test-call-panel';
 
 installFakeVoiceBrowser();
@@ -21,15 +20,14 @@ const format = (sampleRate: number) => ({
   frame_ms: 20,
 });
 
-/** Renders both panels; `overrides` answer before the fake (a failing endpoint, say). */
-function renderPanels(latency: object = emptyLatencyBody(), ...overrides: RequestHandler[]) {
+/** Renders the panel; `overrides` answer before the fake (a failing endpoint, say). */
+function renderPanel(latency: object = emptyLatencyBody(), ...overrides: RequestHandler[]) {
   const api = fakeVoiceApi(latency);
   server.use(...overrides, ...api.handlers);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
       <TestCallPanel agentId={AGENT_ID} />
-      <LatencyPanel />
     </QueryClientProvider>,
   );
   return api;
@@ -50,18 +48,33 @@ async function answer() {
   return socket;
 }
 
+function transcriptLines() {
+  const transcript = screen.getByRole('region', { name: 'Transcript' });
+  return within(transcript)
+    .getAllByRole('listitem')
+    .map((item) => item.textContent);
+}
+
 describe('Test call', () => {
   it('starts a call, shows the conversation and hangs up', async () => {
-    const api = renderPanels();
+    const api = renderPanel();
     const section = screen.getByRole('region', { name: 'Test call' });
+    expect(within(section).getByText('Talk to this agent through your microphone.')).toBeVisible();
 
-    fireEvent.click(within(section).getByRole('button', { name: 'Start test call' }));
+    const start = within(section).getByRole('button', { name: 'Start test call' });
+    expect(start).toHaveAttribute('data-variant', 'primary');
+    fireEvent.click(start);
     const socket = await answer();
     expect(api.started).toEqual([AGENT_ID]);
-    expect(await within(section).findByText('Listening.')).toBeVisible();
+    expect(await within(section).findByText('Live')).toBeVisible();
+    expect(within(section).getByText('Listening')).toBeVisible();
 
     act(() => {
       socket.receive({ type: 'agent.audio.start', turn_id: 0 });
+    });
+    expect(within(section).getByText('Agent speaking')).toBeVisible();
+    expect(transcriptLines()).toEqual(['Agent:Speaking…']);
+    act(() => {
       socket.receive({
         type: 'transcript.final',
         turn_id: 0,
@@ -69,30 +82,45 @@ describe('Test call', () => {
         text: 'Hi, this is Front desk, an automated AI assistant.',
         interrupted: false,
       });
-    });
-    expect(within(section).getByText('Agent speaking.')).toBeVisible();
-    act(() => {
       socket.receive({ type: 'agent.audio.end', turn_id: 0 });
       socket.receive({ type: 'transcript.partial', turn_id: 1, speaker: 'caller', text: 'Book' });
     });
-    const transcript = within(section).getByRole('list', { name: 'Transcript' });
-    expect(
-      within(transcript)
-        .getAllByRole('listitem')
-        .map((item) => item.textContent),
-    ).toEqual(['Agent: Hi, this is Front desk, an automated AI assistant.', 'You: Book…']);
+    expect(transcriptLines()).toEqual([
+      'Agent:Hi, this is Front desk, an automated AI assistant.',
+      'You:Book…',
+    ]);
 
     act(() => {
       socket.receive({
-        type: 'latency',
+        type: 'transcript.final',
         turn_id: 1,
+        speaker: 'caller',
+        text: 'Book a table.',
+        interrupted: false,
+      });
+      socket.receive({ type: 'agent.audio.start', turn_id: 2 });
+      socket.receive({
+        type: 'latency',
+        turn_id: 2,
         stt_ms: 90,
         llm_ttft_ms: 210,
         tts_first_audio_ms: 120,
         mouth_to_ear_ms: 640,
       });
+      socket.receive({ type: 'agent.audio.end', turn_id: 2 });
+      socket.receive({
+        type: 'transcript.final',
+        turn_id: 2,
+        speaker: 'agent',
+        text: 'For when?',
+        interrupted: false,
+      });
     });
-    expect(within(section).getByText('Listening. Last reply took 640 ms.')).toBeVisible();
+    expect(transcriptLines().slice(1)).toEqual([
+      'You:Book a table.',
+      'Agent · replied in 640 ms:For when?',
+    ]);
+    expect(within(section).getByText('Listening')).toBeVisible();
 
     const mute = within(section).getByRole('button', { name: 'Mute' });
     fireEvent.click(mute);
@@ -111,8 +139,35 @@ describe('Test call', () => {
     expect(microphone.track.stop).toHaveBeenCalledOnce();
   });
 
+  it('shows a caller line spoken over the disclosure after it, and marks an interruption', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
+    const socket = await answer();
+
+    act(() => {
+      socket.receive({ type: 'agent.audio.start', turn_id: 0 });
+      socket.receive({
+        type: 'transcript.final',
+        turn_id: 1,
+        speaker: 'caller',
+        text: 'Okay.',
+        interrupted: false,
+      });
+      socket.receive({ type: 'agent.interrupted', turn_id: 0 });
+      socket.receive({
+        type: 'transcript.final',
+        turn_id: 0,
+        speaker: 'agent',
+        text: 'Hi, this is',
+        interrupted: true,
+      });
+    });
+
+    expect(transcriptLines()).toEqual(['Agent:Hi, this is (interrupted)', 'You:Okay.']);
+  });
+
   it('says why the agent ended the call', async () => {
-    renderPanels();
+    renderPanel();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
     const socket = await answer();
@@ -130,7 +185,7 @@ describe('Test call', () => {
   });
 
   it('shows the server reason when a call is refused', async () => {
-    renderPanels(
+    renderPanel(
       emptyLatencyBody(),
       http.post('*/api/v1/agents/:id/sessions', () =>
         HttpResponse.json(
@@ -153,7 +208,7 @@ describe('Test call', () => {
   });
 
   it('asks for the microphone when the browser refuses it', async () => {
-    renderPanels();
+    renderPanel();
     microphone.getUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
@@ -162,30 +217,39 @@ describe('Test call', () => {
   });
 
   it('never claims the page status role, which the autosave status owns', () => {
-    renderPanels();
+    renderPanel();
 
     expect(screen.queryByRole('status')).toBeNull();
   });
 });
 
 describe('Latency', () => {
-  it('shows each stage with its median, 95th percentile and spread', async () => {
-    renderPanels(measuredLatencyBody());
+  it('shows each stage median in one row, and the full table in Details', async () => {
+    renderPanel(measuredLatencyBody());
 
-    const table = await screen.findByRole('table');
-    const rows = within(table).getAllByRole('row');
+    const strip = screen.getByRole('region', { name: 'Latency' });
+    expect(await within(strip).findByText('End to end')).toBeVisible();
+    expect(within(strip).getByText('End to end').nextSibling).toHaveTextContent(
+      '350 ms, 95th percentile 900 ms',
+    );
+    expect(within(strip).getByText('Speech to text').nextSibling).toHaveTextContent('–');
+    expect(screen.queryByRole('table')).toBeNull();
+
+    fireEvent.click(within(strip).getByRole('button', { name: 'Latency details' }));
+    const details = await screen.findByRole('dialog', { name: 'Latency' });
+    const rows = within(details).getAllByRole('row');
     expect(rows.map((row) => row.textContent)).toEqual([
       'StageMedian95th percentileRepliesSpread',
       'Speech to text––0No replies yet',
       'Opt-out check––0No replies yet',
-      'Model, first token––0No replies yet',
-      'Voice, first audio––0No replies yet',
+      'First token––0No replies yet',
+      'First audio––0No replies yet',
       'End to end350 ms900 ms2Replies by time, ≤ 400 ms: 1, > 800 ms: 1',
     ]);
   });
 
   it('offers a retry when latency fails to load', async () => {
-    renderPanels(
+    renderPanel(
       emptyLatencyBody(),
       http.get('*/api/v1/voice/latency', () => HttpResponse.error(), { once: true }),
     );
@@ -193,7 +257,8 @@ describe('Latency', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load latency");
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByRole('table')).toBeVisible();
+    expect(await screen.findByText('End to end')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Latency details' })).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });

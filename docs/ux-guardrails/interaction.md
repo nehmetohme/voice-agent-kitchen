@@ -33,7 +33,7 @@ People stay engaged when the system answers within 400 ms, so every input gets i
 | DOHERTY-2 | The result, or a progress indicator, within 400 ms. | Same MSW delay test | R today; planned, M2 |
 | DOHERTY-3 | Lab INP ≤ 200 ms on golden paths under 4× CPU throttle. | Playwright Event-Timing gate | Planned with the first golden path, M2 |
 | DOHERTY-4 | Initial JS ≤ 200 kB gzip. | `size-limit` with `frontend/.size-limit.json` | A |
-| DOHERTY-5 | Edits that rarely fail update optimistically; the live test call shows a latency badge per turn. | Reading the code and the screen | R (badge in M5) |
+| DOHERTY-5 | Edits that rarely fail update optimistically; the live test call shows a latency badge per turn. | Reading the code and the screen: each agent line in the transcript shows its end-to-end time (`features/testing/views/call-transcript.tsx`) | R (badge styling and the summary in M5) |
 | DOHERTY-6 | Lighthouse user-flow trend (TBT, INP) on golden paths. | Nightly Lighthouse 13 user flows | Planned, CI task (trend, not a gate) |
 
 Reviewer checklist:

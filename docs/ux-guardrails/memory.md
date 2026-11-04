@@ -41,7 +41,7 @@ People remember unfinished tasks, so setup progress stays visible until the agen
 
 | # | Rule (measurable) | Check | Checked by |
 |---|---|---|---|
-| ZEIG-1 | Each agent shows a 4-step setup checklist (Provision, Plan, Test, Publish) with `role=progressbar` and `aria-valuenow` at 0, 25, 50, 75 or 100 %. | Agent-provisioning contract spec: a new agent shows 25 % (an agent exists only once Provision is done), the four steps in order, and the same after a reload; plan contract spec: a saved valid plan shows 50 %, an invalid one 25 % | A |
+| ZEIG-1 | Each agent shows a 4-step setup checklist (Provision, Plan, Test, Publish) with `role=progressbar` and `aria-valuenow` at 0, 25, 50, 75 or 100 %. It is the stepper in the agent header on every step; steps without a page yet say "Later". | Agent-provisioning contract spec: a new agent shows 25 % (an agent exists only once Provision is done), the four steps in order, and the same after a reload; plan contract spec: a saved valid plan shows 50 %, an invalid one 25 % | A |
 | ZEIG-2 | Progress comes from the server and survives a reload. | Same spec; the HTTP contract checks `GET /api/v1/agents/{id}/progress` | A |
 | ZEIG-3 | The progress calculation is a pure, unit-tested function. | `SetupProgress::derive` in `vak-domain` (unit, property and contract tests); `toChecklist` in `features/agents/state` (`rules.test.ts`) | A |
 | ZEIG-4 | An agent with changes not yet published shows an "Unpublished changes" badge. | E2E test on the badge | Planned, M6 |

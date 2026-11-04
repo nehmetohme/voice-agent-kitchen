@@ -119,18 +119,50 @@ describe('Provision', () => {
 
     const progress = await screen.findByRole('progressbar', { name: 'Setup progress' });
     expect(progress).toHaveAttribute('aria-valuenow', '25');
+    expect(screen.getByRole('heading', { level: 2, name: 'Front desk' })).toBeVisible();
     const steps = within(screen.getByRole('list', { name: 'Setup steps' })).getAllByRole(
       'listitem',
     );
     expect(steps.map((step) => step.textContent)).toEqual([
       'ProvisionDone: Name, purpose and voice',
       'PlanNext: Goals, flow and guardrails',
-      'TestLater: Talk to the agent and run scenarios',
+      'TestLater: Run test scenarios and scores',
       'PublishLater: Release a version to a channel',
     ]);
     expect(screen.getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getByLabelText('Name')).toHaveValue('Front desk');
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  });
+
+  it('moves between steps in the stepper; steps not built yet are not links', async () => {
+    use();
+    renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);
+
+    const stepper = await screen.findByRole('navigation', { name: 'Setup' });
+    expect(within(stepper).getByRole('link', { name: 'Provision' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(stepper).getByRole('link', { name: 'Plan' })).toHaveAttribute(
+      'href',
+      `/agents/${AGENT_ID}/plan`,
+    );
+    expect(within(stepper).queryByRole('link', { name: 'Test' })).toBeNull();
+    expect(within(stepper).queryByRole('link', { name: 'Publish' })).toBeNull();
+    expect(within(stepper).getAllByText('Later')).toHaveLength(2);
+  });
+
+  it('says so, with a retry, when setup progress fails to load', async () => {
+    const api = use();
+    server.use(
+      http.get('*/api/v1/agents/:id/progress', () => problemResponse(503), { once: true }),
+    );
+    renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load setup progress.");
+    server.use(...api.handlers);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('progressbar', { name: 'Setup progress' })).toBeVisible();
   });
 
   it('autosaves an edit', async () => {
@@ -168,11 +200,12 @@ describe('Provision', () => {
     expect(api.agents.get(AGENT_ID)?.model).toBe('fast');
   });
 
-  it('archives after confirmation and returns to the list', async () => {
+  it('archives from More actions after confirmation and returns to the list', async () => {
     const api = use();
     const { router } = renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Archive agent' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive agent…' }));
     const dialog = await screen.findByRole('alertdialog', { name: 'Archive Front desk?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
@@ -180,6 +213,29 @@ describe('Provision', () => {
       expect(router.state.location.pathname).toBe('/agents');
     });
     expect(api.agents.get(AGENT_ID)?.archivedAt).not.toBeNull();
+  });
+
+  it('keeps the agent when archiving is cancelled or fails', async () => {
+    const api = use();
+    server.use(http.delete('*/api/v1/agents/:id', () => problemResponse(503)));
+    renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive agent…' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Archive Front desk?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive agent…' }));
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Archive' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("The agent wasn't archived.");
+    expect(api.agents.get(AGENT_ID)?.archivedAt).toBeNull();
   });
 
   it('offers a way back for an unknown or archived agent', async () => {
