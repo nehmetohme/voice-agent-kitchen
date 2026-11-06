@@ -154,7 +154,8 @@ impl PlanRecord {
 impl AuditDetails {
     pub(crate) fn of(action: &AuditAction) -> Json<Self> {
         Json(match action {
-            AuditAction::AgentCreated { draft_hash } => Self {
+            AuditAction::AgentCreated { draft_hash }
+            | AuditAction::TestRunStarted { draft_hash, .. } => Self {
                 draft_hash: Some(draft_hash.as_str().to_owned()),
                 fields: Vec::new(),
             },
@@ -162,7 +163,7 @@ impl AuditDetails {
                 draft_hash: Some(draft_hash.as_str().to_owned()),
                 fields: fields.iter().map(|field| field.as_str()).collect(),
             },
-            AuditAction::AgentArchived => Self {
+            AuditAction::AgentArchived | AuditAction::TestRunCancelled { .. } => Self {
                 draft_hash: None,
                 fields: Vec::new(),
             },

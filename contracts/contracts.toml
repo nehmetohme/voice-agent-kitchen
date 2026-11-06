@@ -113,3 +113,25 @@ paths = [
 [features.agent-workspace]
 version = 1
 paths = ["frontend/e2e/contract/agent-workspace/**"]
+
+# M5 Test: scenarios in the draft (a simulated caller's goal and persona, a required flag, a
+# turn cap and a yes/no rubric; a default set per use case until some are saved); text-mode test
+# runs in which a simulated caller talks to the agent's reply logic, opt-out layers and confirm
+# band included; the rubric scored by the decision model; a run passing only if every required
+# scenario passes; reproducible runs (greedy sampling with a seed; the draft hash, the models and
+# every scenario's version recorded); runs as background jobs with progress, cancellation and
+# recovery after a restart; the scenarios routes, POST /test-runs and GET /test-runs/{id}; 75 %
+# setup progress for a passing run on the current draft, stale after an edit; the Test page end
+# to end against the real server with deterministic fake models (pinned too); and the golden
+# path `test-call`, which ends on its summary with latency p50/p95 and a "Publish" action.
+[features.test-runs]
+version = 1
+paths = [
+  "backend/crates/domain/tests/contract_test_runs.rs",
+  "backend/crates/services/tests/contract_test_runs.rs",
+  "backend/crates/services/tests/contract_test_runs_fakes/**",
+  "backend/crates/api/tests/contract_test_runs_api.rs",
+  "frontend/e2e/contract/test-runs/**",
+  "frontend/e2e/support/fake-models.ts",
+  "frontend/e2e/golden/test-call.golden.spec.ts",
+]

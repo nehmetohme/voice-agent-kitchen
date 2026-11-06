@@ -9,11 +9,18 @@ pub mod catalog;
 pub mod latency;
 mod plans;
 pub mod rule_packs;
+mod scenarios;
+mod test_runs;
 mod voice;
 
 pub use agents::{
     AgentService, AgentSummary, ArchiveAgentError, CreateAgent, CreateAgentError, FindAgentError,
     LIST_LIMIT, ListAgentsError, UpdateDraftError,
+};
+pub use scenarios::AgentScenarios;
+pub use test_runs::{
+    AgentTestRuns, CancelTestRunError, FindTestRunError, StartTestRunError, TestEngines,
+    TestRunService, TestRunSettings, TestRunWorker,
 };
 pub use voice::{
     MediaSession, OpenMediaError, SessionTicket, StartSessionError, VoiceService, VoiceSettings,

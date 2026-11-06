@@ -7,11 +7,14 @@
  *
  * Each worktree gets its own ports and container (support/ports.ts), so parallel runs never
  * share a database. The server runs in the local profile with a fixed dev operator, because
- * there is no Databricks proxy to forward an identity.
+ * there is no Databricks proxy to forward an identity. Its LLM and decision model are the
+ * deterministic fakes of `fake-models.ts`, on a free local port, so test runs work and always
+ * end the same way; it has no speech models, so it refuses voice calls.
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { FAKE_DECISION_MODEL, FAKE_LLM_MODEL, startFakeModels } from './fake-models.ts';
 import { e2ePorts, slotFor } from './ports.ts';
 
 const IMAGE = process.env['E2E_DB_IMAGE'] ?? 'postgres:18.6-alpine';
@@ -70,9 +73,11 @@ function startDatabase(): void {
 }
 
 let server: ChildProcess | undefined;
+const models = await startFakeModels();
 
 function stop(): void {
   server?.kill('SIGTERM');
+  models.server.close();
   removeContainer();
 }
 
@@ -89,17 +94,26 @@ startDatabase();
 // Offline query cache only: a live DATABASE_URL must never reach the sqlx macros.
 run('cargo', ['build', '--quiet', '--locked', '-p', 'vak-server'], { SQLX_OFFLINE: 'true' });
 const binary = resolve(backend, 'target', 'debug', 'vak-server');
+// The developer's own VAK_* settings (models, paths) must not leak into the e2e server.
+const inherited = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith('VAK_')),
+);
 const env = {
-  ...process.env,
+  ...inherited,
   DATABASE_URL: databaseUrl,
   VAK_PROFILE: 'local',
   VAK_DEV_OPERATOR_EMAIL: DEV_OPERATOR,
   VAK_HTTP_ADDR: `127.0.0.1:${ports.api}`,
   VAK_LOG: process.env['VAK_LOG'] ?? 'warn',
+  VAK_LLM_BASE_URL: `${models.baseUrl}/v1`,
+  VAK_LLM_MODEL: FAKE_LLM_MODEL,
+  VAK_DECISION_BASE_URL: models.baseUrl,
+  VAK_DECISION_MODEL: FAKE_DECISION_MODEL,
 };
 execFileSync(binary, ['migrate'], { stdio: 'inherit', env });
 server = spawn(binary, ['serve'], { stdio: 'inherit', env });
 server.on('exit', (code) => {
+  models.server.close();
   removeContainer();
   process.exit(code ?? 1);
 });

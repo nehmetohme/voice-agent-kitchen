@@ -179,8 +179,10 @@ impl TryFrom<UpdateAgentRequest> for DraftPatch {
             ),
             model: fields.optional("model", body.model.as_deref(), model),
             turn_detection: fields.optional("turnDetection", body.turn_detection, turn_detection),
-            // The plan has its own route, `PUT /agents/{id}/plan`.
+            // The plan and the scenarios have their own routes, `PUT /agents/{id}/plan` and
+            // `PUT /agents/{id}/scenarios`.
             plan: None,
+            scenarios: None,
         };
         if fields.errors.is_empty() {
             Ok(patch)

@@ -15,7 +15,7 @@ use vak_domain::{
     DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
     SetupProgress, TurnDetection, UseCase, VoiceId,
 };
-use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision};
+use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision, TestRunRepo};
 
 /// The most agents [`AgentService::list`] returns.
 pub const LIST_LIMIT: u16 = 200;
@@ -124,6 +124,7 @@ pub struct AgentService {
     repo: Arc<dyn AgentRepo>,
     deadline: Duration,
     pub(crate) rule_packs: Arc<RulePackCatalog>,
+    test_runs: Option<Arc<dyn TestRunRepo>>,
 }
 
 impl AgentService {
@@ -135,6 +136,17 @@ impl AgentService {
             repo,
             deadline: DEFAULT_DEADLINE,
             rule_packs: Arc::new(crate::rule_packs::shipped().unwrap_or_default()),
+            test_runs: None,
+        }
+    }
+
+    /// The same service with the test runs that complete the Test step of setup progress.
+    /// Without them, Test is never done.
+    #[must_use]
+    pub fn with_test_runs(self, test_runs: Arc<dyn TestRunRepo>) -> Self {
+        Self {
+            test_runs: Some(test_runs),
+            ..self
         }
     }
 
@@ -269,6 +281,7 @@ impl AgentService {
     /// Progress derived from the agent and what its draft says about the plan. Test runs
     /// and versions arrive in later milestones.
     fn progress_of(&self, agent: &Agent) -> SetupProgress {
+        let _ = &self.test_runs;
         let facts = ProgressFacts::from_draft(agent.draft(), &self.rule_packs);
         SetupProgress::derive(agent.draft(), &facts)
     }

@@ -37,8 +37,10 @@ mod opt_out;
 mod plan;
 mod progress;
 mod rule_pack;
+mod scenario;
 mod session;
 mod settings;
+mod test_run;
 mod timeline;
 mod use_case;
 mod voice;
@@ -52,7 +54,7 @@ pub use decision::{Answer, ChoiceOption, DecisionError, Question, QuestionId, Qu
 pub use draft::{AgentDraft, DraftField, DraftPatch, Persona};
 pub use draft_plan::DraftPlan;
 pub use hash::{ContentHash, ContentHashError};
-pub use ids::{AgentId, AuditEventId, IdError};
+pub use ids::{AgentId, AuditEventId, IdError, TestRunId};
 pub use jurisdiction::{Jurisdiction, JurisdictionError};
 pub use opt_out::{
     DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES,
@@ -64,9 +66,14 @@ pub use rule_pack::{
     LockedText, Retention, RulePack, RulePackCatalog, RulePackError, RulePackRef, RulePackRefError,
     RulePackSpec,
 };
+pub use scenario::{RubricItem, Scenario, ScenarioError, ScenarioId, ScenarioSet, ScenarioSpec};
 pub use session::{OptOutLayer, SessionEndReason, Speaker};
 pub use settings::{
     AgentSettings, ModelProfile, ModelProfileError, TurnDetection, TurnDetectionError,
+};
+pub use test_run::{
+    RubricCheck, RunModels, RunProgress, ScenarioResult, ScenarioStatus, TestRun, TestRunStatus,
+    TranscriptLine, Verdict,
 };
 pub use timeline::{StageLatencies, TurnTimeline};
 pub use use_case::{UseCase, UseCaseError};
