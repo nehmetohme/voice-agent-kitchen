@@ -145,6 +145,26 @@
         ],
         "type": "object"
       },
+      "AgentScenarios": {
+        "description": "The agent's test scenarios: the saved ones, or its use case's defaults with\n`saved: false`.",
+        "properties": {
+          "saved": {
+            "description": "`false` while these are the use case's defaults.",
+            "type": "boolean"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "saved",
+          "scenarios"
+        ],
+        "type": "object"
+      },
       "AgentSummary": {
         "description": "An agent as lists show it.",
         "properties": {
@@ -180,6 +200,25 @@
           "voice",
           "updatedAt",
           "progressPercent"
+        ],
+        "type": "object"
+      },
+      "AgentTestRuns": {
+        "description": "An agent's test runs, newest first (at most 20), with its current draft hash.",
+        "properties": {
+          "draftHash": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TestRunSummary"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "draftHash",
+          "items"
         ],
         "type": "object"
       },
@@ -231,6 +270,14 @@
           "voice"
         ],
         "type": "object"
+      },
+      "ExpectedAnswer": {
+        "description": "The answer a rubric question expects.",
+        "enum": [
+          "yes",
+          "no"
+        ],
+        "type": "string"
       },
       "FieldError": {
         "description": "An invalid request field and how to fix it.",
@@ -580,6 +627,69 @@
         ],
         "type": "object"
       },
+      "RubricCheck": {
+        "description": "A rubric question and the decision model's answer.",
+        "properties": {
+          "expected": {
+            "$ref": "#/components/schemas/ExpectedAnswer"
+          },
+          "passed": {
+            "description": "Whether the answer is on the expected side of 0.5 (which counts as yes).",
+            "type": "boolean"
+          },
+          "probability": {
+            "description": "The probability of yes, 0 to 1; `null` when the decision model gave no answer.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "expected",
+          "passed"
+        ],
+        "type": "object"
+      },
+      "RubricItem": {
+        "description": "A yes/no question the decision model answers about the conversation, and the answer that\npasses.",
+        "properties": {
+          "expected": {
+            "$ref": "#/components/schemas/ExpectedAnswer"
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "expected"
+        ],
+        "type": "object"
+      },
+      "RubricItemInput": {
+        "description": "A rubric item to save.",
+        "properties": {
+          "expected": {
+            "$ref": "#/components/schemas/ExpectedAnswer"
+          },
+          "question": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "expected"
+        ],
+        "type": "object"
+      },
       "RulePack": {
         "description": "The compliance rule pack the agent pins: `<jurisdiction>-<use case>` and its version.",
         "properties": {
@@ -597,6 +707,242 @@
         "required": [
           "id",
           "version"
+        ],
+        "type": "object"
+      },
+      "Scenario": {
+        "description": "A test scenario: what a simulated caller plays, and how its conversation is scored.",
+        "properties": {
+          "goal": {
+            "description": "What the simulated caller wants, and what to say or not say.",
+            "type": "string"
+          },
+          "id": {
+            "example": "completes-survey",
+            "type": "string"
+          },
+          "maxTurns": {
+            "description": "The most caller turns before the conversation stops.",
+            "format": "int32",
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "persona": {
+            "description": "Who the simulated caller is and how they talk; may be empty.",
+            "type": "string"
+          },
+          "required": {
+            "description": "A run passes only if every required scenario passes.",
+            "type": "boolean"
+          },
+          "rubric": {
+            "items": {
+              "$ref": "#/components/schemas/RubricItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "goal",
+          "persona",
+          "required",
+          "maxTurns",
+          "rubric"
+        ],
+        "type": "object"
+      },
+      "ScenarioEndReason": {
+        "description": "How a scenario's conversation ended.",
+        "enum": [
+          "caller_hung_up",
+          "opt_out",
+          "turn_cap",
+          "error"
+        ],
+        "type": "string"
+      },
+      "ScenarioInput": {
+        "description": "A scenario to save.",
+        "properties": {
+          "goal": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique within the set: 1 to 40 lowercase letters, digits and hyphens, starting with a\nletter.",
+            "example": "completes-survey",
+            "pattern": "^[a-z][a-z0-9-]{0,39}$",
+            "type": "string"
+          },
+          "maxTurns": {
+            "default": 8,
+            "description": "1 to 20 caller turns.",
+            "format": "int32",
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "persona": {
+            "default": "",
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "type": "boolean"
+          },
+          "rubric": {
+            "items": {
+              "$ref": "#/components/schemas/RubricItemInput"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "goal",
+          "rubric"
+        ],
+        "type": "object"
+      },
+      "ScenarioOptOutLayer": {
+        "description": "Which opt-out layer ended the conversation.",
+        "enum": [
+          "phrase",
+          "decision",
+          "llm_tool"
+        ],
+        "type": "string"
+      },
+      "ScenarioResult": {
+        "description": "One scenario of a run: its definition as tested, and how it went.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/RubricCheck"
+            },
+            "type": "array"
+          },
+          "durationMs": {
+            "description": "How long it took to play and score.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "endReason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioEndReason",
+                "description": "`null` until it was played."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "maxTurns": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "optOutLayer": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioOptOutLayer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "persona": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScenarioStatus"
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptLine"
+            },
+            "type": "array"
+          },
+          "version": {
+            "description": "The scenario's version: a hash of everything that defines it.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "goal",
+          "persona",
+          "required",
+          "maxTurns",
+          "version",
+          "status",
+          "transcript",
+          "checks"
+        ],
+        "type": "object"
+      },
+      "ScenarioStatus": {
+        "description": "Where one scenario of a run is.",
+        "enum": [
+          "pending",
+          "running",
+          "passed",
+          "failed",
+          "error",
+          "skipped"
+        ],
+        "type": "string"
+      },
+      "ScenariosInput": {
+        "description": "Every scenario of the agent; it replaces the saved set.",
+        "properties": {
+          "scenarios": {
+            "description": "1 to 8 scenarios with unique IDs, at least one of them required.",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioInput"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "scenarios"
         ],
         "type": "object"
       },
@@ -706,6 +1052,20 @@
         ],
         "type": "object"
       },
+      "StartTestRunInput": {
+        "description": "Start a test run of an agent.",
+        "properties": {
+          "agentId": {
+            "description": "The agent to test, with its current draft and scenarios.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agentId"
+        ],
+        "type": "object"
+      },
       "StepKind": {
         "description": "What a step does: `start` opens the call (the locked texts first), `end` ends it.",
         "enum": [
@@ -716,6 +1076,219 @@
           "tool",
           "transfer",
           "end"
+        ],
+        "type": "string"
+      },
+      "TestRun": {
+        "description": "A test run: a job that plays the agent's scenarios against simulated callers.",
+        "properties": {
+          "agentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "draftHash": {
+            "description": "The draft the run tests: the agent's when queued, then the one it started on.",
+            "type": "string"
+          },
+          "finishedAt": {
+            "description": "When it finished, was cancelled or was interrupted.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "models": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TestRunModels",
+                "description": "`null` until the run started."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TestRunProgress"
+          },
+          "scenarios": {
+            "description": "Every scenario, in the set's order.",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioResult"
+            },
+            "type": "array"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/TestRunStatus"
+          },
+          "verdict": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Verdict",
+                "description": "`null` until the run finished."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "status",
+          "draftHash",
+          "progress",
+          "createdAt",
+          "scenarios"
+        ],
+        "type": "object"
+      },
+      "TestRunModels": {
+        "description": "The models a run used, and the seed of its greedy sampling (temperature 0).",
+        "properties": {
+          "decisions": {
+            "description": "The decision model that answered the opt-out questions and scored the rubrics.",
+            "type": "string"
+          },
+          "llm": {
+            "description": "The LLM that played the agent and the callers.",
+            "type": "string"
+          },
+          "seed": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "llm",
+          "decisions",
+          "seed"
+        ],
+        "type": "object"
+      },
+      "TestRunProgress": {
+        "description": "How many of a run's scenarios are done.",
+        "properties": {
+          "done": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "percent": {
+            "description": "0 to 100, rounded down.",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total",
+          "percent"
+        ],
+        "type": "object"
+      },
+      "TestRunStatus": {
+        "description": "Where a run is in its life.",
+        "enum": [
+          "queued",
+          "running",
+          "finished",
+          "cancelled",
+          "interrupted"
+        ],
+        "type": "string"
+      },
+      "TestRunSummary": {
+        "description": "A run as an agent's list shows it.",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "current": {
+            "description": "Whether the run tested the agent's current draft; `false` means it is stale.",
+            "type": "boolean"
+          },
+          "draftHash": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TestRunProgress"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TestRunStatus"
+          },
+          "verdict": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Verdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "draftHash",
+          "current",
+          "progress",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "TranscriptLine": {
+        "description": "One line of a scenario's conversation.",
+        "properties": {
+          "speaker": {
+            "$ref": "#/components/schemas/TranscriptSpeaker"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "speaker",
+          "text"
+        ],
+        "type": "object"
+      },
+      "TranscriptSpeaker": {
+        "description": "Who spoke a line: the simulated caller or the agent.",
+        "enum": [
+          "caller",
+          "agent"
         ],
         "type": "string"
       },
@@ -779,6 +1352,14 @@
           "survey",
           "telemarketing",
           "custom"
+        ],
+        "type": "string"
+      },
+      "Verdict": {
+        "description": "A finished run's verdict: passed only if every required scenario passed.",
+        "enum": [
+          "passed",
+          "failed"
         ],
         "type": "string"
       },
@@ -1607,6 +2188,180 @@
         ]
       }
     },
+    "/api/v1/agents/{id}/scenarios": {
+      "get": {
+        "operationId": "getAgentScenarios",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScenarios"
+                }
+              }
+            },
+            "description": "The scenarios the agent is tested with"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The agent's test scenarios: the saved ones, or its use case's defaults until some are\nsaved.",
+        "tags": [
+          "testing"
+        ]
+      },
+      "put": {
+        "operationId": "saveAgentScenarios",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenariosInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentScenarios"
+                }
+              }
+            },
+            "description": "The saved scenarios"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived, or kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Malformed scenarios, each field named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Replace the agent's test scenarios. A malformed set is refused and nothing is stored.",
+        "tags": [
+          "testing"
+        ]
+      }
+    },
     "/api/v1/agents/{id}/sessions": {
       "post": {
         "operationId": "startSession",
@@ -1682,6 +2437,74 @@
         "summary": "Prepare a live test call with the agent.",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/v1/agents/{id}/test-runs": {
+      "get": {
+        "operationId": "listAgentTestRuns",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTestRuns"
+                }
+              }
+            },
+            "description": "The agent's runs"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Test runs aren't set up, or storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The agent's test runs, newest first, each marked `current` when it tested the agent's\ncurrent draft.",
+        "tags": [
+          "testing"
         ]
       }
     },
@@ -1838,6 +2661,256 @@
         ]
       }
     },
+    "/api/v1/test-runs": {
+      "post": {
+        "operationId": "startTestRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTestRunInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestRun"
+                }
+              }
+            },
+            "description": "The queued run",
+            "headers": {
+              "Location": {
+                "description": "The run's URL",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived, or a run of it is already queued or running"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A missing or malformed `agentId`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The server has no models for test runs, or storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Queue a test run of the agent's current draft: every scenario is played by a simulated\ncaller and scored by its rubric, in the background. Poll the run for its progress.",
+        "tags": [
+          "testing"
+        ]
+      }
+    },
+    "/api/v1/test-runs/{id}": {
+      "get": {
+        "operationId": "getTestRun",
+        "parameters": [
+          {
+            "description": "The run's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestRun"
+                }
+              }
+            },
+            "description": "The run"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such run"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Test runs aren't set up, or storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The run: its status and progress, its verdict once finished, and every scenario's\ntranscript and rubric checks so far.",
+        "tags": [
+          "testing"
+        ]
+      }
+    },
+    "/api/v1/test-runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelTestRun",
+        "parameters": [
+          {
+            "description": "The run's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestRun"
+                }
+              }
+            },
+            "description": "The cancelled run"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such run"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The run already finished"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Test runs aren't set up, or storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Cancel a queued or running run; what is left is skipped. Cancelling a cancelled run\nchanges nothing.",
+        "tags": [
+          "testing"
+        ]
+      }
+    },
     "/api/v1/voice/latency": {
       "get": {
         "operationId": "getVoiceLatency",
@@ -1920,6 +2993,10 @@
     {
       "description": "The voice path's latency",
       "name": "voice"
+    },
+    {
+      "description": "Test scenarios, and test runs that play them against simulated callers and score them by their rubrics",
+      "name": "testing"
     }
   ]
 }

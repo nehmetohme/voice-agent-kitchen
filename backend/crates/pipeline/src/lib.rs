@@ -10,6 +10,9 @@
 //! (VAD → end of turn → STT → opt-out checks and LLM → clause chunking → TTS → paced
 //! audio), lets the caller barge in, and ends on the client's `session.end` or an
 //! opt-out from any of its three layers.
+//!
+//! [`run_text_session`] plays the same reply logic in text, against a simulated caller, for
+//! test runs: no audio, the same router, opt-out layers and confirm band.
 
 mod chunker;
 mod config;
@@ -19,9 +22,14 @@ mod playback;
 mod routing;
 mod session;
 mod stages;
+mod text;
 
 pub use config::{
     Engines, OptOutPolicy, SessionConfig, SessionObserver, StageDeadlines, TurnPolicy,
 };
 pub use outcome::{SessionOutcome, TurnRecord};
 pub use session::run_session;
+pub use text::{
+    CALLER_TOOL, CallerTurn, LlmCaller, SimulatedCaller, TextDeadlines, TextEngines, TextOutcome,
+    TextSessionConfig, run_text_session,
+};

@@ -101,6 +101,7 @@ pub struct LlmRequest {
     messages: Vec<ChatMessage>,
     tools: Vec<ToolSpec>,
     max_tokens: Option<u32>,
+    greedy_seed: Option<u64>,
     deadline: Duration,
 }
 
@@ -113,6 +114,7 @@ impl LlmRequest {
             messages: Vec::new(),
             tools: Vec::new(),
             max_tokens: None,
+            greedy_seed: None,
             deadline,
         }
     }
@@ -137,6 +139,17 @@ impl LlmRequest {
         }
     }
 
+    /// Samples greedily (temperature 0) with `seed`, so the same request gets the same reply
+    /// wherever the model honours it: test runs are reproducible. Without it, the model's
+    /// own sampling defaults apply.
+    #[must_use]
+    pub fn with_greedy_sampling(self, seed: u64) -> Self {
+        Self {
+            greedy_seed: Some(seed),
+            ..self
+        }
+    }
+
     #[must_use]
     pub fn messages(&self) -> &[ChatMessage] {
         &self.messages
@@ -150,6 +163,12 @@ impl LlmRequest {
     #[must_use]
     pub const fn max_tokens(&self) -> Option<u32> {
         self.max_tokens
+    }
+
+    /// The seed of greedy sampling (temperature 0), if the request pins it.
+    #[must_use]
+    pub const fn greedy_seed(&self) -> Option<u64> {
+        self.greedy_seed
     }
 
     #[must_use]

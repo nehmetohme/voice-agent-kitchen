@@ -2,7 +2,7 @@
 
 use jiff::Timestamp;
 
-use crate::{Actor, AgentId, AuditEventId, ContentHash, DraftField};
+use crate::{Actor, AgentId, AuditEventId, ContentHash, DraftField, TestRunId};
 
 /// What happened to an agent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +16,13 @@ pub enum AuditAction {
     },
     /// The agent was archived.
     AgentArchived,
+    /// An operator started a test run of this draft.
+    TestRunStarted {
+        run: TestRunId,
+        draft_hash: ContentHash,
+    },
+    /// An operator cancelled a test run.
+    TestRunCancelled { run: TestRunId },
 }
 
 impl AuditAction {
@@ -26,6 +33,8 @@ impl AuditAction {
             Self::AgentCreated { .. } => "agent.created",
             Self::AgentDraftUpdated { .. } => "agent.draft_updated",
             Self::AgentArchived => "agent.archived",
+            Self::TestRunStarted { .. } => "test_run.started",
+            Self::TestRunCancelled { .. } => "test_run.cancelled",
         }
     }
 }

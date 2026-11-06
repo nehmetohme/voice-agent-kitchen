@@ -1,6 +1,6 @@
-//! Persistence ports: one trait per aggregate (`AgentRepo` today; `PlanRepo`,
-//! `VersionRepo`, `TestRunRepo`, `SessionRepo`, `AuditRepo` and the `JobQueue` port arrive
-//! with their milestones), plus `RepoError`.
+//! Persistence ports: one trait per aggregate (`AgentRepo` and `TestRunRepo` today;
+//! `VersionRepo`, `SessionRepo`, `AuditRepo` and the `JobQueue` port arrive with their
+//! milestones), plus `RepoError`.
 //!
 //! Traits and port types only. The Postgres implementation lives in
 //! `vak-repositories-pg`; in-memory fakes live in `vak-testkit`.
@@ -10,9 +10,11 @@
 
 mod agents;
 mod error;
+mod test_runs;
 
 pub use agents::{AgentQuery, AgentRepo};
 pub use error::{BoxError, RepoError};
+pub use test_runs::TestRunRepo;
 
 use std::future::Future;
 use std::pin::Pin;

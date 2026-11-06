@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use uuid::Uuid;
 use vak_domain::{
-    Agent, AgentDraft, AgentId, AgentName, AgentSettings, AuditAction, ContentHash, EdgeId,
-    Jurisdiction, Language, ModelProfile, NodeId, NodeKind, Persona, Plan, PlanEdge, PlanNode,
-    RulePackRef, TurnDetection, UseCase, VoiceId,
+    Agent, AgentDraft, AgentId, AgentName, AgentSettings, AuditAction, ContentHash, DraftField,
+    EdgeId, Jurisdiction, Language, ModelProfile, NodeId, NodeKind, Persona, Plan, PlanEdge,
+    PlanNode, RulePackRef, TestRunId, TurnDetection, UseCase, VoiceId,
 };
 use vak_repositories::{RepoError, Revision, Versioned};
+
+use crate::scenario_records::ScenarioRecord;
 
 /// `agent_drafts.persona`. Name and use case live in `agents`, where lists read them.
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,6 +70,8 @@ pub(crate) struct AuditDetails {
     draft_hash: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     fields: Vec<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    test_run_id: Option<String>,
 }
 
 impl PersonaRecord {
@@ -153,19 +157,23 @@ impl PlanRecord {
 
 impl AuditDetails {
     pub(crate) fn of(action: &AuditAction) -> Json<Self> {
+        let details = |draft_hash: Option<&ContentHash>,
+                       fields: &[DraftField],
+                       run: Option<&TestRunId>| Self {
+            draft_hash: draft_hash.map(|hash| hash.as_str().to_owned()),
+            fields: fields.iter().map(|field| field.as_str()).collect(),
+            test_run_id: run.map(ToString::to_string),
+        };
         Json(match action {
-            AuditAction::AgentCreated { draft_hash } => Self {
-                draft_hash: Some(draft_hash.as_str().to_owned()),
-                fields: Vec::new(),
-            },
-            AuditAction::AgentDraftUpdated { fields, draft_hash } => Self {
-                draft_hash: Some(draft_hash.as_str().to_owned()),
-                fields: fields.iter().map(|field| field.as_str()).collect(),
-            },
-            AuditAction::AgentArchived => Self {
-                draft_hash: None,
-                fields: Vec::new(),
-            },
+            AuditAction::AgentCreated { draft_hash } => details(Some(draft_hash), &[], None),
+            AuditAction::AgentDraftUpdated { fields, draft_hash } => {
+                details(Some(draft_hash), fields, None)
+            }
+            AuditAction::AgentArchived => details(None, &[], None),
+            AuditAction::TestRunStarted { run, draft_hash } => {
+                details(Some(draft_hash), &[], Some(run))
+            }
+            AuditAction::TestRunCancelled { run } => details(None, &[], Some(run)),
         })
     }
 }
@@ -175,7 +183,7 @@ impl AuditDetails {
 #[error("stored agent row is invalid: {0}")]
 pub(crate) struct CorruptRow(&'static str);
 
-fn corrupt<E>(what: &'static str) -> impl FnOnce(E) -> RepoError {
+pub(crate) fn corrupt<E>(what: &'static str) -> impl FnOnce(E) -> RepoError {
     move |_| RepoError::unavailable(CorruptRow(what))
 }
 
@@ -193,6 +201,7 @@ pub(crate) struct AgentRow {
     pub(crate) persona: Json<PersonaRecord>,
     pub(crate) settings: Json<SettingsRecord>,
     pub(crate) plan: Option<Json<PlanRecord>>,
+    pub(crate) scenarios: Option<Json<Vec<ScenarioRecord>>>,
     pub(crate) rule_pack_id: String,
     pub(crate) rule_pack_version: i32,
     pub(crate) content_hash: String,
@@ -224,13 +233,18 @@ impl TryFrom<AgentRow> for Versioned<Agent> {
         )
         .map_err(corrupt("rule_pack"))?;
         let plan = row.plan.map(|Json(plan)| plan.into_plan()).transpose()?;
+        let scenarios = row
+            .scenarios
+            .map(|Json(scenarios)| ScenarioRecord::into_set(scenarios))
+            .transpose()?;
         let draft = AgentDraft::restore(
             persona,
             Jurisdiction::parse(&row.jurisdiction).map_err(corrupt("jurisdiction"))?,
             rule_pack,
             settings,
             plan,
-        );
+        )
+        .with_restored_scenarios(scenarios);
         let stored_hash = ContentHash::parse(&row.content_hash).map_err(corrupt("content_hash"))?;
         if draft.content_hash() != stored_hash {
             return Err(corrupt("content_hash")(()));

@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE test_runs\n             SET draft_hash = $3, status = $4, verdict = $5, llm_model = $6,\n                 decision_model = $7, seed = $8, scenarios = $9, started_at = $10,\n                 finished_at = $11, revision = revision + 1\n             WHERE id = $1 AND workspace_id = $12 AND revision = $2\n             RETURNING revision",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "revision"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8a439896c2481f764ad13d981c636cef1eb36b4ea80aa0f81f7afc5b8fc1dd96"
+}

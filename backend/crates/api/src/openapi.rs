@@ -8,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::state::AppState;
-use crate::{agents, catalog, health, latency, plans, sessions};
+use crate::{agents, catalog, health, latency, plans, scenarios, sessions, test_runs};
 
 /// Document-level metadata. Paths and schemas come from the routes themselves.
 #[derive(OpenApi)]
@@ -27,6 +27,8 @@ use crate::{agents, catalog, health, latency, plans, sessions};
         (name = "sessions", description = "Live test calls: a session and its media WebSocket \
             (subprotocol `vak.media.v1`, `contracts/media/`)"),
         (name = "voice", description = "The voice path's latency"),
+        (name = "testing", description = "Test scenarios, and test runs that play them against \
+            simulated callers and score them by their rubrics"),
     ),
     modifiers(&ForwardedIdentity)
 )]
@@ -72,6 +74,11 @@ pub(crate) fn v1() -> OpenApiRouter<AppState> {
         .routes(routes!(catalog::languages))
         .routes(routes!(sessions::start))
         .routes(routes!(latency::get))
+        .routes(routes!(scenarios::get, scenarios::save))
+        .routes(routes!(test_runs::start))
+        .routes(routes!(test_runs::get))
+        .routes(routes!(test_runs::cancel))
+        .routes(routes!(test_runs::list))
 }
 
 /// The `/api/v1` routes that outlive a request (the media WebSocket): identity, but no

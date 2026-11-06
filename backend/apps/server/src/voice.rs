@@ -1,5 +1,5 @@
-//! The voice engines: one adapter per model, built from the model settings. Local and
-//! Databricks differ only in those settings.
+//! The voice engines, and the test runs' engines: one adapter per model, built from the model
+//! settings. Local and Databricks differ only in those settings.
 
 use std::sync::Arc;
 
@@ -8,8 +8,11 @@ use vak_adapter_decision_systemone::{SystemOneConfig, SystemOneDecisions};
 use vak_adapter_llm_openai::{OpenAiLlm, OpenAiLlmConfig};
 use vak_adapter_stt_serving::{ServingStt, ServingSttConfig};
 use vak_adapter_tts_serving::{ServingTts, ServingTtsConfig};
-use vak_config::{LLM_EXTRA_BODY_VAR, ModelSettings};
-use vak_services::Engines;
+use vak_config::{
+    DECISION_BASE_URL_VAR, DecisionSettings, LLM_BASE_URL_VAR, LLM_EXTRA_BODY_VAR, LlmSettings,
+    ModelSettings,
+};
+use vak_services::{Engines, TestEngines};
 
 /// The engines, or `None` (voice sessions off) when a model is not configured.
 pub(crate) fn engines(models: &ModelSettings) -> anyhow::Result<Option<Engines>> {
@@ -22,26 +25,12 @@ pub(crate) fn engines(models: &ModelSettings) -> anyhow::Result<Option<Engines>>
         return Ok(None);
     };
 
-    let mut llm_config = OpenAiLlmConfig::new(&llm.base_url, &llm.model);
-    if let Some(key) = &llm.api_key {
-        llm_config = llm_config.with_bearer_token(key.clone());
-    }
-    if let Some(extra) = &llm.extra_body {
-        let extra = serde_json::from_str(extra)
-            .with_context(|| format!("{LLM_EXTRA_BODY_VAR} is not JSON"))?;
-        llm_config = llm_config.with_extra_body(extra);
-    }
-    let llm_engine = OpenAiLlm::new(llm_config).context("configuring the LLM")?;
+    let llm_engine = llm_engine(llm)?;
     let stt_engine = ServingStt::new(ServingSttConfig::new(&stt.base_url, &stt.endpoint))
         .context("configuring speech-to-text")?;
     let tts_engine = ServingTts::new(ServingTtsConfig::new(&tts.base_url, &tts.endpoint))
         .context("configuring text-to-speech")?;
-    let mut decision_config = SystemOneConfig::new(&decisions.base_url, &decisions.model);
-    if let Some(path) = &decisions.path {
-        decision_config = decision_config.with_path(path);
-    }
-    let decision_engine =
-        SystemOneDecisions::new(decision_config).context("configuring the decision model")?;
+    let decision_engine = decision_engine(decisions)?;
 
     tracing::info!(llm = %llm.model, decisions = %decisions.model, "voice sessions on");
     Ok(Some(Engines::new(
@@ -50,6 +39,48 @@ pub(crate) fn engines(models: &ModelSettings) -> anyhow::Result<Option<Engines>>
         Arc::new(tts_engine),
         Arc::new(decision_engine),
     )))
+}
+
+/// The engines of text-mode test runs: the LLM and the decision model, without speech. `None`
+/// (test runs off) when either is not configured.
+pub(crate) fn test_engines(models: &ModelSettings) -> anyhow::Result<Option<TestEngines>> {
+    let (Some(llm), Some(decisions)) = (&models.llm, &models.decisions) else {
+        let missing = if models.llm.is_none() {
+            LLM_BASE_URL_VAR
+        } else {
+            DECISION_BASE_URL_VAR
+        };
+        tracing::warn!(missing, "test runs are off: a model is not configured");
+        return Ok(None);
+    };
+    tracing::info!(llm = %llm.model, decisions = %decisions.model, "test runs on");
+    Ok(Some(TestEngines::new(
+        Arc::new(llm_engine(llm)?),
+        &llm.model,
+        Arc::new(decision_engine(decisions)?),
+        &decisions.model,
+    )))
+}
+
+fn llm_engine(llm: &LlmSettings) -> anyhow::Result<OpenAiLlm> {
+    let mut config = OpenAiLlmConfig::new(&llm.base_url, &llm.model);
+    if let Some(key) = &llm.api_key {
+        config = config.with_bearer_token(key.clone());
+    }
+    if let Some(extra) = &llm.extra_body {
+        let extra = serde_json::from_str(extra)
+            .with_context(|| format!("{LLM_EXTRA_BODY_VAR} is not JSON"))?;
+        config = config.with_extra_body(extra);
+    }
+    OpenAiLlm::new(config).context("configuring the LLM")
+}
+
+fn decision_engine(decisions: &DecisionSettings) -> anyhow::Result<SystemOneDecisions> {
+    let mut config = SystemOneConfig::new(&decisions.base_url, &decisions.model);
+    if let Some(path) = &decisions.path {
+        config = config.with_path(path);
+    }
+    SystemOneDecisions::new(config).context("configuring the decision model")
 }
 
 #[cfg(test)]
@@ -125,6 +156,24 @@ mod tests {
                 voice.name
             );
         }
+    }
+
+    #[test]
+    fn test_runs_need_only_the_llm_and_the_decision_model() {
+        let text_only = [ALL[0], ALL[1], ALL[4], ALL[5]];
+        assert!(
+            engines(&models(&text_only)).expect("valid").is_none(),
+            "no voice"
+        );
+        assert!(test_engines(&models(&text_only)).expect("valid").is_some());
+        assert!(
+            test_engines(&models(&ALL[..2])).expect("valid").is_none(),
+            "no decisions"
+        );
+        assert!(
+            test_engines(&models(&ALL[2..6])).expect("valid").is_none(),
+            "no LLM"
+        );
     }
 
     #[test]

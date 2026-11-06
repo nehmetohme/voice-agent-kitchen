@@ -5,7 +5,7 @@
 This crate defines the traits through which the pipeline and services reach models and media transports:
 
 - `SttEngine`: one finished utterance in (`SttRequest`: 16 kHz mono PCM16, a language hint, a deadline), its `Transcript` out. Streaming STT is later.
-- `LlmEngine`: streamed chat with tools. `stream(LlmRequest)` opens a `Box<dyn LlmStream>`, whose `next_event` yields `LlmEvent::Text`, `LlmEvent::ToolCall` (once its arguments are complete) and finally `LlmEvent::Done`. The request's deadline is the time to first token.
+- `LlmEngine`: streamed chat with tools. `stream(LlmRequest)` opens a `Box<dyn LlmStream>`, whose `next_event` yields `LlmEvent::Text`, `LlmEvent::ToolCall` (once its arguments are complete) and finally `LlmEvent::Done`. The request's deadline is the time to first token. `LlmRequest::with_greedy_sampling(seed)` pins sampling (temperature 0 and a seed) where the model honours it, for reproducible test runs; without it the model's defaults apply.
 - `TtsEngine`: one clause in (`TtsRequest`: text, catalog voice ID, speed, deadline), its `Speech` out: mono PCM16 at its sample rate (24 kHz from the serving contract).
 - `DecisionEngine`: typed System One decisions. A `DecisionRequest` holds the recent turns, the plan node and `(QuestionId, Question)` pairs from `vak-domain`; `Decisions` holds the model ID and one `Answer` per question. Yes/no and choice questions exist today.
 - `media`: the `MediaTransport` port and the `vak.media.v1` wire types (below). It serves the browser WebSocket today; telephony and WebRTC are later.

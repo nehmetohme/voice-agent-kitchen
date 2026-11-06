@@ -20,7 +20,8 @@ interface FormDialogProps {
 
 /**
  * A small form in a modal `role=dialog`: fields first, then Cancel and the submit button. Enter
- * submits, Esc and Cancel close it without acting, and focus returns to the trigger (Jakob).
+ * submits, Esc and Cancel close it without acting, and focus returns to the trigger (Jakob). A
+ * form taller than the screen scrolls inside the dialog.
  */
 export function FormDialog({
   triggerLabel,
@@ -44,7 +45,7 @@ export function FormDialog({
         <Dialog.Backdrop data-slot="form-dialog-backdrop" className="fixed inset-0 bg-ink/40" />
         <Dialog.Popup
           data-slot="form-dialog-popup"
-          className="fixed top-1/2 left-1/2 flex w-full max-w-readable -translate-x-1/2 -translate-y-1/2 flex-col gap-6 rounded-md bg-canvas p-6 text-ink shadow-md"
+          className="fixed top-1/2 left-1/2 flex max-h-dvh w-full max-w-readable -translate-x-1/2 -translate-y-1/2 flex-col gap-6 overflow-y-auto rounded-md bg-canvas p-6 text-ink shadow-md"
         >
           <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
           <form

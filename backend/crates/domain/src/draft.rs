@@ -2,7 +2,7 @@
 
 use crate::{
     AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, Plan, RulePackRef,
-    TurnDetection, UseCase, VoiceId,
+    ScenarioSet, TurnDetection, UseCase, VoiceId,
 };
 
 /// Who the agent is: name, purpose, voice and language.
@@ -56,6 +56,7 @@ pub struct AgentDraft {
     rule_pack: RulePackRef,
     settings: AgentSettings,
     plan: Option<Plan>,
+    scenarios: Option<ScenarioSet>,
 }
 
 /// Changes to a draft. `None` leaves a field as it is.
@@ -70,6 +71,8 @@ pub struct DraftPatch {
     pub turn_detection: Option<TurnDetection>,
     /// Replaces the saved plan.
     pub plan: Option<Plan>,
+    /// Replaces the saved test scenarios.
+    pub scenarios: Option<ScenarioSet>,
 }
 
 /// A part of the draft, as named in audit events.
@@ -84,6 +87,7 @@ pub enum DraftField {
     Model,
     TurnDetection,
     Plan,
+    Scenarios,
 }
 
 impl DraftField {
@@ -100,6 +104,7 @@ impl DraftField {
             Self::Model => "model",
             Self::TurnDetection => "turn_detection",
             Self::Plan => "plan",
+            Self::Scenarios => "scenarios",
         }
     }
 }
@@ -115,6 +120,7 @@ impl AgentDraft {
             jurisdiction,
             settings: AgentSettings::default(),
             plan: None,
+            scenarios: None,
         }
     }
 
@@ -133,7 +139,15 @@ impl AgentDraft {
             rule_pack,
             settings,
             plan,
+            scenarios: None,
         }
+    }
+
+    /// This draft as read back from storage, with its saved test scenarios (`None` until the
+    /// operator saves some). Pairs with [`AgentDraft::restore`].
+    #[must_use]
+    pub fn with_restored_scenarios(self, scenarios: Option<ScenarioSet>) -> Self {
+        Self { scenarios, ..self }
     }
 
     /// This draft with `patch` applied. When the use case or the jurisdiction changes, the
@@ -172,6 +186,7 @@ impl AgentDraft {
             rule_pack,
             settings,
             plan: patch.plan.clone().or_else(|| self.plan.clone()),
+            scenarios: patch.scenarios.clone().or_else(|| self.scenarios.clone()),
         }
     }
 
@@ -198,6 +213,7 @@ impl AgentDraft {
                 self.settings.turn_detection() != other.settings.turn_detection(),
             ),
             (DraftField::Plan, self.plan != other.plan),
+            (DraftField::Scenarios, self.scenarios != other.scenarios),
         ]
         .into_iter()
         .filter_map(|(field, changed)| changed.then_some(field))
@@ -212,8 +228,9 @@ impl AgentDraft {
 
     /// A versioned, length-prefixed `key=<length>:<value>` line per field, in a fixed order.
     /// Length prefixes keep any value from forging another field. Changing this encoding
-    /// changes every hash, so it carries a version. A saved plan adds its lines at the end;
-    /// a draft without one encodes exactly as before plans existed, so its hash is unchanged.
+    /// changes every hash, so it carries a version. A saved plan adds its lines at the end, and
+    /// saved scenarios theirs after it; a draft without them encodes exactly as before they
+    /// existed, so its hash is unchanged.
     fn canonical_bytes(&self) -> Vec<u8> {
         let turn = self.settings.turn_detection();
         let fields: [(&str, String); 10] = [
@@ -251,6 +268,16 @@ impl AgentDraft {
                 line(&format!("plan.edge.{i}.condition"), edge.condition());
             }
         }
+        if let Some(scenarios) = &self.scenarios {
+            // Each scenario by its version: a hash of everything that defines it.
+            line("scenarios", &scenarios.scenarios().len().to_string());
+            for (i, scenario) in scenarios.scenarios().iter().enumerate() {
+                line(
+                    &format!("scenario.{i}.version"),
+                    scenario.version().as_str(),
+                );
+            }
+        }
         bytes
     }
 
@@ -278,6 +305,20 @@ impl AgentDraft {
     #[must_use]
     pub fn plan(&self) -> Option<&Plan> {
         self.plan.as_ref()
+    }
+
+    /// The saved test scenarios, if the operator has saved some.
+    #[must_use]
+    pub fn scenarios(&self) -> Option<&ScenarioSet> {
+        self.scenarios.as_ref()
+    }
+
+    /// The scenarios the agent is tested with: the saved ones, or its use case's defaults.
+    #[must_use]
+    pub fn scenarios_or_defaults(&self) -> ScenarioSet {
+        self.scenarios
+            .clone()
+            .unwrap_or_else(|| ScenarioSet::defaults_for(self.persona.use_case))
     }
 }
 
@@ -409,6 +450,7 @@ mod tests {
                     turn_detection: turn
                         .and_then(|(ms, barge_in)| TurnDetection::new(ms, barge_in).ok()),
                     plan: None,
+                    scenarios: None,
                 },
             )
     }

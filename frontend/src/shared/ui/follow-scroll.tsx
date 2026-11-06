@@ -13,6 +13,8 @@ function isAtEnd(element: HTMLElement): boolean {
 interface FollowScrollProps {
   /** Names the scroll region (a `section`, so `role=region`). */
   label: string;
+  /** Follow the newest content (default). Off, it is a plain scroll region from the start. */
+  follow?: boolean | undefined;
   children: ReactNode;
 }
 
@@ -21,10 +23,12 @@ interface FollowScrollProps {
  * reader is at the end, every new line scrolls into view. Scrolled up, it stops following and
  * offers "Jump to latest"; back at the end, by scrolling or the button, it follows again. The
  * region takes focus, so the keyboard can scroll it. Give it a bounded height (a flex parent).
+ * With `follow` off (content that doesn't grow, such as a finished transcript), it opens at the
+ * start and never moves by itself.
  */
-export function FollowScroll({ label, children }: FollowScrollProps) {
+export function FollowScroll({ label, follow = true, children }: FollowScrollProps) {
   const region = useRef<HTMLElement>(null);
-  const following = useRef(true);
+  const following = useRef(follow);
   const [behind, setBehind] = useState(false);
 
   const toEnd = useCallback(() => {
@@ -53,7 +57,7 @@ export function FollowScroll({ label, children }: FollowScrollProps) {
 
   const onScroll = () => {
     const element = region.current;
-    if (element === null) return;
+    if (element === null || !follow) return;
     following.current = isAtEnd(element);
     setBehind(!following.current);
   };

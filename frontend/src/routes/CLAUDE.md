@@ -4,19 +4,21 @@ TanStack Router file routes. A route maps a URL to a feature view and nothing mo
 design. The router plugin turns this folder into `src/app/routeTree.gen.ts` on `pnpm dev` and
 `pnpm build`; commit the regenerated file with your route change.
 
-| File                                         | URL                                                                                             |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `__root.tsx`                                 | Root layout: `AppShell` with the primary navigation and the top bar title                       |
-| `index.tsx`                                  | `/` → redirects to `/agents`                                                                    |
-| `agents/index.tsx`                           | `/agents`: `AgentsOverview`                                                                     |
-| `agents/new.tsx`                             | `/agents/new`: `CreateAgentPage` (title "Create agent")                                         |
-| `agents/$agentId/provision.tsx`              | `/agents/:agentId/provision`: `ProvisionPage` (title "Provision")                               |
-| `settings.tsx`                               | `/settings`                                                                                     |
-| `agents/$agentId/plan.tsx`                   | `/agents/:agentId/plan`: `AgentHeader` and `PlanPage` (title "Plan"); a save refreshes progress |
-| (later) `agents/$agentId/{test,publish}.tsx` | One per flow step; each starts with `AgentHeader`, whose stepper links to it                    |
+| File                                  | URL                                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `__root.tsx`                          | Root layout: `AppShell` with the primary navigation and the top bar title                                                       |
+| `index.tsx`                           | `/` → redirects to `/agents`                                                                                                    |
+| `agents/index.tsx`                    | `/agents`: `AgentsOverview`                                                                                                     |
+| `agents/new.tsx`                      | `/agents/new`: `CreateAgentPage` (title "Create agent")                                                                         |
+| `agents/$agentId/provision.tsx`       | `/agents/:agentId/provision`: `ProvisionPage` (title "Provision")                                                               |
+| `settings.tsx`                        | `/settings`                                                                                                                     |
+| `agents/$agentId/plan.tsx`            | `/agents/:agentId/plan`: `AgentHeader` and `PlanPage` (title "Plan"); a save refreshes progress                                 |
+| `agents/$agentId/test.tsx`            | `/agents/:agentId/test`: `AgentHeader` and `TestPage` (title "Test"); a saved scenario set or a finished run refreshes progress |
+| (later) `agents/$agentId/publish.tsx` | The Publish step; it starts with `AgentHeader`, whose stepper links to it                                                       |
 
 The provision route also composes the testing feature's `TestCallPanel` into `ProvisionPage`
-(its `testCall` slot, beside the settings) until the Test step gets its own route in M5.
+(its `testCall` slot, beside the settings): the quick test call stays there next to the
+settings, and the Test step has its own route for scenarios.
 
 ## May import
 

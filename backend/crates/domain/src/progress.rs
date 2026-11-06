@@ -1,7 +1,7 @@
 //! Setup progress (Zeigarnik): four steps, derived from state and never stored, so it can't
 //! drift from what the agent really is.
 
-use crate::{AgentDraft, ContentHash, RulePackCatalog};
+use crate::{AgentDraft, ContentHash, RulePackCatalog, Verdict};
 
 /// A step of the setup flow, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,6 +54,22 @@ impl ProgressFacts {
                 .plan()
                 .is_some_and(|plan| packs.validate(plan, draft.rule_pack()).is_ok()),
             ..Self::default()
+        }
+    }
+
+    /// These facts with what the test runs say: `verdict` is that of the latest finished run
+    /// on the draft hash `tested` (`None`: no finished run on it).
+    #[must_use]
+    pub fn with_test_verdict(self, tested: &ContentHash, verdict: Option<Verdict>) -> Self {
+        let passing_test_run = if verdict == Some(Verdict::Passed) {
+            Some(tested.clone())
+        } else {
+            // The latest finished run on `tested` didn't pass, so no run on it counts.
+            self.passing_test_run.filter(|passing| passing != tested)
+        };
+        Self {
+            passing_test_run,
+            ..self
         }
     }
 }

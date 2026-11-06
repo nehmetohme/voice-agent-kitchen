@@ -59,6 +59,10 @@ uuid_v7_id!(
     /// Identifies an audit event.
     AuditEventId
 );
+uuid_v7_id!(
+    /// Identifies a test run.
+    TestRunId
+);
 
 #[cfg(test)]
 mod tests {

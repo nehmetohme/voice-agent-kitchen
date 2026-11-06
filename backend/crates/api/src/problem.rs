@@ -9,8 +9,8 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use utoipa::ToSchema;
 use vak_services::{
-    ArchiveAgentError, CreateAgentError, FindAgentError, ListAgentsError, OpenMediaError,
-    StartSessionError, UpdateDraftError,
+    ArchiveAgentError, CancelTestRunError, CreateAgentError, FindAgentError, FindTestRunError,
+    ListAgentsError, OpenMediaError, StartSessionError, StartTestRunError, UpdateDraftError,
 };
 
 /// The media type of every error response.
@@ -241,6 +241,54 @@ impl From<OpenMediaError> for ApiError {
             OpenMediaError::NotFound => Self::NotFound,
             OpenMediaError::Busy => {
                 Self::Refused("Too many test calls are running. Try again shortly.")
+            }
+        }
+    }
+}
+
+impl From<StartTestRunError> for ApiError {
+    fn from(error: StartTestRunError) -> Self {
+        match error {
+            StartTestRunError::NotFound => Self::NotFound,
+            StartTestRunError::Archived => {
+                Self::Conflict("This agent is archived, so it can't be tested.")
+            }
+            StartTestRunError::AlreadyRunning => Self::Conflict(
+                "A test run of this agent is already queued or running. Wait for it, or cancel it.",
+            ),
+            StartTestRunError::ModelsUnavailable => {
+                Self::Refused("Test runs aren't set up on this server: it has no models for them.")
+            }
+            unavailable @ StartTestRunError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<FindTestRunError> for ApiError {
+    fn from(error: FindTestRunError) -> Self {
+        match error {
+            FindTestRunError::NotFound => Self::NotFound,
+            unavailable @ FindTestRunError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<CancelTestRunError> for ApiError {
+    fn from(error: CancelTestRunError) -> Self {
+        match error {
+            CancelTestRunError::NotFound => Self::NotFound,
+            CancelTestRunError::Finished => {
+                Self::Conflict("This test run is over, so it can't be cancelled.")
+            }
+            CancelTestRunError::Conflict => {
+                Self::Conflict("The test run kept changing while cancelling. Try again.")
+            }
+            unavailable @ CancelTestRunError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
             }
         }
     }

@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO test_runs (id, workspace_id, agent_id, created_by, draft_hash, status,\n                                    verdict, llm_model, decision_model, seed, scenarios,\n                                    revision, created_at, started_at, finished_at)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, $12, $13, $14)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9712d8634f4bfbbbe48dc353c74970b7fea5cf299eb7b87052560de03bbf69b7"
+}

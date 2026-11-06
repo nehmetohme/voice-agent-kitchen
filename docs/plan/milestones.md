@@ -95,6 +95,17 @@ Exit: a local browser conversation works with local models; latency histograms a
 
 Exit: test runs are reproducible on the same draft hash; progress shows 75%.
 
+**Contract:** `test-runs` v1 (`contracts/contracts.toml`): domain, services (deterministic fakes), HTTP, the Test page end to end with deterministic fake models (`frontend/e2e/support/fake-models.ts`), and the golden path `test-call`.
+
+**Delivered (M5):**
+- **Scenarios** belong to the draft: an ID, a name, the simulated caller's goal and persona, a required flag, a turn cap (1 to 20) and 1 to 8 yes/no rubric items with the answer they expect. Until the operator saves some, a draft is tested with its use case's three defaults (`ScenarioSet::defaults_for`, the seam where purposes will supply sets); every default set has a required caller who opts out mid-call. Saved scenarios are part of the content hash; each scenario has its own version (a hash).
+- **Text-mode simulation** (`vak_pipeline::run_text_session`): an LLM plays the caller (`end_call` to hang up) against the agent's real reply logic in text, with the same disclosure, `Router`, opt-out phrases, decision model and confirm band, and LLM tool as a call. No STT or TTS, so runs are fast. Audio-mode simulation is a later option.
+- **Rubric:** one decision request per scenario with every rubric question over the whole transcript; a check passes on the expected side of 0.5. A scenario errors when a model failed or a check got no answer. A run passes only if every required scenario passes.
+- **Reproducible:** every LLM request samples greedily (temperature 0) with a seed; a run records the draft hash, the models, the seed and each scenario's version. With deterministic models the same draft always gives the same verdict; with real models, see the variance in the run's checks.
+- **Jobs:** `POST /test-runs` queues a run (202); an in-process worker plays queued runs, one scenario at a time by default (the local LLM has one slot), stores every step, and stops a cancelled run at once. A run left running by a stopped server is interrupted at the next start. Every model call has a deadline; transcripts are stored with the run and never logged.
+- **Progress:** Test is done (75 %) when the latest finished run on the current draft hash passed; an edit makes it stale.
+- **UI:** the Test step (`/agents/{id}/test`) is a no-scroll workspace: the run's outcome and "Run tests", the scenarios (edit, add, delete) with their latest results, and the selected scenario's transcript and rubric checks. The quick test call stays on the Provision page and ends on a summary (turns, reply p50/p95, "Run tests", "Publish" (Later)).
+
 ## M6: Publish
 
 | Contract tests first | |

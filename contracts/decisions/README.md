@@ -53,6 +53,12 @@ With the explicit question in context every answer scores higher, a no included,
 
 Plan routing (M4b) adds a `branch` choice over the current node's outgoing edges to the same request.
 
+## What test runs ask (M5)
+
+- **In each text conversation,** the same `opt_out` question about every simulated caller line, with the same thresholds and confirm band as a call (`vak_pipeline::run_text_session`). Text has no reply to hold back, so the answer is always awaited, up to the decision deadline (5 s in test runs).
+- **To score a scenario,** one request after its conversation: the whole transcript as the turns, and every rubric item as a yes/no question (`noul`) with the operator's question as its instructions, under the IDs `rubric_1`, `rubric_2`… in rubric order (`vak-services`, `src/test_runs/worker.rs`). A check passes when the probability of yes is on the expected side of 0.5 (0.5 counts as yes); a request that fails or times out leaves every check without an answer, and the scenario is an error, not a fail. The default scenarios phrase every question so that yes is the good answer.
+- The model the server is configured with is recorded on each run (`models.decisions`), so a run can be compared with another on the same model.
+
 ## Rules every question follows
 
 These come from the domain types in `backend/crates/domain/src/decision.rs`:

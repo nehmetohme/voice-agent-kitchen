@@ -17,8 +17,8 @@
 | **Session** | One conversation: live browser test or simulated test | Later also phone inbound and outbound |
 | **Turn** | One utterance by the caller or the agent | Stores text, plan node, per-stage timings and decisions |
 | **Decision** | A typed answer from the decision engine (branch, intent, opt-out, escalation, outcome) | Stores model ID, probabilities and threshold verdict. State text is not logged (PII) |
-| **Scenario** | A scripted test: simulated-caller persona and goal, plus a rubric | Rubric items are `noul`/`score` questions with thresholds |
-| **Test run** | Running a set of scenarios against one draft hash | Produces a verdict per scenario and overall |
+| **Scenario** | A scripted test: simulated-caller persona and goal, a required flag, a turn cap, plus a rubric | Part of the draft (the use case's defaults until saved). Rubric items are `noul` yes/no questions with the answer they expect; scores come later |
+| **Test run** | Running a set of scenarios against one draft hash | A job; a status per scenario, and one verdict: passed only if every required scenario passed |
 | **Audit event** | Append-only record of who did what and when | Kept for 5 years by default (rule pack) |
 
 ## 2. Lifecycles
@@ -59,18 +59,16 @@ Connecting ─► Greeting (locked disclosure) ─► Conversing ⇄ Agent speak
 | `workspaces` | id, name | One workspace in MVP; the column exists for multi-tenancy later |
 | `operators` | id, workspace_id, external_id, email | From Databricks SSO headers |
 | `agents` | id, workspace_id, name, use_case, jurisdiction, archived_at | |
-| `agent_drafts` | agent_id (PK), persona JSONB, plan JSONB, settings JSONB, rule_pack_id, rule_pack_version, content_hash, updated_at, updated_by | JSONB validated by domain types on every read and write |
+| `agent_drafts` | agent_id (PK), persona JSONB, plan JSONB, scenarios JSONB, settings JSONB, rule_pack_id, rule_pack_version, content_hash, updated_at, updated_by | JSONB validated by domain types on every read and write; `scenarios` is NULL until saved (M5) |
 | `agent_versions` | id, agent_id, number, snapshot JSONB, content_hash, test_run_id, created_by, created_at | Append-only; a DB trigger forbids UPDATE and DELETE |
 | `publications` | agent_id, channel, version_id, updated_at | One row per agent and channel |
 | `rule_packs` | id, version, jurisdiction, use_case, body JSONB | Later. Since M3 the packs are `contracts/rule-packs/*.toml`, embedded in the server (`vak-services`); immutable per version |
 | `templates` | id, use_case, body JSONB | Later. Since M3 the starting plan per use case is domain code (`Plan::template`); the draft stores a plan only once it is saved (`agent_drafts.plan`) |
-| `test_scenarios` | id, agent_id, name, persona JSONB, rubric JSONB, required | |
-| `test_runs` | id, agent_id, draft_hash, status, verdict, started_at, finished_at | |
-| `test_results` | test_run_id, scenario_id, session_id, scores JSONB, passed | |
+| `test_runs` | id, agent_id, created_by, draft_hash, status, verdict, llm_model, decision_model, seed, scenarios JSONB, revision, created_at, started_at, finished_at | M5. Each scenario's definition, status, transcript and rubric checks live in `scenarios`; one queued or running run per agent (a partial unique index). Scenarios themselves are part of the draft (`agent_drafts.scenarios`), not a table |
 | `sessions` | id, agent_id, version_id or draft_hash, mode, started_at, ended_at, outcome, metrics JSONB | |
 | `turns` | session_id, idx, speaker, text, plan_node, timings JSONB, decisions JSONB | Retention per rule pack |
 | `audit_events` | id, at, actor, action, entity, entity_id, details JSONB | Append-only (trigger) |
-| `jobs` | apalis-postgres tables | Test runs and retention sweeps run as jobs |
+| `jobs` | apalis-postgres tables | Later. Since M5 test runs are their own job rows (`test_runs.status = 'queued'`), claimed by an in-process worker |
 
 Later: `contacts`, `consents`, `dnc_entries`, `campaigns`, `call_attempts`, `phone_numbers`.
 
@@ -87,8 +85,8 @@ The REST API is documented in `contracts/openapi.json`. Errors follow RFC 9457 (
 | Plan | `GET /agents/{id}/plan`, `PUT /agents/{id}/plan`, `POST /agents/{id}/plan/validate` |
 | Live test | `POST /agents/{id}/sessions` returns a session ID and media URL; `GET /sessions/{id}`; `GET /sessions/{id}/turns` |
 | Voice | `GET /voice/latency`: per-stage latency histograms (STT, the opt-out decision, LLM time to first token, TTS first audio, mouth-to-ear) with p50 and p95 |
-| Scenarios | `GET/POST /agents/{id}/scenarios`, `PUT/DELETE /scenarios/{id}` |
-| Test runs | `POST /agents/{id}/test-runs`, `GET /test-runs/{id}` |
+| Scenarios | `GET`, `PUT /agents/{id}/scenarios` (the whole set; the use case's defaults until saved) |
+| Test runs | `POST /test-runs` (`{agentId}`, 202), `GET /test-runs/{id}`, `POST /test-runs/{id}/cancel`, `GET /agents/{id}/test-runs` |
 | Publish | `GET /agents/{id}/versions`, `POST /agents/{id}/versions` (publish), `POST /agents/{id}/rollback`, `GET /agents/{id}/publications` |
 | Audit | `GET /audit?entity=&id=` |
 

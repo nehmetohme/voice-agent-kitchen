@@ -18,6 +18,14 @@ impl Speaker {
             Self::Agent => "agent",
         }
     }
+
+    /// The speaker with this wire name.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        [Self::Caller, Self::Agent]
+            .into_iter()
+            .find(|speaker| speaker.as_str() == raw)
+    }
 }
 
 /// Which of the three opt-out layers caught the caller's request not to be contacted.
@@ -58,5 +66,8 @@ mod tests {
     fn speakers_have_wire_names() {
         assert_eq!(Speaker::Caller.as_str(), "caller");
         assert_eq!(Speaker::Agent.as_str(), "agent");
+        assert_eq!(Speaker::parse("caller"), Some(Speaker::Caller));
+        assert_eq!(Speaker::parse("agent"), Some(Speaker::Agent));
+        assert_eq!(Speaker::parse("bot"), None);
     }
 }
