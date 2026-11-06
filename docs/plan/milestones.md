@@ -78,6 +78,7 @@ Exit: an agent created from each template has a valid plan; progress shows 50%.
 |---|---|
 | Pipeline (simulated time, fake engines) | Locked disclosure is spoken first; barge-in stops agent audio within 1 frame and cancels the LLM; turn order preserved; per-stage timings recorded |
 | Pipeline | Opt-out: each of the three layers alone ends the session; a decision timeout never suppresses an opt-out |
+| Pipeline (`opt-out-confirm`, after the first live call) | Confirm when unsure: a decision score from 0.3 up to 0.8 asks a check question instead of ending the call; a clear yes ends it, anything else carries on |
 | Pipeline | Plan routing: the decision picks the edge; low confidence falls back to an LLM tool call |
 | Media protocol | `vak.media.v1` event schemas, checked on server and client |
 | Adapters | Each adapter passes its port's shared contract suite against wiremock and the local servers |

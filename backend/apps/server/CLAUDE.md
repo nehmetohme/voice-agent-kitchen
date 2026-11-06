@@ -36,7 +36,7 @@ Planned subcommand: `worker` (job queue).
 
 ## Testing
 
-- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers, that `/api/v1` needs an identity unless a dev operator is set, and that serve returns after shutdown. The pool connects lazily, so these need no database. `voice::engines` is tested on settings: every model set turns voice on, a missing one turns it off, and bad settings fail.
+- **Unit tests:** CLI parsing (`Cli::command().debug_assert()`), and serving on `127.0.0.1:0` with a shutdown trigger. Assert that `/health` answers, that `/api/v1` needs an identity unless a dev operator is set, and that serve returns after shutdown. The pool connects lazily, so these need no database. `voice::engines` is tested on settings: every model set turns voice on, a missing one turns it off, and bad settings fail. `catalog_voices_are_pinned_for_local_tts` reads `deploy/local/models.sh` (`include_str!`) and fails when a voice of the domain catalog has no pinned file beside the Kokoro weights: offline, mlx-audio can't speak it, and the call fails before the disclosure.
 - **End-to-end with Postgres:** the frontend's Playwright run builds this binary, migrates a throwaway database and serves it (`frontend/e2e/support/backend-server.ts`).
 - **End-to-end:** a caller bot against the full Compose stack. These don't run here.
 

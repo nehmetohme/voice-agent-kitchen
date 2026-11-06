@@ -4,7 +4,10 @@
 //! Until rule packs (M3) carry per-jurisdiction disclosure text and opt-out phrases, and
 //! plans (M4b) carry per-node prompts, these defaults apply to every agent.
 
-use crate::{AgentDraft, DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES, UseCase};
+use crate::{
+    AgentDraft, DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION,
+    DEFAULT_OPT_OUT_PHRASES, UseCase,
+};
 
 /// The session-facing view of an agent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +73,13 @@ impl SessionScript {
     #[must_use]
     pub fn opt_out_confirmation(&self) -> &'static str {
         DEFAULT_OPT_OUT_CONFIRMATION
+    }
+
+    /// The question the agent asks when the decision model is unsure whether the caller
+    /// opted out.
+    #[must_use]
+    pub fn opt_out_check_question(&self) -> &'static str {
+        DEFAULT_OPT_OUT_CHECK_QUESTION
     }
 
     #[must_use]
@@ -141,6 +151,10 @@ mod tests {
         assert!(script.barge_in());
         assert_eq!(script.opt_out_phrases(), DEFAULT_OPT_OUT_PHRASES.as_slice());
         assert_eq!(script.opt_out_confirmation(), DEFAULT_OPT_OUT_CONFIRMATION);
+        assert_eq!(
+            script.opt_out_check_question(),
+            DEFAULT_OPT_OUT_CHECK_QUESTION
+        );
 
         let patient = draft(UseCase::Survey).apply(&DraftPatch {
             turn_detection: Some(TurnDetection::new(1_200, false).unwrap()),

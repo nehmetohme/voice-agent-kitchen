@@ -222,6 +222,7 @@ impl VoiceService {
                     script.opt_out_phrases().iter().copied(),
                     script.opt_out_confirmation(),
                 )
+                .with_check_question(script.opt_out_check_question())
                 .with_decision_wait(settings.decision_wait)
                 .with_decision_deadline(settings.decision_deadline),
             )

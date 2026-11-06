@@ -91,10 +91,30 @@ else
 fi
 
 # ---- Models, decisions and speech ---------------------------------------------------------
-if "$here/models.sh" --check >/dev/null 2>&1; then
+# models.sh --check names each missing file on stderr ("models: missing  <repo>/<file>"). A
+# missing Kokoro voice gets a line of its own: an agent using it fails before its disclosure.
+if report=$("$here/models.sh" --check 2>&1 >/dev/null); then
   ok models "all present and verified in $VAK_MODELS_DIR"
 else
-  fail models "missing or unverified in $VAK_MODELS_DIR" "just models-pull"
+  others=0
+  voices=0
+  while read -r _ state file; do
+    [ "$state" = missing ] || continue
+    case "$file" in
+      */voices/*.safetensors)
+        voice=${file##*/}
+        voices=$((voices + 1))
+        fail voice "${voice%.safetensors} is not downloaded: calls with it fail before the disclosure" \
+          "just models-pull (mlx-audio loads it on the next call, no restart)"
+        ;;
+      *) others=$((others + 1)) ;;
+    esac
+  done <<<"$report"
+  if [ "$others" -gt 0 ]; then
+    fail models "$others file(s) missing or unverified in $VAK_MODELS_DIR" "just models-pull"
+  elif [ "$voices" -eq 0 ]; then
+    fail models "models.sh --check failed: $(tail -1 <<<"$report")" "just models-pull"
+  fi
 fi
 if have llama-server; then
   bin=$(command -v llama-server)

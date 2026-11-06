@@ -24,6 +24,7 @@ pub(crate) const STAGE_CAPACITY: usize = 64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Synthesis {
     Disclosure,
+    Check,
     Confirmation,
     Clause { reply: u64, index: usize },
 }

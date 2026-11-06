@@ -18,6 +18,12 @@ pub const DEFAULT_OPT_OUT_PHRASES: [&str; 9] = [
 /// What the agent says before it ends a session on an opt-out, until rule packs supply it.
 pub const DEFAULT_OPT_OUT_CONFIRMATION: &str = "Understood. You won't be contacted again. Goodbye.";
 
+/// What the agent asks when the decision model is unsure whether the caller opted out (its
+/// score is in the confirm band), until rule packs supply it. A yes/no question, so that the
+/// caller's answer settles it (`contracts/decisions/README.md`).
+pub const DEFAULT_OPT_OUT_CHECK_QUESTION: &str =
+    "Just to confirm, do you want us to stop contacting you?";
+
 /// Phrases that end a session when the caller says one. Matching ignores case and
 /// punctuation and respects word boundaries: "stop calling" matches "Please, STOP calling!"
 /// but not "nonstop callings".
@@ -114,5 +120,6 @@ mod tests {
         }
         assert!(!phrases.matches("Can I book a table for two?"));
         assert!(DEFAULT_OPT_OUT_CONFIRMATION.ends_with("Goodbye."));
+        assert!(DEFAULT_OPT_OUT_CHECK_QUESTION.ends_with('?'));
     }
 }
