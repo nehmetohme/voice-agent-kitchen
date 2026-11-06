@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT v.definition AS \"definition: Json<DefinitionRecord>\", v.content_hash,\n                      v.created_at AS \"created_at: jiff_sqlx::Timestamp\"\n               FROM purpose_versions v JOIN purposes p ON p.id = v.purpose_id\n               WHERE v.purpose_id = $1 AND v.version = $2 AND p.workspace_id = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "definition: Json<DefinitionRecord>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "definition"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "content_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "content_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a8f1bdc74c66591d6d2788838f54797e0a1ee0bf89cb1fffb3788a3e49efc058"
+}

@@ -8,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::state::AppState;
-use crate::{agents, catalog, health, latency, plans, scenarios, sessions, test_runs};
+use crate::{agents, catalog, health, latency, plans, purposes, scenarios, sessions, test_runs};
 
 /// Document-level metadata. Paths and schemas come from the routes themselves.
 #[derive(OpenApi)]
@@ -23,7 +23,8 @@ use crate::{agents, catalog, health, latency, plans, scenarios, sessions, test_r
         (name = "health", description = "Process liveness"),
         (name = "agents", description = "Create, list, edit (autosave) and archive agents"),
         (name = "plans", description = "An agent's plan: steps and paths, checked against its rule pack"),
-        (name = "catalog", description = "The voices and languages an agent can use"),
+        (name = "purposes", description = "What agents are for and how they may work: versioned definitions with a starting flow, tools, guardrails and tighten-only compliance additions"),
+        (name = "catalog", description = "The voices, languages and tools agents can use"),
         (name = "sessions", description = "Live test calls: a session and its media WebSocket \
             (subprotocol `vak.media.v1`, `contracts/media/`)"),
         (name = "voice", description = "The voice path's latency"),
@@ -63,6 +64,8 @@ pub(crate) fn v1() -> OpenApiRouter<AppState> {
         .routes(routes!(agents::create, agents::list))
         .routes(routes!(agents::get, agents::update, agents::archive))
         .routes(routes!(agents::progress))
+        .routes(routes!(agents::purpose))
+        .routes(routes!(agents::update_purpose))
         .merge(
             OpenApiRouter::new()
                 .routes(routes!(plans::get, plans::save))
@@ -70,8 +73,18 @@ pub(crate) fn v1() -> OpenApiRouter<AppState> {
                 // Plans are larger than the other bodies; this limit replaces the default.
                 .layer(DefaultBodyLimit::max(plans::BODY_LIMIT)),
         )
+        .merge(
+            OpenApiRouter::new()
+                .routes(routes!(purposes::list, purposes::create))
+                .routes(routes!(purposes::get, purposes::update))
+                .routes(routes!(purposes::flow, purposes::save_flow))
+                .routes(routes!(purposes::save_version))
+                // A purpose's flow is as large as a plan.
+                .layer(DefaultBodyLimit::max(purposes::BODY_LIMIT)),
+        )
         .routes(routes!(catalog::voices))
         .routes(routes!(catalog::languages))
+        .routes(routes!(catalog::tools))
         .routes(routes!(sessions::start))
         .routes(routes!(latency::get))
         .routes(routes!(scenarios::get, scenarios::save))

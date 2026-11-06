@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id, p.draft AS \"draft: _\", p.draft_hash, p.revision,\n                      p.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      p.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      p.latest_version,\n                      v.definition AS \"latest?: _\", v.content_hash AS \"latest_hash?\",\n                      v.created_at AS \"latest_at?: jiff_sqlx::Timestamp\"\n               FROM purposes p\n               LEFT JOIN purpose_versions v\n                      ON v.purpose_id = p.id AND v.version = p.latest_version\n               WHERE p.id = $1 AND p.workspace_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "draft: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "draft"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "draft_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "draft_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "latest_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "purposes",
+            "name": "latest_version"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "latest?: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "definition"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "latest_hash?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "content_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "latest_at?: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "purpose_versions",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "6d4f2d83970d2d6d802a412d601926b957a40419feb7c1e8d96a889ce9db0b92"
+}

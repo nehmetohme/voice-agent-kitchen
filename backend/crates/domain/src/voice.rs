@@ -1,12 +1,15 @@
-//! What a voice session takes from an agent's draft: its locked opening line, its
-//! instructions, its voice and how it takes turns.
+//! What a voice session takes from an agent's draft and its pinned purpose version: its
+//! locked opening line, its instructions, its voice, how it takes turns, its opt-out phrases
+//! and how long a call may last.
 //!
-//! Until rule packs (M3) carry per-jurisdiction disclosure text and opt-out phrases, and
-//! plans (M4b) carry per-node prompts, these defaults apply to every agent.
+//! The purpose's persona, guardrails and tool descriptions are compiled into the LLM
+//! instructions, so test calls follow them now; enforcing them with the decision engine and
+//! running the tools is M4b. Until rule packs carry per-jurisdiction disclosure text and
+//! opt-out phrases into calls (M4b), the platform defaults apply to every agent.
 
 use crate::{
-    AgentDraft, DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION,
-    DEFAULT_OPT_OUT_PHRASES, PurposeDefinition, UseCase,
+    AgentDraft, BuiltinTool, DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION,
+    DEFAULT_OPT_OUT_PHRASES, PurposeDefinition, PurposeVersion,
 };
 
 /// The session-facing view of an agent.
@@ -22,50 +25,45 @@ pub struct SessionScript {
 }
 
 impl SessionScript {
-    /// The script of an agent with this draft.
+    /// The script of an agent with this draft on its use case's system purpose: the
+    /// instructions every agent had before purposes existed.
     #[must_use]
     pub fn for_draft(draft: &AgentDraft) -> Self {
+        let system = PurposeVersion::system(draft.persona().use_case());
+        Self::for_agent(draft, system.definition())
+    }
+
+    /// The script of an agent with this draft and its pinned purpose version: the purpose's
+    /// persona follows who the agent is, and its guardrails, tool descriptions, extra opt-out
+    /// phrases and call length are added. A system purpose gives exactly
+    /// [`SessionScript::for_draft`].
+    #[must_use]
+    pub fn for_agent(draft: &AgentDraft, purpose: &PurposeDefinition) -> Self {
         let persona = draft.persona();
         let name = persona.name().as_str();
         let turns = draft.settings().turn_detection();
+        let mut opt_out_phrases: Vec<String> = DEFAULT_OPT_OUT_PHRASES
+            .iter()
+            .map(|phrase| (*phrase).to_owned())
+            .collect();
+        for phrase in purpose.additions().opt_out_phrases() {
+            if !opt_out_phrases.contains(phrase) {
+                opt_out_phrases.push(phrase.clone());
+            }
+        }
         Self {
             // Who is calling, that it is an AI, and that the call may be recorded: first,
             // and word for word (research 04, C9 and C11).
             disclosure: format!(
                 "Hi, this is {name}, an automated AI assistant. This call may be recorded."
             ),
-            instructions: format!(
-                "You are {name}, an AI voice assistant. Your job: {}. Speak {}. You are an AI: \
-                 never claim to be human, and say so if asked. Never make up facts, prices or \
-                 availability; offer to take a message instead.",
-                purpose(persona.use_case()),
-                language_name(persona.language().as_str()),
-            ),
+            instructions: instructions(name, language_name(persona.language().as_str()), purpose),
             voice: persona.voice().as_str(),
             end_of_turn_silence_ms: turns.silence_ms(),
             barge_in: turns.barge_in(),
-            opt_out_phrases: DEFAULT_OPT_OUT_PHRASES
-                .iter()
-                .map(|phrase| (*phrase).to_owned())
-                .collect(),
-            max_call_minutes: 30,
+            opt_out_phrases,
+            max_call_minutes: purpose.guardrails().max_call_minutes(),
         }
-    }
-
-    /// The script of an agent with this draft and its pinned purpose version: the purpose's
-    /// persona replaces the use-case sentence, and its guardrails, tool descriptions, extra
-    /// opt-out phrases and call length are added. A system purpose gives exactly
-    /// [`SessionScript::for_draft`].
-    #[must_use]
-    pub fn for_agent(draft: &AgentDraft, purpose: &PurposeDefinition) -> Self {
-        let _ = purpose;
-        Self::for_draft(draft)
-    }
-
-    /// The longest call, in minutes.
-    #[must_use]
-    pub fn max_call_minutes(&self) -> u32 {
-        self.max_call_minutes
     }
 
     /// The locked opening line: spoken first, unchanged, uninterruptible.
@@ -86,7 +84,8 @@ impl SessionScript {
         self.voice
     }
 
-    /// Phrases that end the session when the caller says one.
+    /// Phrases that end the session when the caller says one: the platform's, then the
+    /// purpose's extra ones.
     #[must_use]
     pub fn opt_out_phrases(&self) -> &[String] {
         &self.opt_out_phrases
@@ -114,19 +113,101 @@ impl SessionScript {
     pub const fn barge_in(&self) -> bool {
         self.barge_in
     }
+
+    /// The longest call, in minutes: the purpose's limit.
+    #[must_use]
+    pub fn max_call_minutes(&self) -> u32 {
+        self.max_call_minutes
+    }
 }
 
-const fn purpose(use_case: UseCase) -> &'static str {
-    match use_case {
-        UseCase::Support => "answer customers' questions and help solve their problems",
-        UseCase::Service => "handle account and order requests: changes, status and billing",
-        UseCase::Booking => "book, move and cancel appointments",
-        UseCase::Survey => "ask the survey's questions one at a time and note the answers",
-        UseCase::Telemarketing => {
-            "present the offer briefly and honestly, and respect a no at once"
-        }
-        UseCase::Custom => "help the caller with what they need",
+/// Who the agent is and how it behaves, then one line per guardrail the purpose sets. A
+/// purpose without guardrails or tools adds nothing.
+fn instructions(name: &str, language: &str, purpose: &PurposeDefinition) -> String {
+    let persona = match purpose.persona() {
+        "" => String::new(),
+        persona => format!(" {persona}"),
+    };
+    let mut text = format!(
+        "You are {name}, an AI voice assistant.{persona} Speak {language}. You are an AI: never \
+         claim to be human, and say so if asked. Never make up facts, prices or availability; \
+         offer to take a message instead."
+    );
+    let rules = guardrail_lines(purpose);
+    if !rules.is_empty() {
+        text.push_str("\n\n");
+        text.push_str(&rules.join("\n"));
     }
+    text
+}
+
+fn guardrail_lines(purpose: &PurposeDefinition) -> Vec<String> {
+    let guardrails = purpose.guardrails();
+    let mut lines = Vec::new();
+    if !guardrails.allowed_topics().is_empty() {
+        lines.push(format!(
+            "Only help with: {}. If the caller asks about anything else, say briefly that you \
+             can't help with that on this call, and steer back.",
+            guardrails.allowed_topics().join("; ")
+        ));
+    }
+    let never: Vec<&str> = guardrails
+        .never()
+        .iter()
+        .chain(purpose.additions().forbidden_claims())
+        .map(String::as_str)
+        .collect();
+    if !never.is_empty() {
+        lines.push(format!(
+            "Never do or say any of these: {}.",
+            never.join("; ")
+        ));
+    }
+    if !guardrails.never_ask().is_empty() {
+        let kinds: Vec<&str> = guardrails
+            .never_ask()
+            .iter()
+            .map(|kind| kind.description())
+            .collect();
+        lines.push(format!(
+            "Never ask the caller for {}. If they start to give one, stop them politely and say \
+             you don't need it.",
+            kinds.join(", ")
+        ));
+    }
+    let tools = purpose.tools();
+    let mut actions: Vec<String> = tools
+        .builtins()
+        .iter()
+        .filter(|tool| **tool != BuiltinTool::MarkDoNotCall)
+        .map(|tool| format!("{} ({})", tool.name(), tool.description()))
+        .collect();
+    actions.extend(
+        tools
+            .http()
+            .iter()
+            .map(|tool| format!("{} ({})", tool.name().as_str(), tool.description())),
+    );
+    if !actions.is_empty() {
+        lines.push(format!(
+            "Actions you can offer, not connected in test calls yet, so say what you would do \
+             instead: {}.",
+            actions.join("; ")
+        ));
+    }
+    let confirm: Vec<&str> = tools
+        .http()
+        .iter()
+        .filter(|tool| tool.confirm())
+        .map(|tool| tool.name().as_str())
+        .collect();
+    if !confirm.is_empty() {
+        lines.push(format!(
+            "Ask the caller before you use {}.",
+            confirm.join(" or ")
+        ));
+    }
+    lines
 }
 
 fn language_name(tag: &str) -> &'static str {
@@ -140,7 +221,7 @@ fn language_name(tag: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentName, DraftPatch, TurnDetection, VoiceId};
+    use crate::{AgentName, DraftPatch, TurnDetection, UseCase, VoiceId};
 
     fn draft(use_case: UseCase) -> AgentDraft {
         AgentDraft::new(
@@ -178,6 +259,7 @@ mod tests {
             script.opt_out_check_question(),
             DEFAULT_OPT_OUT_CHECK_QUESTION
         );
+        assert_eq!(script.max_call_minutes(), 30);
 
         let patient = draft(UseCase::Survey).apply(&DraftPatch {
             turn_detection: Some(TurnDetection::new(1_200, false).unwrap()),
@@ -189,10 +271,19 @@ mod tests {
     }
 
     #[test]
-    fn every_use_case_has_a_purpose() {
-        for use_case in UseCase::ALL {
-            assert!(!purpose(use_case).is_empty(), "{use_case:?}");
-        }
+    fn a_purpose_without_a_persona_still_says_who_the_agent_is() {
+        let system = PurposeVersion::system(UseCase::Custom);
+        let mut spec = system.definition().to_spec();
+        spec.persona = String::new();
+        let silent = PurposeDefinition::new(spec).unwrap();
+
+        let script = SessionScript::for_agent(&draft(UseCase::Custom), &silent);
+
+        assert!(
+            script
+                .instructions()
+                .starts_with("You are Ava, an AI voice assistant. Speak English.")
+        );
         assert_eq!(language_name("en-GB"), "English");
         assert_eq!(language_name("fr-FR"), "the caller's language");
     }

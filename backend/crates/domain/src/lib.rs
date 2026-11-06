@@ -68,9 +68,9 @@ pub use purpose::{
     EffectiveCompliance, EscalationAction, EscalationRule, GuardrailError, Guardrails,
     GuardrailsSpec, HttpMethod, HttpTool, HttpToolSpec, ParamKind, PersonalData, PlanOnUpdate,
     Purpose, PurposeChange, PurposeChoice, PurposeDefinition, PurposeError, PurposeName,
-    PurposeNameError, PurposeProblem, PurposeRef, PurposeSpec, PurposeTools, PurposeUpdate,
-    PurposeVersion, SecretRef, ToolError, ToolHosts, ToolInputs, ToolName, ToolParam, ToolUrl,
-    UrlError,
+    PurposeNameError, PurposePatch, PurposeProblem, PurposeRef, PurposeSpec, PurposeTools,
+    PurposeUpdate, PurposeVersion, SecretRef, ToolError, ToolHosts, ToolInputs, ToolName,
+    ToolParam, ToolUrl, UrlError,
 };
 pub use rule_pack::{
     LockedText, Retention, RulePack, RulePackCatalog, RulePackError, RulePackRef, RulePackRefError,

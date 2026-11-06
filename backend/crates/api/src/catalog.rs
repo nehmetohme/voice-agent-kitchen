@@ -1,12 +1,14 @@
 //! `/api/v1/catalog`: the voices and languages operators choose from.
 
 use axum::Json;
+use axum::extract::State;
 use serde::Serialize;
 use utoipa::ToSchema;
 use vak_domain::catalog::{LanguageInfo, VoiceInfo};
 use vak_services::catalog;
 
 use crate::problem::Problem;
+use crate::state::AppState;
 
 /// A voice the agent can speak with.
 #[derive(Debug, Serialize, ToSchema)]
@@ -106,4 +108,22 @@ pub(crate) async fn languages() -> Json<LanguageListDto> {
     Json(LanguageListDto {
         items: catalog::languages().iter().map(LanguageDto::from).collect(),
     })
+}
+
+/// The built-in tools purposes can turn on, and the hosts their HTTP tools may call.
+#[utoipa::path(
+    get,
+    path = "/catalog/tools",
+    operation_id = "listTools",
+    tag = "catalog",
+    responses(
+        (status = OK, description = "Built-in tools and the tool host allow-list", body = crate::purposes::dto::ToolCatalogDto),
+        (status = UNAUTHORIZED, description = "No signed-in operator", body = Problem, content_type = "application/problem+json"),
+    ),
+    security(("databricksApps" = []))
+)]
+pub(crate) async fn tools(
+    State(state): State<AppState>,
+) -> Json<crate::purposes::dto::ToolCatalogDto> {
+    Json((&state.purposes.tool_catalog()).into())
 }

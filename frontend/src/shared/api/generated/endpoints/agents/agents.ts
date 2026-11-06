@@ -23,11 +23,13 @@ import type {
 import {
   Agent,
   AgentList,
+  AgentPurpose,
   SetupProgress
 } from '../../model';
 import type {
   CreateAgentRequest,
   Problem,
+  UpdateAgentPurposeInput,
   UpdateAgentRequest
 } from '../../model';
 
@@ -684,6 +686,231 @@ export function useGetAgentProgress<TData = Awaited<ReturnType<typeof getAgentPr
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetAgentProgressQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getGetAgentPurposeUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/agents/${id}/purpose`
+}
+
+/**
+ * @summary The purpose version the agent pins, and the update to a newer one with what it changes.
+ */
+export const getAgentPurpose = async (id: string, options?: Parameters<typeof http>[1]): Promise<AgentPurpose> => {
+
+  return http<AgentPurpose>(getGetAgentPurposeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+    ,
+    schema: AgentPurpose
+  }
+);}
+
+
+
+
+
+export const getGetAgentPurposeQueryKey = (id: string,) => {
+    return [
+    `/api/v1/agents/${id}/purpose`
+    ] as const;
+    }
+
+
+export const getGetAgentPurposeQueryOptions = <TData = Awaited<ReturnType<typeof getAgentPurpose>>, TError = Problem>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAgentPurposeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentPurpose>>> = ({ signal }) => getAgentPurpose(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAgentPurposeQueryResult = NonNullable<Awaited<ReturnType<typeof getAgentPurpose>>>
+export type GetAgentPurposeQueryError = Problem
+
+
+export function useGetAgentPurpose<TData = Awaited<ReturnType<typeof getAgentPurpose>>, TError = Problem>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAgentPurpose>>,
+          TError,
+          Awaited<ReturnType<typeof getAgentPurpose>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAgentPurpose<TData = Awaited<ReturnType<typeof getAgentPurpose>>, TError = Problem>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAgentPurpose>>,
+          TError,
+          Awaited<ReturnType<typeof getAgentPurpose>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAgentPurpose<TData = Awaited<ReturnType<typeof getAgentPurpose>>, TError = Problem>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The purpose version the agent pins, and the update to a newer one with what it changes.
+ */
+
+export function useGetAgentPurpose<TData = Awaited<ReturnType<typeof getAgentPurpose>>, TError = Problem>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAgentPurposeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getUpdateAgentPurposeUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/agents/${id}/purpose/update`
+}
+
+/**
+ * @summary Move the agent to another version of its purpose. A plan with the operator's own edits is
+kept unless `replacePlan` is set.
+ */
+export const updateAgentPurpose = async (id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options?: Parameters<typeof http>[1]): Promise<AgentPurpose> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return http<AgentPurpose>(getUpdateAgentPurposeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateAgentPurposeInput),
+    schema: AgentPurpose
+  }
+);}
+
+
+
+
+
+export const getUpdateAgentPurposeQueryKey = (id: string,
+    updateAgentPurposeInput?: UpdateAgentPurposeInput,) => {
+    return [
+    'POST', `/api/v1/agents/${id}/purpose/update`, updateAgentPurposeInput
+    ] as const;
+    }
+
+
+export const getUpdateAgentPurposeQueryOptions = <TData = Awaited<ReturnType<typeof updateAgentPurpose>>, TError = Problem>(id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getUpdateAgentPurposeQueryKey(id,updateAgentPurposeInput);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof updateAgentPurpose>>> = ({ signal }) => updateAgentPurpose(id,updateAgentPurposeInput, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type UpdateAgentPurposeQueryResult = NonNullable<Awaited<ReturnType<typeof updateAgentPurpose>>>
+export type UpdateAgentPurposeQueryError = Problem
+
+
+export function useUpdateAgentPurpose<TData = Awaited<ReturnType<typeof updateAgentPurpose>>, TError = Problem>(
+ id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof updateAgentPurpose>>,
+          TError,
+          Awaited<ReturnType<typeof updateAgentPurpose>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUpdateAgentPurpose<TData = Awaited<ReturnType<typeof updateAgentPurpose>>, TError = Problem>(
+ id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof updateAgentPurpose>>,
+          TError,
+          Awaited<ReturnType<typeof updateAgentPurpose>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUpdateAgentPurpose<TData = Awaited<ReturnType<typeof updateAgentPurpose>>, TError = Problem>(
+ id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Move the agent to another version of its purpose. A plan with the operator's own edits is
+kept unless `replacePlan` is set.
+ */
+
+export function useUpdateAgentPurpose<TData = Awaited<ReturnType<typeof updateAgentPurpose>>, TError = Problem>(
+ id: string,
+    updateAgentPurposeInput: UpdateAgentPurposeInput, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof updateAgentPurpose>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getUpdateAgentPurposeQueryOptions(id,updateAgentPurposeInput,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

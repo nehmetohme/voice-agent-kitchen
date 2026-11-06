@@ -50,9 +50,13 @@ impl ComplianceAdditions {
     /// Phrases are trimmed and lower-cased, claims trimmed; repeats are dropped. Caps are
     /// 1 to 36,500 days.
     pub fn new(spec: ComplianceAdditionsSpec) -> Result<Self, ComplianceError> {
+        let days_ok = |days: Option<u32>| days.is_none_or(|d| (1..=Self::MAX_DAYS).contains(&d));
+        if !days_ok(spec.recordings_days) || !days_ok(spec.transcripts_days) {
+            return Err(ComplianceError::InvalidRetention);
+        }
         Ok(Self {
-            opt_out_phrases: spec.opt_out_phrases,
-            forbidden_claims: spec.forbidden_claims,
+            opt_out_phrases: items(spec.opt_out_phrases, Self::MAX_PHRASE, true)?,
+            forbidden_claims: items(spec.forbidden_claims, Self::MAX_CLAIM, false)?,
             recordings_days: spec.recordings_days,
             transcripts_days: spec.transcripts_days,
         })
@@ -96,14 +100,22 @@ impl EffectiveCompliance {
     /// for the shorter of the pack's period and the cap.
     #[must_use]
     pub fn of(pack: &RulePack, additions: &ComplianceAdditions) -> Self {
-        let _ = additions;
+        let base = pack.retention();
+        let shorter =
+            |pack_days: u32, cap: Option<u32>| cap.map_or(pack_days, |cap| cap.min(pack_days));
+        let retention = Retention::new(
+            shorter(base.recordings_days(), additions.recordings_days),
+            shorter(base.transcripts_days(), additions.transcripts_days),
+            base.audit_days(),
+        )
+        .unwrap_or(base);
         Self {
             rule_pack: pack.reference().clone(),
-            locked: Vec::new(),
-            opt_out_phrases: Vec::new(),
-            opt_out_confirmation: String::new(),
-            forbidden_claims: Vec::new(),
-            retention: pack.retention(),
+            locked: pack.locked_texts().to_vec(),
+            opt_out_phrases: union(pack.opt_out_phrases(), &additions.opt_out_phrases),
+            opt_out_confirmation: pack.opt_out_confirmation().to_owned(),
+            forbidden_claims: union(pack.forbidden_claims(), &additions.forbidden_claims),
+            retention,
         }
     }
 
@@ -136,4 +148,43 @@ impl EffectiveCompliance {
     pub fn retention(&self) -> Retention {
         self.retention
     }
+}
+
+/// Trimmed items of 1 to `max` characters (lower-cased when `lower`), repeats dropped, at
+/// most [`ComplianceAdditions::MAX_ITEMS`].
+fn items(raw: Vec<String>, max: usize, lower: bool) -> Result<Vec<String>, ComplianceError> {
+    let mut kept: Vec<String> = Vec::new();
+    for item in raw {
+        let item = item.trim();
+        let item = if lower {
+            item.to_lowercase()
+        } else {
+            item.to_owned()
+        };
+        match item.chars().count() {
+            0 => return Err(ComplianceError::EmptyItem),
+            n if n > max => return Err(ComplianceError::ItemTooLong { max }),
+            _ => {}
+        }
+        if !kept.contains(&item) {
+            kept.push(item);
+        }
+    }
+    if kept.len() > ComplianceAdditions::MAX_ITEMS {
+        return Err(ComplianceError::TooManyItems {
+            max: ComplianceAdditions::MAX_ITEMS,
+        });
+    }
+    Ok(kept)
+}
+
+/// `base` as it is, then each of `extra` it doesn't have yet.
+fn union(base: &[String], extra: &[String]) -> Vec<String> {
+    let mut all = base.to_vec();
+    for item in extra {
+        if !all.contains(item) {
+            all.push(item.clone());
+        }
+    }
+    all
 }

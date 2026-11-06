@@ -1,8 +1,8 @@
 //! Moving an agent to another version of its purpose: what changes, and what happens to the
 //! agent's plan. An edited plan is never overwritten unless the operator asks.
 
-use super::{PurposeError, PurposeRef, PurposeVersion};
-use crate::{AgentDraft, DraftPatch, RulePackCatalog, UseCase};
+use super::{PurposeDefinition, PurposeError, PurposeRef, PurposeVersion};
+use crate::{AgentDraft, DraftPatch, RulePackCatalog, RulePackRef, UseCase};
 
 /// A part of a purpose that differs between two versions, in a fixed order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -87,14 +87,46 @@ impl PurposeUpdate {
         packs: &RulePackCatalog,
         replace_plan: bool,
     ) -> Result<Self, PurposeError> {
-        let _ = (draft, packs, replace_plan);
+        let (from, to) = (current.reference(), next.reference());
+        if from.id() != to.id() {
+            return Err(PurposeError::OtherPurpose);
+        }
+        if from == to {
+            return Err(PurposeError::SameVersion);
+        }
+        let locked_of = |pack: &RulePackRef| {
+            packs
+                .get(pack)
+                .map(|pack| pack.locked_texts().to_vec())
+                .unwrap_or_default()
+        };
+        let next_pack =
+            RulePackRef::for_agent(next.definition().compliance(), draft.jurisdiction());
+        let next_flow = next.definition().opened_flow(&locked_of(&next_pack));
+        let (plan, plan_edited, new_plan) = match draft.plan() {
+            None => (PlanOnUpdate::FollowsPurpose, false, None),
+            Some(saved)
+                if *saved
+                    == current
+                        .definition()
+                        .opened_flow(&locked_of(draft.rule_pack())) =>
+            {
+                (PlanOnUpdate::Replaced, false, Some(next_flow))
+            }
+            Some(_) if replace_plan => (PlanOnUpdate::ReplacedEdits, true, Some(next_flow)),
+            Some(_) => (PlanOnUpdate::KeptEdits, true, None),
+        };
         Ok(Self {
-            from: current.reference(),
-            to: next.reference(),
-            changes: Vec::new(),
-            plan: PlanOnUpdate::FollowsPurpose,
-            plan_edited: false,
-            patch: DraftPatch::default(),
+            from,
+            to,
+            changes: changes(current.definition(), next.definition()),
+            plan,
+            plan_edited,
+            patch: DraftPatch {
+                purpose: Some(next.choice()),
+                plan: new_plan,
+                ..DraftPatch::default()
+            },
         })
     }
 
@@ -130,4 +162,24 @@ impl PurposeUpdate {
     pub fn patch(&self) -> &DraftPatch {
         &self.patch
     }
+}
+
+/// What differs between two definitions, in [`PurposeChange`] order.
+fn changes(old: &PurposeDefinition, new: &PurposeDefinition) -> Vec<PurposeChange> {
+    [
+        (old.name() != new.name()).then_some(PurposeChange::Name),
+        (old.description() != new.description()).then_some(PurposeChange::Description),
+        (old.compliance() != new.compliance()).then_some(PurposeChange::ComplianceClass {
+            from: old.compliance(),
+            to: new.compliance(),
+        }),
+        (old.persona() != new.persona()).then_some(PurposeChange::Persona),
+        (old.flow() != new.flow()).then_some(PurposeChange::Flow),
+        (old.tools() != new.tools()).then_some(PurposeChange::Tools),
+        (old.guardrails() != new.guardrails()).then_some(PurposeChange::Guardrails),
+        (old.additions() != new.additions()).then_some(PurposeChange::ComplianceAdditions),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }

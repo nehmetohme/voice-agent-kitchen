@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.plan AS \"plan: _\", d.scenarios AS \"scenarios: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.id = $1 AND a.workspace_id = $2",
+  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.plan AS \"plan: _\", d.scenarios AS \"scenarios: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.purpose_id, d.purpose_version,\n                      d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.workspace_id = $1 AND a.archived_at IS NULL\n               ORDER BY a.updated_at DESC, a.id DESC\n               LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -159,6 +159,28 @@
       },
       {
         "ordinal": 14,
+        "name": "purpose_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "agent_drafts",
+            "name": "purpose_id"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "purpose_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "agent_drafts",
+            "name": "purpose_version"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
         "name": "content_hash",
         "type_info": "Text",
         "origin": {
@@ -172,7 +194,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Int8"
       ]
     },
     "nullable": [
@@ -190,8 +212,10 @@
       true,
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "f9d9713ffd068cfe258e8a7c9d4d4c18b9c0779fab30aa5e1539d508f9a633b9"
+  "hash": "feadd1262318d8269007b6baecc9097f9b3d290653186adcd358f6bb849f3279"
 }

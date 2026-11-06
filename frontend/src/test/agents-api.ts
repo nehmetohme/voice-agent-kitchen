@@ -4,6 +4,15 @@
 import { HttpResponse, http } from 'msw';
 
 export const AGENT_ID = '01920000-0000-7000-8000-000000000001';
+/** The built-in purpose of each use case, as the server names them. */
+export const SYSTEM_PURPOSE_IDS = {
+  support: '019a0000-0000-7000-8000-000000000001',
+  service: '019a0000-0000-7000-8000-000000000002',
+  booking: '019a0000-0000-7000-8000-000000000003',
+  survey: '019a0000-0000-7000-8000-000000000004',
+  telemarketing: '019a0000-0000-7000-8000-000000000005',
+  custom: '019a0000-0000-7000-8000-000000000006',
+} as const;
 
 export function agentBody(overrides: Record<string, unknown> = {}) {
   return {
@@ -14,6 +23,7 @@ export function agentBody(overrides: Record<string, unknown> = {}) {
     language: 'en-US',
     jurisdiction: 'US',
     rulePack: { id: 'us-support', version: 1 },
+    purpose: { id: SYSTEM_PURPOSE_IDS.support as string, version: 1, system: true },
     model: 'balanced' as const,
     turnDetection: { silenceMs: 500, bargeIn: true },
     draftHash: `sha256:${'a'.repeat(64)}`,
@@ -83,10 +93,11 @@ export function fakeAgentsApi(initial: AgentBody[] = []) {
       HttpResponse.json({
         items: [...agents.values()]
           .filter((agent) => agent.archivedAt === null)
-          .map(({ id, name, useCase, voice, updatedAt }) => ({
+          .map(({ id, name, useCase, purpose, voice, updatedAt }) => ({
             id,
             name,
             useCase,
+            purpose,
             voice,
             updatedAt,
             progressPercent: 25,

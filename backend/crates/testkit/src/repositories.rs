@@ -2,12 +2,14 @@
 
 mod agent_conformance;
 mod agents;
+mod purpose_conformance;
 mod purposes;
 mod test_run_conformance;
 mod test_runs;
 
 pub use agent_conformance::{AuditRow, agent_repo_conformance};
 pub use agents::InMemoryAgentRepo;
+pub use purpose_conformance::purpose_repo_conformance;
 pub use purposes::InMemoryPurposeRepo;
 pub use test_run_conformance::test_run_repo_conformance;
 pub use test_runs::InMemoryTestRunRepo;
@@ -39,5 +41,10 @@ mod tests {
             &InMemoryTestRunRepo::default(),
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn the_in_memory_purpose_repo_conforms() {
+        purpose_repo_conformance(&InMemoryPurposeRepo::default()).await;
     }
 }

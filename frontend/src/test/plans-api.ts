@@ -110,3 +110,31 @@ export function fakePlansApi(agentId: string, validate = exitsOnly) {
   ];
   return { handlers, saves };
 }
+
+/**
+ * Handlers over one purpose's starting flow (`/purposes/:id/flow`): always saved, and its
+ * greeting without the locked texts, which each agent's pack puts in front.
+ */
+export function fakePurposeFlowApi(purposeId: string) {
+  let stored: { nodes: FakeStep[]; edges: FakePath[] } = templateBody();
+  for (const node of stored.nodes) {
+    if (node.kind === 'start') node.text = 'How can I help?';
+  }
+  const saves: unknown[] = [];
+  const handlers = [
+    http.get('*/api/v1/purposes/:id/flow', ({ params }) =>
+      params['id'] === purposeId
+        ? HttpResponse.json(planBody(stored, true, exitsOnly(stored)))
+        : problemResponse(404),
+    ),
+    http.put('*/api/v1/purposes/:id/flow', async ({ params, request }) => {
+      if (params['id'] !== purposeId) return problemResponse(404);
+      const body: unknown = await request.json();
+      if (!isPlan(body)) return problemResponse(422);
+      saves.push(body);
+      stored = body;
+      return HttpResponse.json(planBody(body, true, exitsOnly(body)));
+    }),
+  ];
+  return { handlers, saves };
+}

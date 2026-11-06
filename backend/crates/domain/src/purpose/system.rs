@@ -48,10 +48,24 @@ pub(super) fn definition(use_case: UseCase) -> PurposeDefinition {
         name: PurposeName::fixed(label(use_case)),
         description: String::new(),
         compliance: use_case,
-        persona: String::new(),
-        flow: Plan::default(),
+        persona: format!("Your job: {}.", job(use_case)),
+        flow: Plan::template(use_case, &[]),
         tools: PurposeTools::default(),
         guardrails: Guardrails::default(),
         additions: ComplianceAdditions::default(),
     })
+}
+
+/// What an agent of the use case does, as its instructions said before purposes existed.
+const fn job(use_case: UseCase) -> &'static str {
+    match use_case {
+        UseCase::Support => "answer customers' questions and help solve their problems",
+        UseCase::Service => "handle account and order requests: changes, status and billing",
+        UseCase::Booking => "book, move and cancel appointments",
+        UseCase::Survey => "ask the survey's questions one at a time and note the answers",
+        UseCase::Telemarketing => {
+            "present the offer briefly and honestly, and respect a no at once"
+        }
+        UseCase::Custom => "help the caller with what they need",
+    }
 }

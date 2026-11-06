@@ -2,30 +2,34 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useState, type SubmitEvent } from 'react';
 
 import { Button, buttonLook } from '../../../shared/ui/button';
+import { ChoiceField } from '../../../shared/ui/choice-field';
 import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { useCreateAgent } from '../state/agent-mutations';
-import { PURPOSES } from '../state/choices';
 import { LIMITS, fieldErrorsOf, type FieldErrors } from '../state/models';
 import { checkNewAgent } from '../state/new-agent';
+import { usePurposeChoices } from '../state/use-purpose-choices';
 import { useVoiceChoice } from '../state/use-voice-choice';
 
 /**
  * Create an agent with only the three things it needs (Tesler, TES-1): a name, a purpose and
- * a voice. The recommended voice is preselected; everything else has a server default.
+ * a voice. The recommended voice is preselected, and the purpose too when the page opens from
+ * one (`initialPurpose`); everything else has a server default. The purpose list grows with
+ * the workspace's purposes: past seven it is a searchable combobox (HICK-3).
  */
-export function CreateAgentPage() {
+export function CreateAgentPage({ initialPurpose }: { initialPurpose?: string | undefined }) {
   const navigate = useNavigate();
   const voice = useVoiceChoice();
   const create = useCreateAgent();
+  const purposes = usePurposeChoices();
   const [name, setName] = useState('');
-  const [purpose, setPurpose] = useState('');
+  const [purpose, setPurpose] = useState(initialPurpose ?? '');
   const [errors, setErrors] = useState<FieldErrors>({});
   const failedWithoutDetail = create.isError && Object.keys(errors).length === 0;
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const check = checkNewAgent({ name, purpose, voice: voice.value });
+    const check = checkNewAgent({ name, purpose, voice: voice.value }, purposes);
     setErrors(check.errors ?? {});
     if (check.agent === undefined) return;
     create.mutate(check.agent, {
@@ -59,13 +63,13 @@ export function CreateAgentPage() {
           autoComplete="off"
           required
         />
-        <SelectField
+        <ChoiceField
           label="Purpose"
           value={purpose}
           onValueChange={setPurpose}
-          options={PURPOSES}
+          options={purposes}
           placeholder="Choose a purpose"
-          error={errors.useCase}
+          error={errors.purpose}
         />
         <SelectField
           label="Voice"

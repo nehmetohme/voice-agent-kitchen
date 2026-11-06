@@ -40,6 +40,9 @@ pub const PROFILE_VAR: &str = "VAK_PROFILE";
 pub const DATABASE_URL_VAR: &str = "DATABASE_URL";
 /// Sets [`AuthSettings::dev_operator_email`]. Allowed only in the `local` profile.
 pub const DEV_OPERATOR_VAR: &str = "VAK_DEV_OPERATOR_EMAIL";
+/// Sets [`ToolSettings::hosts`]: comma-separated host names HTTP tools may call, e.g.
+/// `calendar.example.com,*.example.org`.
+pub const TOOL_HOSTS_VAR: &str = "VAK_TOOL_HOSTS";
 
 /// All settings, validated.
 #[derive(Clone, Debug, Default)]
@@ -51,6 +54,16 @@ pub struct Settings {
     pub auth: AuthSettings,
     /// The voice models; voice sessions run only when all are set.
     pub models: ModelSettings,
+    pub tools: ToolSettings,
+}
+
+/// What purposes' HTTP tools may reach.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ToolSettings {
+    /// The tool host allow-list from [`TOOL_HOSTS_VAR`], as given; the server checks each
+    /// entry. Empty (the default) allows no host. It bounds where agents may send call data,
+    /// so it is deployment configuration, not an operator setting.
+    pub hosts: Vec<String>,
 }
 
 /// Where the server runs. Switching profiles changes configuration only, never code.
@@ -184,6 +197,16 @@ impl Settings {
             settings.auth.dev_operator_email = Some(email);
         }
         settings.models = ModelSettings::from_values(&value)?;
+        settings.tools.hosts = value(TOOL_HOSTS_VAR)
+            .map(|hosts| {
+                hosts
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|host| !host.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(settings)
     }
 }
@@ -212,6 +235,19 @@ mod tests {
         assert_eq!(settings.log.filter, "info");
         assert!(settings.database.url.is_none());
         assert_eq!(settings.auth, AuthSettings::default());
+    }
+
+    #[test]
+    fn tool_hosts_are_a_comma_separated_list_and_none_by_default() {
+        let none = Settings::from_lookup(lookup(&[])).expect("valid");
+        let some = Settings::from_lookup(lookup(&[(
+            "VAK_TOOL_HOSTS",
+            " calendar.example.com, ,*.example.org ",
+        )]))
+        .expect("valid");
+
+        assert_eq!(none.tools, ToolSettings::default());
+        assert_eq!(some.tools.hosts, ["calendar.example.com", "*.example.org"]);
     }
 
     #[test]

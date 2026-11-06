@@ -170,12 +170,19 @@ impl AgentDraft {
     /// operator's work is kept and checked against the new pack.
     #[must_use]
     pub fn apply(&self, patch: &DraftPatch) -> Self {
+        let (use_case, purpose) = match (patch.purpose, patch.use_case) {
+            (Some(choice), _) => (choice.compliance(), choice.reference()),
+            (None, Some(use_case)) if use_case != self.persona.use_case => {
+                (use_case, PurposeRef::system(use_case))
+            }
+            (None, _) => (self.persona.use_case, self.purpose),
+        };
         let persona = Persona {
             name: patch
                 .name
                 .clone()
                 .unwrap_or_else(|| self.persona.name.clone()),
-            use_case: patch.use_case.unwrap_or(self.persona.use_case),
+            use_case,
             voice: patch.voice.unwrap_or(self.persona.voice),
             language: patch.language.unwrap_or(self.persona.language),
         };
@@ -202,7 +209,7 @@ impl AgentDraft {
             settings,
             plan: patch.plan.clone().or_else(|| self.plan.clone()),
             scenarios: patch.scenarios.clone().or_else(|| self.scenarios.clone()),
-            purpose: self.purpose,
+            purpose,
         }
     }
 
@@ -230,6 +237,7 @@ impl AgentDraft {
             ),
             (DraftField::Plan, self.plan != other.plan),
             (DraftField::Scenarios, self.scenarios != other.scenarios),
+            (DraftField::Purpose, self.purpose != other.purpose),
         ]
         .into_iter()
         .filter_map(|(field, changed)| changed.then_some(field))
@@ -246,7 +254,8 @@ impl AgentDraft {
     /// Length prefixes keep any value from forging another field. Changing this encoding
     /// changes every hash, so it carries a version. A saved plan adds its lines at the end, and
     /// saved scenarios theirs after it; a draft without them encodes exactly as before they
-    /// existed, so its hash is unchanged.
+    /// existed, so its hash is unchanged. The pinned purpose adds its lines last, unless it is
+    /// the use case's system purpose version 1, which every draft pinned before purposes existed.
     fn canonical_bytes(&self) -> Vec<u8> {
         let turn = self.settings.turn_detection();
         let fields: [(&str, String); 10] = [
@@ -293,6 +302,10 @@ impl AgentDraft {
                     scenario.version().as_str(),
                 );
             }
+        }
+        if self.purpose != PurposeRef::system(self.persona.use_case) {
+            line("purpose.id", &self.purpose.id().to_string());
+            line("purpose.version", &self.purpose.version().to_string());
         }
         bytes
     }
@@ -422,7 +435,8 @@ mod tests {
                 DraftField::UseCase,
                 DraftField::Voice,
                 DraftField::RulePack,
-                DraftField::Model
+                DraftField::Model,
+                DraftField::Purpose
             ]
         );
         assert_eq!(original.changed_fields(&original), []);

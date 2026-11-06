@@ -22,6 +22,7 @@ import type {
 
 import {
   LanguageList,
+  ToolCatalog,
   VoiceList
 } from '../../model';
 import type {
@@ -140,6 +141,107 @@ export function useListLanguages<TData = Awaited<ReturnType<typeof listLanguages
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListLanguagesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getListToolsUrl = () => {
+
+
+
+
+  return `/api/v1/catalog/tools`
+}
+
+/**
+ * @summary The built-in tools purposes can turn on, and the hosts their HTTP tools may call.
+ */
+export const listTools = async ( options?: Parameters<typeof http>[1]): Promise<ToolCatalog> => {
+
+  return http<ToolCatalog>(getListToolsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+    ,
+    schema: ToolCatalog
+  }
+);}
+
+
+
+
+
+export const getListToolsQueryKey = () => {
+    return [
+    `/api/v1/catalog/tools`
+    ] as const;
+    }
+
+
+export const getListToolsQueryOptions = <TData = Awaited<ReturnType<typeof listTools>>, TError = Problem>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>>, request?: SecondParameter<typeof http>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListToolsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTools>>> = ({ signal }) => listTools({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListToolsQueryResult = NonNullable<Awaited<ReturnType<typeof listTools>>>
+export type ListToolsQueryError = Problem
+
+
+export function useListTools<TData = Awaited<ReturnType<typeof listTools>>, TError = Problem>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTools>>,
+          TError,
+          Awaited<ReturnType<typeof listTools>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTools<TData = Awaited<ReturnType<typeof listTools>>, TError = Problem>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTools>>,
+          TError,
+          Awaited<ReturnType<typeof listTools>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTools<TData = Awaited<ReturnType<typeof listTools>>, TError = Problem>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The built-in tools purposes can turn on, and the hosts their HTTP tools may call.
+ */
+
+export function useListTools<TData = Awaited<ReturnType<typeof listTools>>, TError = Problem>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>>, request?: SecondParameter<typeof http>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListToolsQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -69,7 +69,7 @@ pub enum StartSessionError {
     VoiceUnavailable,
     #[error("too many voice sessions are running")]
     Busy,
-    #[error("agent storage is unavailable")]
+    #[error("agent or purpose storage is unavailable")]
     Unavailable(#[source] vak_repositories::RepoError),
 }
 
@@ -154,6 +154,13 @@ impl VoiceService {
         if self.inner.live.load(Ordering::SeqCst) >= self.inner.settings.max_live_sessions {
             return Err(StartSessionError::Busy);
         }
+        let purpose = self
+            .inner
+            .agents
+            .pinned_purpose(agent.draft())
+            .await
+            .map_err(StartSessionError::Unavailable)?;
+        let script = SessionScript::for_agent(agent.draft(), purpose.definition());
         let session_id = Uuid::now_v7().to_string();
         let mut tickets = self.tickets();
         let ttl = self.inner.settings.ticket_ttl;
@@ -162,7 +169,7 @@ impl VoiceService {
             session_id.clone(),
             Ticket {
                 owner: actor.user_id().to_owned(),
-                script: SessionScript::for_draft(agent.draft()),
+                script,
                 issued: Instant::now(),
             },
         );
@@ -227,7 +234,7 @@ impl VoiceService {
                 .with_decision_deadline(settings.decision_deadline),
             )
             .with_deadlines(settings.deadlines)
-            .with_max_duration(settings.max_duration)
+            .with_max_duration(max_duration(settings.max_duration, script))
             .with_observer(self.inner.latency.clone())
     }
 
@@ -237,6 +244,11 @@ impl VoiceService {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+/// The platform's cap, or the purpose's shorter call limit.
+fn max_duration(cap: Duration, script: &SessionScript) -> Duration {
+    cap.min(Duration::from_mins(u64::from(script.max_call_minutes())))
 }
 
 /// Counts a running session until it ends.

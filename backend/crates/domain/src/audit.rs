@@ -2,9 +2,7 @@
 
 use jiff::Timestamp;
 
-use crate::{
-    Actor, AgentId, AuditEventId, ContentHash, DraftField, PurposeId, PurposeRef, TestRunId,
-};
+use crate::{Actor, AgentId, AuditEventId, ContentHash, DraftField, PurposeId, TestRunId};
 
 /// What happened to an agent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,8 +97,11 @@ impl AuditEvent {
 /// What happened to a purpose of the workspace's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PurposeAuditAction {
-    /// The purpose was made as a copy of `source`.
-    Created { source: PurposeRef },
+    /// The purpose was made as a copy of `source`: of `version`, or of its draft.
+    Created {
+        source: PurposeId,
+        version: Option<u32>,
+    },
     /// The draft changed.
     DraftUpdated { draft_hash: ContentHash },
     /// The draft was saved as `version`.

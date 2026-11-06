@@ -15,6 +15,7 @@ struct State {
     versions: BTreeMap<PurposeRef, PurposeVersion>,
     audit: Vec<PurposeAuditEvent>,
     unavailable: bool,
+    conflicts: u32,
 }
 
 /// A [`PurposeRepo`] in memory. Clone the `Arc` you hand to a service to inspect it later.
@@ -36,6 +37,12 @@ impl InMemoryPurposeRepo {
         self.lock().versions.values().cloned().collect()
     }
 
+    /// The next `count` draft updates and version saves fail with [`RepoError::Conflict`], as if
+    /// another writer had saved first.
+    pub fn fail_next_updates_with_conflict(&self, count: u32) {
+        self.lock().conflicts = count;
+    }
+
     /// While `true`, every call fails with [`RepoError::Unavailable`].
     pub fn set_unavailable(&self, unavailable: bool) {
         self.lock().unavailable = unavailable;
@@ -53,6 +60,15 @@ impl InMemoryPurposeRepo {
             Ok(state)
         }
     }
+}
+
+/// Fails with a conflict while injected ones remain.
+fn take_conflict(state: &mut State) -> Result<(), RepoError> {
+    if state.conflicts == 0 {
+        return Ok(());
+    }
+    state.conflicts -= 1;
+    Err(RepoError::Conflict)
 }
 
 /// The stored purpose's revision, if it is `expected`.
@@ -131,6 +147,7 @@ impl PurposeRepo for InMemoryPurposeRepo {
     ) -> BoxFuture<'a, Result<Revision, RepoError>> {
         Box::pin(async move {
             let mut state = self.available()?;
+            take_conflict(&mut state)?;
             let next = check_revision(&state, purpose.id(), expected)?;
             state.purposes.insert(purpose.id(), (purpose.clone(), next));
             state.audit.push(event.clone());
@@ -147,6 +164,7 @@ impl PurposeRepo for InMemoryPurposeRepo {
     ) -> BoxFuture<'a, Result<Revision, RepoError>> {
         Box::pin(async move {
             let mut state = self.available()?;
+            take_conflict(&mut state)?;
             let next = check_revision(&state, purpose.id(), expected)?;
             if state.versions.contains_key(&version.reference()) {
                 return Err(RepoError::Conflict);

@@ -12,3 +12,4 @@ export type {
   SetupStep,
 } from '../api/agents-api';
 export { LIMITS } from '../api/request-checks';
+export type { PurposeUpdate } from '../api/purpose-api';

@@ -11,6 +11,34 @@ import { LockedOpening } from './locked-opening';
 import { STEP_KINDS } from './step-kinds';
 import { StepPaths } from './step-paths';
 
+/** A step's own toolbar (FITTS-5): edit it, add a path out, and delete it (not the start). */
+function StepActions({ step, editor }: { step: Step; editor: PlanEditor }) {
+  const { draft, view } = editor;
+  return (
+    <div data-region="actions" className="flex flex-wrap gap-2">
+      <EditStepDialog
+        step={step}
+        locked={view.lockedTexts}
+        onSave={(changes) => {
+          editor.updateStep(step.id, changes);
+        }}
+      />
+      <AddPathDialog from={step} steps={draft.steps} onAdd={editor.addPath} />
+      {step.kind !== 'start' && (
+        <ConfirmDialog
+          triggerLabel="Delete step"
+          title={`Delete ${step.label}?`}
+          description="The step and every path to and from it go."
+          confirmLabel="Delete"
+          onConfirm={() => {
+            editor.deleteStep(step.id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 /**
  * One step on the canvas: a named group (its label) with what the agent says, its paths, its
  * problems, and its own actions on its own toolbar (FITTS-5).
@@ -47,7 +75,7 @@ export function StepCard({ step, editor }: { step: Step; editor: PlanEditor }) {
         paths={paths}
         steps={draft.steps}
         problems={pathProblems}
-        onRemove={editor.deletePath}
+        onRemove={editor.readOnly ? undefined : editor.deletePath}
       />
       {problems.length > 0 && (
         <ul aria-label="Problems" className="flex flex-col gap-1">
@@ -59,27 +87,7 @@ export function StepCard({ step, editor }: { step: Step; editor: PlanEditor }) {
           ))}
         </ul>
       )}
-      <div data-region="actions" className="flex flex-wrap gap-2">
-        <EditStepDialog
-          step={step}
-          locked={view.lockedTexts}
-          onSave={(changes) => {
-            editor.updateStep(step.id, changes);
-          }}
-        />
-        <AddPathDialog from={step} steps={draft.steps} onAdd={editor.addPath} />
-        {!isStart && (
-          <ConfirmDialog
-            triggerLabel="Delete step"
-            title={`Delete ${step.label}?`}
-            description="The step and every path to and from it go."
-            confirmLabel="Delete"
-            onConfirm={() => {
-              editor.deleteStep(step.id);
-            }}
-          />
-        )}
-      </div>
+      {!editor.readOnly && <StepActions step={step} editor={editor} />}
     </fieldset>
   );
 }

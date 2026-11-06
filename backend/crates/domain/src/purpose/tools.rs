@@ -133,7 +133,15 @@ impl ToolName {
 
     /// Trims and lower-cases (Postel), then checks the identifier rules.
     pub fn parse(raw: &str) -> Result<Self, ToolError> {
-        Ok(Self(raw.trim().to_ascii_lowercase()))
+        let name = raw.trim().to_ascii_lowercase();
+        let mut bytes = name.bytes();
+        let starts_with_letter = bytes.next().is_some_and(|b| b.is_ascii_lowercase());
+        let rest_ok = bytes.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        if starts_with_letter && rest_ok && name.len() <= Self::MAX {
+            Ok(Self(name))
+        } else {
+            Err(ToolError::InvalidName)
+        }
     }
 
     #[must_use]
@@ -193,10 +201,14 @@ impl ToolParam {
         description: &str,
         required: bool,
     ) -> Result<Self, ToolError> {
+        let description = description.trim();
+        if description.chars().count() > Self::MAX_DESCRIPTION {
+            return Err(ToolError::InvalidDescription);
+        }
         Ok(Self {
             name,
             kind,
-            description: description.trim().to_owned(),
+            description: description.to_owned(),
             required,
         })
     }
@@ -234,6 +246,14 @@ impl ToolInputs {
 
     /// At most [`ToolInputs::MAX`] inputs, each name once.
     pub fn new(params: Vec<ToolParam>) -> Result<Self, ToolError> {
+        if params.len() > Self::MAX {
+            return Err(ToolError::TooManyInputs { max: Self::MAX });
+        }
+        if let Some(twice) = first_repeat(params.iter().map(ToolParam::name)) {
+            return Err(ToolError::DuplicateName {
+                name: twice.as_str().to_owned(),
+            });
+        }
         Ok(Self { params })
     }
 
@@ -290,11 +310,7 @@ impl ToolUrl {
     pub const MAX: usize = 2_048;
 
     pub fn parse(raw: &str) -> Result<Self, ToolError> {
-        let url = raw.trim().to_owned();
-        Ok(Self {
-            host: String::new(),
-            url,
-        })
+        parse_url(raw.trim()).map_err(ToolError::InvalidUrl)
     }
 
     #[must_use]
@@ -316,8 +332,19 @@ impl ToolUrl {
 pub struct SecretRef(String);
 
 impl SecretRef {
+    /// Longest name.
+    pub const MAX: usize = 64;
+
     pub fn parse(raw: &str) -> Result<Self, ToolError> {
-        Ok(Self(raw.trim().to_owned()))
+        let name = raw.trim();
+        let mut bytes = name.bytes();
+        let starts_with_letter = bytes.next().is_some_and(|b| b.is_ascii_alphabetic());
+        let rest_ok = bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+        if starts_with_letter && rest_ok && name.len() <= Self::MAX {
+            Ok(Self(name.to_owned()))
+        } else {
+            Err(ToolError::InvalidSecretRef)
+        }
     }
 
     #[must_use]
@@ -367,9 +394,19 @@ impl HttpTool {
     pub const MAX_DESCRIPTION: usize = 500;
 
     pub fn new(spec: HttpToolSpec) -> Result<Self, ToolError> {
+        let description = spec.description.trim();
+        if !(1..=Self::MAX_DESCRIPTION).contains(&description.chars().count()) {
+            return Err(ToolError::InvalidDescription);
+        }
+        if !(Self::MIN_TIMEOUT_MS..=Self::MAX_TIMEOUT_MS).contains(&spec.timeout_ms) {
+            return Err(ToolError::TimeoutOutOfRange {
+                min: Self::MIN_TIMEOUT_MS,
+                max: Self::MAX_TIMEOUT_MS,
+            });
+        }
         Ok(Self {
             name: spec.name,
-            description: spec.description,
+            description: description.to_owned(),
             inputs: spec.inputs,
             method: spec.method,
             url: spec.url,
@@ -448,10 +485,30 @@ impl PurposeTools {
         builtins: impl IntoIterator<Item = BuiltinTool>,
         http: Vec<HttpTool>,
     ) -> Result<Self, ToolError> {
-        Ok(Self {
-            builtins: builtins.into_iter().collect(),
-            http,
-        })
+        if http.len() > Self::MAX_HTTP {
+            return Err(ToolError::TooManyTools {
+                max: Self::MAX_HTTP,
+            });
+        }
+        if let Some(reserved) = http
+            .iter()
+            .find(|tool| BuiltinTool::parse(tool.name.as_str()).is_ok())
+        {
+            return Err(ToolError::ReservedName {
+                name: reserved.name.as_str().to_owned(),
+            });
+        }
+        if let Some(twice) = first_repeat(http.iter().map(HttpTool::name)) {
+            return Err(ToolError::DuplicateName {
+                name: twice.as_str().to_owned(),
+            });
+        }
+        let on: Vec<BuiltinTool> = builtins.into_iter().collect();
+        let builtins = BuiltinTool::ALL
+            .into_iter()
+            .filter(|tool| tool.locked() || on.contains(tool))
+            .collect();
+        Ok(Self { builtins, http })
     }
 
     /// The built-in tools turned on, in [`BuiltinTool::ALL`] order.
@@ -479,25 +536,132 @@ pub struct ToolHosts {
 }
 
 impl ToolHosts {
-    /// Entries are trimmed and lower-cased; blank ones are skipped.
+    /// Entries are trimmed and lower-cased; blank ones and repeats are skipped. Each is a
+    /// DNS host name like a tool URL's, or `*.` and one.
     pub fn new<S: AsRef<str>>(entries: impl IntoIterator<Item = S>) -> Result<Self, ToolError> {
-        Ok(Self {
-            entries: entries
-                .into_iter()
-                .map(|entry| entry.as_ref().trim().to_ascii_lowercase())
-                .collect(),
-        })
+        let mut kept: Vec<String> = Vec::new();
+        for entry in entries {
+            let entry = entry.as_ref().trim().to_ascii_lowercase();
+            if entry.is_empty() || kept.contains(&entry) {
+                continue;
+            }
+            let host = entry.strip_prefix("*.").unwrap_or(&entry);
+            if dns_host(host).is_err() {
+                return Err(ToolError::InvalidHostPattern);
+            }
+            kept.push(entry);
+        }
+        Ok(Self { entries: kept })
     }
 
-    /// Whether `host` (lower case, no port) may be called.
+    /// Whether `host` (lower case, no port) may be called: it is an entry, or a subdomain of
+    /// a `*.` entry's domain.
     #[must_use]
     pub fn allows(&self, host: &str) -> bool {
-        let _ = host;
-        false
+        self.entries
+            .iter()
+            .any(|entry| match entry.strip_prefix('*') {
+                Some(suffix) => host.len() > suffix.len() && host.ends_with(suffix),
+                None => entry == host,
+            })
     }
 
     #[must_use]
     pub fn entries(&self) -> &[String] {
         &self.entries
     }
+}
+
+/// The first value that occurs twice, in order.
+fn first_repeat<'a, T: PartialEq + 'a>(values: impl Iterator<Item = &'a T>) -> Option<&'a T> {
+    let mut seen: Vec<&T> = Vec::new();
+    for value in values {
+        if seen.contains(&value) {
+            return Some(value);
+        }
+        seen.push(value);
+    }
+    None
+}
+
+/// Characters a URL may carry besides letters and digits (RFC 3986), without `#`.
+const URL_PUNCTUATION: &str = "-._~:/?[]@!$&'()*+,;=%";
+
+/// Checks a tool URL: `https://`, no fragment or user info, a DNS host, an optional port.
+fn parse_url(raw: &str) -> Result<ToolUrl, UrlError> {
+    if raw.chars().count() > ToolUrl::MAX {
+        return Err(UrlError::TooLong);
+    }
+    let rest = match raw.get(..8) {
+        Some(scheme) if scheme.eq_ignore_ascii_case("https://") => raw.get(8..).unwrap_or(""),
+        _ => return Err(UrlError::NotHttps),
+    };
+    if rest.contains('#') {
+        return Err(UrlError::Fragment);
+    }
+    if !rest
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || URL_PUNCTUATION.contains(c))
+    {
+        return Err(UrlError::InvalidCharacter);
+    }
+    let end = rest.find(['/', '?']).unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(end);
+    if authority.contains('@') {
+        return Err(UrlError::UserInfo);
+    }
+    if authority.starts_with('[') {
+        return Err(UrlError::IpLiteral);
+    }
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (authority, None),
+    };
+    if let Some(port) = port {
+        let number: u16 = port.parse().map_err(|_| UrlError::InvalidPort)?;
+        if number == 0 || !port.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(UrlError::InvalidPort);
+        }
+    }
+    let host = host.to_ascii_lowercase();
+    dns_host(&host)?;
+    let mut url = format!("https://{host}");
+    if let Some(port) = port {
+        url.push(':');
+        url.push_str(port);
+    }
+    url.push_str(path);
+    Ok(ToolUrl { url, host })
+}
+
+/// Longest host name.
+const MAX_HOST: usize = 253;
+/// Longest label of a host name.
+const MAX_LABEL: usize = 63;
+
+/// A lower-case DNS host name with at least two labels, not an IP address.
+fn dns_host(host: &str) -> Result<(), UrlError> {
+    let label_ok = |label: &str| {
+        (1..=MAX_LABEL).contains(&label.len())
+            && label
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+    };
+    if host.is_empty() || host.len() > MAX_HOST || !host.split('.').all(label_ok) {
+        return Err(UrlError::InvalidHost);
+    }
+    // No top-level domain is numeric: a numeric last label is an IPv4 address in some form.
+    if host
+        .rsplit('.')
+        .next()
+        .is_some_and(|last| last.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return Err(UrlError::IpLiteral);
+    }
+    if !host.contains('.') {
+        return Err(UrlError::SingleLabelHost);
+    }
+    Ok(())
 }

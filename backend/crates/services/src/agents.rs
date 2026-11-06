@@ -1,5 +1,5 @@
-//! Agent use cases: create, list, get, update the draft (autosave), archive, progress, and
-//! the agent's plan (`plans.rs`).
+//! Agent use cases: create, list, get, update the draft (autosave), archive, progress, the
+//! agent's plan (`plans.rs`) and its purpose (`agent_purpose.rs`).
 //!
 //! Every mutation hands its audit event to the same `AgentRepo` call that stores the change,
 //! so both land in one transaction.
@@ -13,10 +13,12 @@ use jiff::{Timestamp, Unit};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    ContentHash, DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
-    SetupProgress, ToolHosts, TurnDetection, UseCase, Verdict, VoiceId,
+    ContentHash, DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, PurposeId,
+    RulePackCatalog, SetupProgress, ToolHosts, TurnDetection, UseCase, Verdict, VoiceId,
 };
 use vak_repositories::{AgentQuery, AgentRepo, PurposeRepo, RepoError, Revision, TestRunRepo};
+
+use crate::purposes::LatestVersionError;
 
 /// The most agents [`AgentService::list`] returns.
 pub const LIST_LIMIT: u16 = 200;
@@ -38,6 +40,14 @@ pub struct CreateAgent {
     pub turn_detection: Option<TurnDetection>,
 }
 
+/// Change an agent's draft (autosave), and maybe switch its purpose to another one's latest
+/// version.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UpdateAgent {
+    pub patch: DraftPatch,
+    pub purpose: Option<PurposeId>,
+}
+
 /// An agent with its setup progress, as lists show it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentSummary {
@@ -48,6 +58,12 @@ pub struct AgentSummary {
 /// Why [`AgentService::create`] failed.
 #[derive(Debug, thiserror::Error)]
 pub enum CreateAgentError {
+    #[error("no such purpose")]
+    PurposeNotFound,
+    #[error("the purpose has no saved version yet")]
+    PurposeHasNoVersion,
+    #[error("the use case must be the purpose's compliance class, {expected}")]
+    UseCaseMismatch { expected: UseCase },
     #[error("agent storage is unavailable")]
     Unavailable(#[source] RepoError),
 }
@@ -93,6 +109,10 @@ impl From<FindAgentError> for ArchiveAgentError {
 pub enum UpdateDraftError {
     #[error("no such agent")]
     NotFound,
+    #[error("no such purpose")]
+    PurposeNotFound,
+    #[error("the purpose has no saved version yet")]
+    PurposeHasNoVersion,
     #[error("the agent is archived")]
     Archived,
     #[error("the agent kept changing while it was being saved")]
@@ -121,12 +141,8 @@ impl From<FindAgentError> for UpdateDraftError {
 
 /// The agent use cases, over an [`AgentRepo`] and the rule packs plans are checked against.
 #[derive(Clone)]
-#[expect(
-    dead_code,
-    reason = "the purpose use cases arrive with the implementation"
-)]
 pub struct AgentService {
-    repo: Arc<dyn AgentRepo>,
+    pub(crate) repo: Arc<dyn AgentRepo>,
     deadline: Duration,
     pub(crate) rule_packs: Arc<RulePackCatalog>,
     test_runs: Option<Arc<dyn TestRunRepo>>,
@@ -193,13 +209,45 @@ impl AgentService {
         Self { deadline, ..self }
     }
 
-    /// Creates an agent; every field the command leaves out takes its default.
+    /// Creates an agent; every field the command leaves out takes its default. It pins its use
+    /// case's system purpose, version 1.
     pub async fn create(&self, actor: &Actor, cmd: CreateAgent) -> Result<Agent, CreateAgentError> {
+        self.create_with_purpose(actor, cmd, None).await
+    }
+
+    /// Creates an agent that pins `purpose`'s latest version (the use case must be its
+    /// compliance class), or, without one, its use case's system purpose, version 1.
+    pub async fn create_with_purpose(
+        &self,
+        actor: &Actor,
+        cmd: CreateAgent,
+        purpose: Option<PurposeId>,
+    ) -> Result<Agent, CreateAgentError> {
+        let purpose = match purpose {
+            None => None,
+            Some(id) => {
+                let latest = self.latest_version(id).await.map_err(|error| match error {
+                    LatestVersionError::NotFound => CreateAgentError::PurposeNotFound,
+                    LatestVersionError::NoVersion => CreateAgentError::PurposeHasNoVersion,
+                    LatestVersionError::Unavailable(source) => {
+                        CreateAgentError::Unavailable(source)
+                    }
+                })?;
+                let choice = latest.choice();
+                if choice.compliance() != cmd.use_case {
+                    return Err(CreateAgentError::UseCaseMismatch {
+                        expected: choice.compliance(),
+                    });
+                }
+                Some(choice)
+            }
+        };
         let defaults = DraftPatch {
             language: cmd.language,
             jurisdiction: cmd.jurisdiction,
             model: cmd.model,
             turn_detection: cmd.turn_detection,
+            purpose,
             ..DraftPatch::default()
         };
         let draft = AgentDraft::new(cmd.name, cmd.use_case, cmd.voice).apply(&defaults);
@@ -252,6 +300,31 @@ impl AgentService {
             .await
             .map_err(FindAgentError::Unavailable)?;
         progress.into_iter().next().ok_or(FindAgentError::NotFound)
+    }
+
+    /// Applies `cmd` to the draft (autosave): its patch, and with `purpose`, that purpose's
+    /// latest version (a saved plan stays).
+    pub async fn update(
+        &self,
+        actor: &Actor,
+        id: AgentId,
+        cmd: UpdateAgent,
+    ) -> Result<Agent, UpdateDraftError> {
+        let mut patch = cmd.patch;
+        if let Some(purpose) = cmd.purpose {
+            let latest = self
+                .latest_version(purpose)
+                .await
+                .map_err(|error| match error {
+                    LatestVersionError::NotFound => UpdateDraftError::PurposeNotFound,
+                    LatestVersionError::NoVersion => UpdateDraftError::PurposeHasNoVersion,
+                    LatestVersionError::Unavailable(source) => {
+                        UpdateDraftError::Unavailable(source)
+                    }
+                })?;
+            patch.purpose = Some(latest.choice());
+        }
+        self.update_draft(actor, id, &patch).await
     }
 
     /// Applies `patch` to the draft (autosave). A patch that changes nothing stores nothing
@@ -352,7 +425,7 @@ impl AgentService {
     }
 
     /// Runs a repository call under the deadline.
-    async fn within<T>(
+    pub(crate) async fn within<T>(
         &self,
         call: impl Future<Output = Result<T, RepoError>>,
     ) -> Result<T, RepoError> {

@@ -20,7 +20,7 @@ export const LIMITS = {
 
 const MESSAGES: Record<keyof AgentSettings, string> = {
   name: `Enter a name of up to ${LIMITS.nameMax} characters.`,
-  useCase: 'Choose a purpose.',
+  purpose: 'Choose a purpose.',
   voice: 'Choose a voice.',
   language: 'Choose a language.',
   jurisdiction: 'Enter a region code.',
@@ -34,8 +34,9 @@ function isField(field: PropertyKey | undefined): field is keyof AgentSettings {
 
 /** The fields of `settings` that break the contract's request schema, with what to fix. */
 export function checkSettings(settings: Partial<AgentSettings>): FieldErrors {
-  const result = UpdateAgentBody.safeParse(settings);
-  const errors: FieldErrors = {};
+  const { purpose, ...rest } = settings;
+  const errors: FieldErrors = purpose === '' ? { purpose: MESSAGES.purpose } : {};
+  const result = UpdateAgentBody.safeParse(rest);
   for (const issue of result.success ? [] : result.error.issues) {
     const field = issue.path[0];
     if (isField(field)) errors[field] = MESSAGES[field];

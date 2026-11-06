@@ -29,7 +29,8 @@ async function editor(initial?: PlanView) {
   const context = setup();
   const start = initial ?? (await getPlan(AGENT_ID));
   const onSaved = vi.fn<() => void>();
-  const hook = renderHook(() => usePlanEditor(AGENT_ID, start, { onSaved, delayMs: 10 }), {
+  const target = { kind: 'agent', agentId: AGENT_ID } as const;
+  const hook = renderHook(() => usePlanEditor(target, start, { onSaved, delayMs: 10 }), {
     wrapper: context.wrapper,
   });
   return { ...context, hook, onSaved };

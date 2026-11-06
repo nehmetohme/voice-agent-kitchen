@@ -1,6 +1,7 @@
 //! What a purpose says: its name, compliance class, persona, starting flow, tools,
 //! guardrails and compliance additions. A draft and every version hold one.
 
+use super::canonical;
 use super::{
     ComplianceAdditions, Guardrails, PurposeError, PurposeProblem, PurposeTools, ToolHosts,
 };
@@ -26,7 +27,13 @@ impl PurposeName {
     pub const MAX: usize = 80;
 
     pub fn parse(raw: &str) -> Result<Self, PurposeNameError> {
-        Ok(Self(raw.trim().to_owned()))
+        let name = raw.trim();
+        match name.chars().count() {
+            0 => Err(PurposeNameError::Empty),
+            n if n > Self::MAX => Err(PurposeNameError::TooLong { max: Self::MAX }),
+            _ if name.chars().any(char::is_control) => Err(PurposeNameError::ControlCharacter),
+            _ => Ok(Self(name.to_owned())),
+        }
     }
 
     /// A name known to be valid (the system purposes'); a unit test checks each one.
@@ -57,6 +64,19 @@ pub struct PurposeSpec {
     pub additions: ComplianceAdditions,
 }
 
+/// Changes to a definition: each part set replaces that part whole; `None` keeps it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PurposePatch {
+    pub name: Option<PurposeName>,
+    pub description: Option<String>,
+    pub compliance: Option<UseCase>,
+    pub persona: Option<String>,
+    pub flow: Option<Plan>,
+    pub tools: Option<PurposeTools>,
+    pub guardrails: Option<Guardrails>,
+    pub additions: Option<ComplianceAdditions>,
+}
+
 /// A checked purpose definition.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PurposeDefinition {
@@ -79,15 +99,22 @@ impl PurposeDefinition {
     /// Trims the description and persona (line endings normalised to `\n`) and checks their
     /// lengths. The parts are checked by their own constructors.
     pub fn new(spec: PurposeSpec) -> Result<Self, PurposeError> {
+        let description = text(&spec.description);
+        if description.chars().count() > Self::MAX_DESCRIPTION {
+            return Err(PurposeError::DescriptionTooLong {
+                max: Self::MAX_DESCRIPTION,
+            });
+        }
+        let persona = text(&spec.persona);
+        if persona.chars().count() > Self::MAX_PERSONA {
+            return Err(PurposeError::PersonaTooLong {
+                max: Self::MAX_PERSONA,
+            });
+        }
         Ok(Self {
-            name: spec.name,
-            description: spec.description,
-            compliance: spec.compliance,
-            persona: spec.persona,
-            flow: spec.flow,
-            tools: spec.tools,
-            guardrails: spec.guardrails,
-            additions: spec.additions,
+            description,
+            persona,
+            ..Self::from_parts(spec)
         })
     }
 
@@ -120,6 +147,21 @@ impl PurposeDefinition {
         }
     }
 
+    /// This definition with `patch` applied, checked again.
+    pub fn apply(&self, patch: &PurposePatch) -> Result<Self, PurposeError> {
+        let spec = self.to_spec();
+        Self::new(PurposeSpec {
+            name: patch.name.clone().unwrap_or(spec.name),
+            description: patch.description.clone().unwrap_or(spec.description),
+            compliance: patch.compliance.unwrap_or(spec.compliance),
+            persona: patch.persona.clone().unwrap_or(spec.persona),
+            flow: patch.flow.clone().unwrap_or(spec.flow),
+            tools: patch.tools.clone().unwrap_or(spec.tools),
+            guardrails: patch.guardrails.clone().unwrap_or(spec.guardrails),
+            additions: patch.additions.clone().unwrap_or(spec.additions),
+        })
+    }
+
     /// The same definition under another name.
     #[must_use]
     pub fn renamed(&self, name: PurposeName) -> Self {
@@ -139,15 +181,27 @@ impl PurposeDefinition {
     /// flow's graph problems, then each HTTP tool whose host `hosts` doesn't allow.
     #[must_use]
     pub fn problems(&self, hosts: &ToolHosts) -> Vec<PurposeProblem> {
-        let _ = hosts;
-        Vec::new()
+        let flow = self.flow.validate_graph().err().unwrap_or_default();
+        let hosts = self
+            .tools
+            .http()
+            .iter()
+            .filter(|tool| !hosts.allows(tool.url().host()))
+            .map(|tool| PurposeProblem::HostNotAllowed {
+                tool: tool.name().clone(),
+                host: tool.url().host().to_owned(),
+            });
+        flow.into_iter()
+            .map(PurposeProblem::Flow)
+            .chain(hosts)
+            .collect()
     }
 
     /// SHA-256 over a canonical, versioned encoding (`vak.purpose.v1`): equal definitions
     /// have equal hashes.
     #[must_use]
     pub fn content_hash(&self) -> ContentHash {
-        ContentHash::of(self.name.as_str().as_bytes())
+        ContentHash::of(&canonical::bytes(self))
     }
 
     #[must_use]
@@ -190,4 +244,9 @@ impl PurposeDefinition {
     pub fn additions(&self) -> &ComplianceAdditions {
         &self.additions
     }
+}
+
+/// Trimmed, with line endings normalised to `\n`.
+fn text(raw: &str) -> String {
+    raw.trim().replace("\r\n", "\n").replace('\r', "\n")
 }

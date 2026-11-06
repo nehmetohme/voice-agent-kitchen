@@ -42,6 +42,10 @@
             "example": "Front desk",
             "type": "string"
           },
+          "purpose": {
+            "$ref": "#/components/schemas/PurposeRef",
+            "description": "The purpose version it pins; its compliance class is `useCase`."
+          },
           "rulePack": {
             "$ref": "#/components/schemas/RulePack"
           },
@@ -69,6 +73,7 @@
           "language",
           "jurisdiction",
           "rulePack",
+          "purpose",
           "model",
           "turnDetection",
           "draftHash",
@@ -145,6 +150,55 @@
         ],
         "type": "object"
       },
+      "AgentPurpose": {
+        "description": "The purpose version an agent pins, and the update to a newer one.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latestVersion": {
+            "format": "int32",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The pinned version's name.",
+            "type": "string"
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "update": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PurposeUpdate",
+                "description": "`null` when the agent pins the latest version."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "system",
+          "latestVersion",
+          "update"
+        ],
+        "type": "object"
+      },
       "AgentScenarios": {
         "description": "The agent's test scenarios: the saved ones, or its use case's defaults with\n`saved: false`.",
         "properties": {
@@ -182,6 +236,9 @@
             "minimum": 0,
             "type": "integer"
           },
+          "purpose": {
+            "$ref": "#/components/schemas/PurposeRef"
+          },
           "updatedAt": {
             "format": "date-time",
             "type": "string"
@@ -197,6 +254,7 @@
           "id",
           "name",
           "useCase",
+          "purpose",
           "voice",
           "updatedAt",
           "progressPercent"
@@ -219,6 +277,173 @@
         "required": [
           "draftHash",
           "items"
+        ],
+        "type": "object"
+      },
+      "BuiltinTool": {
+        "description": "A built-in tool's LLM name.",
+        "enum": [
+          "transfer_to_human",
+          "end_call",
+          "record_answer",
+          "schedule_callback",
+          "mark_do_not_call"
+        ],
+        "type": "string"
+      },
+      "BuiltinToolInfo": {
+        "description": "A built-in tool, as pickers show it.",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "locked": {
+            "description": "Always on: a purpose can't turn it off.",
+            "type": "boolean"
+          },
+          "name": {
+            "$ref": "#/components/schemas/BuiltinTool"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "description",
+          "locked"
+        ],
+        "type": "object"
+      },
+      "ComplianceAdditions": {
+        "description": "What a purpose adds to its rule pack. Tighten-only: there is no audit period to shorten.",
+        "properties": {
+          "forbiddenClaims": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "optOutPhrases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "recordingsDays": {
+            "description": "Keep recordings at most this many days; `null` keeps the pack's period.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "transcriptsDays": {
+            "description": "Keep transcripts at most this many days; `null` keeps the pack's period.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "optOutPhrases",
+          "forbiddenClaims",
+          "recordingsDays",
+          "transcriptsDays"
+        ],
+        "type": "object"
+      },
+      "ComplianceAdditionsInput": {
+        "additionalProperties": false,
+        "description": "Compliance additions: tighten-only. There is no field for the audit period.",
+        "properties": {
+          "forbiddenClaims": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "optOutPhrases": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "recordingsDays": {
+            "format": "int32",
+            "maximum": 36500,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "transcriptsDays": {
+            "format": "int32",
+            "maximum": 36500,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ComplianceBaseline": {
+        "description": "A shipped jurisdiction's rule pack for the purpose's class: its baseline, read-only, and\nthe effective policy with the purpose's additions.",
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/EffectiveCompliance"
+          },
+          "forbiddenClaims": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "jurisdiction": {
+            "example": "US",
+            "type": "string"
+          },
+          "lockedTexts": {
+            "items": {
+              "$ref": "#/components/schemas/LockedText"
+            },
+            "type": "array"
+          },
+          "optOutConfirmation": {
+            "type": "string"
+          },
+          "optOutPhrases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/Retention"
+          },
+          "rulePack": {
+            "$ref": "#/components/schemas/RulePack"
+          }
+        },
+        "required": [
+          "jurisdiction",
+          "rulePack",
+          "lockedTexts",
+          "optOutPhrases",
+          "optOutConfirmation",
+          "forbiddenClaims",
+          "retention",
+          "effective"
         ],
         "type": "object"
       },
@@ -247,6 +472,15 @@
             "minLength": 1,
             "type": "string"
           },
+          "purposeId": {
+            "default": null,
+            "description": "Pin this purpose's latest version (from `GET /api/v1/purposes`); `useCase` must then be\nits compliance class. `null` pins the use case's built-in purpose.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "turnDetection": {
             "$ref": "#/components/schemas/TurnDetection",
             "default": {
@@ -268,6 +502,119 @@
           "name",
           "useCase",
           "voice"
+        ],
+        "type": "object"
+      },
+      "CreatePurposeInput": {
+        "description": "Make a purpose of the workspace's as a copy of another one.",
+        "properties": {
+          "duplicateOf": {
+            "description": "The purpose to copy: built-in or the workspace's.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "By default \"Copy of …\".",
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "description": "The version to copy; by default the latest (the draft when there is none).",
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "duplicateOf"
+        ],
+        "type": "object"
+      },
+      "EffectiveCompliance": {
+        "description": "The policy that applies with the purpose's additions.",
+        "properties": {
+          "forbiddenClaims": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "optOutPhrases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/Retention"
+          }
+        },
+        "required": [
+          "optOutPhrases",
+          "forbiddenClaims",
+          "retention"
+        ],
+        "type": "object"
+      },
+      "EscalationAction": {
+        "description": "What an escalation does.",
+        "enum": [
+          "transfer",
+          "end_call",
+          "flag"
+        ],
+        "type": "string"
+      },
+      "EscalationRule": {
+        "description": "When to escalate, and what to do then.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/EscalationAction"
+          },
+          "message": {
+            "description": "What the agent says, word for word, before it ends the call; `null` for other actions.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "when": {
+            "description": "A yes/no question for the decision engine.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "when",
+          "action",
+          "message"
+        ],
+        "type": "object"
+      },
+      "EscalationRuleInput": {
+        "description": "When to escalate, and what to do then.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/EscalationAction"
+          },
+          "message": {
+            "description": "For `end_call`: what to say before ending, 1-500 characters.",
+            "maxLength": 500,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "when": {
+            "description": "A yes/no question, 1-200 characters.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "when",
+          "action"
         ],
         "type": "object"
       },
@@ -297,6 +644,90 @@
         ],
         "type": "object"
       },
+      "Guardrails": {
+        "description": "The scope, the never-rules, escalations and limits.",
+        "properties": {
+          "allowedTopics": {
+            "description": "Empty means any topic.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "escalations": {
+            "items": {
+              "$ref": "#/components/schemas/EscalationRule"
+            },
+            "type": "array"
+          },
+          "maxCallMinutes": {
+            "format": "int32",
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "never": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "neverAsk": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalData"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "allowedTopics",
+          "never",
+          "escalations",
+          "maxCallMinutes",
+          "neverAsk"
+        ],
+        "type": "object"
+      },
+      "GuardrailsInput": {
+        "description": "Guardrails; a list left out is empty, the call length 30 minutes.",
+        "properties": {
+          "allowedTopics": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "escalations": {
+            "items": {
+              "$ref": "#/components/schemas/EscalationRuleInput"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "maxCallMinutes": {
+            "default": 30,
+            "format": "int32",
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "never": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "neverAsk": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalData"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "Health": {
         "description": "Response body of `GET /health`.",
         "properties": {
@@ -315,6 +746,120 @@
         "required": [
           "status",
           "version"
+        ],
+        "type": "object"
+      },
+      "HttpMethod": {
+        "description": "The HTTP method a tool calls with.",
+        "enum": [
+          "GET",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "type": "string"
+      },
+      "HttpTool": {
+        "description": "A custom HTTP tool. The secret is a name in the workspace's secret store, never a value.",
+        "properties": {
+          "confirm": {
+            "description": "Whether the agent confirms with the caller before calling it.",
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/ToolInputs"
+          },
+          "method": {
+            "$ref": "#/components/schemas/HttpMethod"
+          },
+          "name": {
+            "example": "book_slot",
+            "type": "string"
+          },
+          "secret": {
+            "description": "The secret's name, e.g. `CALENDAR_API_KEY`; `null` when the API needs none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeoutMs": {
+            "format": "int32",
+            "maximum": 10000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "url": {
+            "example": "https://calendar.example.com/v1/slots",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "inputs",
+          "method",
+          "url",
+          "timeoutMs",
+          "secret",
+          "confirm"
+        ],
+        "type": "object"
+      },
+      "HttpToolInput": {
+        "description": "A custom HTTP tool. `secret` names a secret in the workspace's secret store; the API has\nno field for a secret's value.",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "type": "boolean"
+          },
+          "description": {
+            "description": "What the tool does, 1-500 characters: the LLM reads it.",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/ToolInputsInput"
+          },
+          "method": {
+            "$ref": "#/components/schemas/HttpMethod"
+          },
+          "name": {
+            "description": "1-64 lowercase letters, digits or `_`, starting with a letter.",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "secret": {
+            "description": "A secret's name, e.g. `CALENDAR_API_KEY`.",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeoutMs": {
+            "default": 3000,
+            "format": "int32",
+            "maximum": 10000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "url": {
+            "description": "`https://`, with a host on the tool host allow-list.",
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "method",
+          "url"
         ],
         "type": "object"
       },
@@ -402,6 +947,17 @@
         ],
         "type": "string"
       },
+      "PersonalData": {
+        "description": "Personal data the agent must never ask for.",
+        "enum": [
+          "card_number",
+          "national_id",
+          "password",
+          "bank_account",
+          "health"
+        ],
+        "type": "string"
+      },
       "PlanInput": {
         "description": "A whole plan: every step and every path. It replaces the saved plan.",
         "properties": {
@@ -427,6 +983,15 @@
           "edges"
         ],
         "type": "object"
+      },
+      "PlanOnUpdate": {
+        "description": "What an update does to the agent's plan: it `follows` the purpose (no saved plan), is\n`replaced` by the new flow (unedited, or edited and replaced on request), or is `kept`.",
+        "enum": [
+          "follows",
+          "replaced",
+          "kept"
+        ],
+        "type": "string"
       },
       "PlanPath": {
         "description": "A path between two steps.",
@@ -624,6 +1189,352 @@
           "title",
           "status",
           "detail"
+        ],
+        "type": "object"
+      },
+      "Purpose": {
+        "description": "A purpose: built-in, or one of the workspace's, with its draft.",
+        "properties": {
+          "baselines": {
+            "description": "Per shipped jurisdiction, by code.",
+            "items": {
+              "$ref": "#/components/schemas/ComplianceBaseline"
+            },
+            "type": "array"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/PurposeDraft"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latestVersion": {
+            "description": "The latest saved version; `null` before the first.",
+            "format": "int32",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "problems": {
+            "description": "What keeps the draft from being saved as a version.",
+            "items": {
+              "$ref": "#/components/schemas/PurposeProblem"
+            },
+            "type": "array"
+          },
+          "system": {
+            "description": "Built-in purposes are read-only.",
+            "type": "boolean"
+          },
+          "unsavedChanges": {
+            "description": "Whether the draft differs from the latest version.",
+            "type": "boolean"
+          },
+          "usedBy": {
+            "description": "Active agents that pin a version of it.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "system",
+          "latestVersion",
+          "unsavedChanges",
+          "usedBy",
+          "draft",
+          "problems",
+          "baselines"
+        ],
+        "type": "object"
+      },
+      "PurposeChange": {
+        "description": "One thing that changes, in words.",
+        "properties": {
+          "area": {
+            "$ref": "#/components/schemas/PurposeChangeArea"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "area",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "PurposeChangeArea": {
+        "description": "An area of a purpose that changes on update.",
+        "enum": [
+          "name",
+          "description",
+          "compliance_class",
+          "persona",
+          "flow",
+          "tools",
+          "guardrails",
+          "compliance"
+        ],
+        "type": "string"
+      },
+      "PurposeDraft": {
+        "description": "A purpose's draft (or version), without its starting flow (`…/flow`).",
+        "properties": {
+          "compliance": {
+            "$ref": "#/components/schemas/ComplianceAdditions"
+          },
+          "complianceClass": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "description": {
+            "type": "string"
+          },
+          "guardrails": {
+            "$ref": "#/components/schemas/Guardrails"
+          },
+          "name": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "tools": {
+            "$ref": "#/components/schemas/PurposeTools"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "complianceClass",
+          "persona",
+          "tools",
+          "guardrails",
+          "compliance"
+        ],
+        "type": "object"
+      },
+      "PurposeList": {
+        "description": "The built-in purposes in use-case order, then the workspace's own, newest first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PurposeSummary"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PurposeProblem": {
+        "description": "Something that keeps the draft from being saved as a version, located by `field` (and\nthe step or path for the flow).",
+        "properties": {
+          "code": {
+            "description": "A flow rule's code (`missing_exit`, …) or `host_not_allowed`.",
+            "type": "string"
+          },
+          "edgeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field": {
+            "description": "`flow`, or the tool's URL, e.g. `tools.http[0].url`.",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "field"
+        ],
+        "type": "object"
+      },
+      "PurposeRef": {
+        "description": "The purpose version an agent pins.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "system": {
+            "description": "A built-in purpose.",
+            "type": "boolean"
+          },
+          "version": {
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "system"
+        ],
+        "type": "object"
+      },
+      "PurposeSummary": {
+        "description": "A purpose as lists show it.",
+        "properties": {
+          "complianceClass": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latestVersion": {
+            "format": "int32",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "unsavedChanges": {
+            "type": "boolean"
+          },
+          "usedBy": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "complianceClass",
+          "system",
+          "latestVersion",
+          "unsavedChanges",
+          "usedBy"
+        ],
+        "type": "object"
+      },
+      "PurposeTools": {
+        "description": "The tools a purpose turns on.",
+        "properties": {
+          "builtins": {
+            "description": "Built-in tools turned on; `mark_do_not_call` always.",
+            "items": {
+              "$ref": "#/components/schemas/BuiltinTool"
+            },
+            "type": "array"
+          },
+          "http": {
+            "items": {
+              "$ref": "#/components/schemas/HttpTool"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "builtins",
+          "http"
+        ],
+        "type": "object"
+      },
+      "PurposeToolsInput": {
+        "description": "The tools: built-in ones to turn on (`mark_do_not_call` always is) and HTTP tools.",
+        "properties": {
+          "builtins": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinTool"
+            },
+            "type": "array"
+          },
+          "http": {
+            "description": "At most 10.",
+            "items": {
+              "$ref": "#/components/schemas/HttpToolInput"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "PurposeUpdate": {
+        "description": "Moving to the purpose's latest version: what changes, and what happens to the plan unless\nthe operator asks to replace an edited one.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PurposeChange"
+            },
+            "type": "array"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanOnUpdate"
+          },
+          "planEdited": {
+            "description": "The saved plan has the operator's own edits.",
+            "type": "boolean"
+          },
+          "version": {
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "changes",
+          "plan",
+          "planEdited"
+        ],
+        "type": "object"
+      },
+      "Retention": {
+        "description": "How long call data is kept, in days.",
+        "properties": {
+          "auditDays": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "recordingsDays": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transcriptsDays": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recordingsDays",
+          "transcriptsDays",
+          "auditDays"
         ],
         "type": "object"
       },
@@ -1268,6 +2179,135 @@
         ],
         "type": "object"
       },
+      "ToolCatalog": {
+        "description": "What purposes can use: the built-in tools and the hosts HTTP tools may call.",
+        "properties": {
+          "allowedHosts": {
+            "description": "Exact host names, or `*.example.com` for subdomains. Set by the deployment\n(`VAK_TOOL_HOSTS`), not by operators.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "builtins": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinToolInfo"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "builtins",
+          "allowedHosts"
+        ],
+        "type": "object"
+      },
+      "ToolInputProperty": {
+        "description": "One input of a tool.",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ToolInputType"
+          }
+        },
+        "required": [
+          "type",
+          "description"
+        ],
+        "type": "object"
+      },
+      "ToolInputPropertyInput": {
+        "description": "One input of a tool.",
+        "properties": {
+          "description": {
+            "default": "",
+            "description": "Up to 200 characters.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ToolInputType"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ToolInputType": {
+        "description": "The JSON type of a tool input.",
+        "enum": [
+          "string",
+          "number",
+          "integer",
+          "boolean"
+        ],
+        "type": "string"
+      },
+      "ToolInputs": {
+        "description": "A tool's inputs, as a small JSON Schema: an object of typed properties, listed by name.",
+        "properties": {
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ToolInputProperty"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "required": {
+            "description": "The properties the call must carry.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ToolInputsType"
+          }
+        },
+        "required": [
+          "type",
+          "properties",
+          "required"
+        ],
+        "type": "object"
+      },
+      "ToolInputsInput": {
+        "description": "A tool's inputs as a small JSON Schema: `type: object`, typed properties, `required`.",
+        "properties": {
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ToolInputPropertyInput"
+            },
+            "description": "At most 10, each named like a tool.",
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ToolInputsType"
+          }
+        },
+        "type": "object"
+      },
+      "ToolInputsType": {
+        "description": "Always `object`: a tool's inputs are the properties of one JSON object.",
+        "enum": [
+          "object"
+        ],
+        "type": "string"
+      },
       "TranscriptLine": {
         "description": "One line of a scenario's conversation.",
         "properties": {
@@ -1314,6 +2354,26 @@
         ],
         "type": "object"
       },
+      "UpdateAgentPurposeInput": {
+        "description": "Move the agent to another version of its purpose.",
+        "properties": {
+          "replacePlan": {
+            "default": false,
+            "description": "Replace a plan with the operator's own edits by the new starting flow.",
+            "type": "boolean"
+          },
+          "version": {
+            "description": "The version to move to, as `GET …/purpose` offered it.",
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "UpdateAgentRequest": {
         "description": "Change the agent's draft (autosave). Send only the fields that changed.",
         "properties": {
@@ -1331,6 +2391,11 @@
             "minLength": 1,
             "type": "string"
           },
+          "purposeId": {
+            "description": "Switch to this purpose's latest version; a saved plan stays. `useCase` alone switches\nto the use case's built-in purpose.",
+            "format": "uuid",
+            "type": "string"
+          },
           "turnDetection": {
             "$ref": "#/components/schemas/TurnDetection"
           },
@@ -1339,6 +2404,38 @@
           },
           "voice": {
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdatePurposeInput": {
+        "description": "Change the draft (autosave). Send only the sections that changed; each replaces that\nsection whole.",
+        "properties": {
+          "compliance": {
+            "$ref": "#/components/schemas/ComplianceAdditionsInput"
+          },
+          "complianceClass": {
+            "$ref": "#/components/schemas/UseCase"
+          },
+          "description": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "guardrails": {
+            "$ref": "#/components/schemas/GuardrailsInput"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "persona": {
+            "description": "The default persona prompt, up to 2,000 characters.",
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "tools": {
+            "$ref": "#/components/schemas/PurposeToolsInput"
           }
         },
         "type": "object"
@@ -2188,6 +3285,182 @@
         ]
       }
     },
+    "/api/v1/agents/{id}/purpose": {
+      "get": {
+        "operationId": "getAgentPurpose",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPurpose"
+                }
+              }
+            },
+            "description": "The pinned purpose version, and the update if a newer one exists"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The purpose version the agent pins, and the update to a newer one with what it changes.",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/v1/agents/{id}/purpose/update": {
+      "post": {
+        "operationId": "updateAgentPurpose",
+        "parameters": [
+          {
+            "description": "The agent's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentPurposeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPurpose"
+                }
+              }
+            },
+            "description": "The purpose version the agent pins now"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such agent"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The agent is archived, or kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such version, or the one the agent pins"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Move the agent to another version of its purpose. A plan with the operator's own edits is\nkept unless `replacePlan` is set.",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/v1/agents/{id}/scenarios": {
       "get": {
         "operationId": "getAgentScenarios",
@@ -2544,6 +3817,42 @@
         ]
       }
     },
+    "/api/v1/catalog/tools": {
+      "get": {
+        "operationId": "listTools",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolCatalog"
+                }
+              }
+            },
+            "description": "Built-in tools and the tool host allow-list"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The built-in tools purposes can turn on, and the hosts their HTTP tools may call.",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/catalog/voices": {
       "get": {
         "operationId": "listVoices",
@@ -2577,6 +3886,570 @@
         "summary": "List the voices an agent can use.",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/purposes": {
+      "get": {
+        "operationId": "listPurposes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurposeList"
+                }
+              }
+            },
+            "description": "Built-in purposes in use-case order, then the workspace's own, newest first"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "List the built-in purposes, then the workspace's own, with their versions and usage.",
+        "tags": [
+          "purposes"
+        ]
+      },
+      "post": {
+        "operationId": "createPurpose",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePurposeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Purpose"
+                }
+              }
+            },
+            "description": "The new purpose",
+            "headers": {
+              "Location": {
+                "description": "The new purpose's URL",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid fields, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Make a purpose of the workspace's as a copy of another one: a draft without a version.",
+        "tags": [
+          "purposes"
+        ]
+      }
+    },
+    "/api/v1/purposes/{id}": {
+      "get": {
+        "operationId": "getPurpose",
+        "parameters": [
+          {
+            "description": "The purpose's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Purpose"
+                }
+              }
+            },
+            "description": "The purpose"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such purpose"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "One purpose: its draft without the flow, its problems and its compliance baselines.",
+        "tags": [
+          "purposes"
+        ]
+      },
+      "patch": {
+        "operationId": "updatePurpose",
+        "parameters": [
+          {
+            "description": "The purpose's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePurposeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Purpose"
+                }
+              }
+            },
+            "description": "The purpose after the change, with its problems"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such purpose"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A built-in purpose can't change, or it kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid fields, each named by its path in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Change the draft (autosave). Send only the sections that changed; each replaces that\nsection whole. A change that changes nothing is stored and audited nowhere.",
+        "tags": [
+          "purposes"
+        ]
+      }
+    },
+    "/api/v1/purposes/{id}/flow": {
+      "get": {
+        "operationId": "getPurposeFlow",
+        "parameters": [
+          {
+            "description": "The purpose's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlan"
+                }
+              }
+            },
+            "description": "The starting flow and its problems"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such purpose"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "The starting flow, in the agent plan's shape, beside its class's locked texts in the\ndefault jurisdiction. It is checked by the graph rules; agents add the locked texts.",
+        "tags": [
+          "purposes"
+        ]
+      },
+      "put": {
+        "operationId": "savePurposeFlow",
+        "parameters": [
+          {
+            "description": "The purpose's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlan"
+                }
+              }
+            },
+            "description": "The saved flow and its problems"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The body is not JSON"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such purpose"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A built-in purpose can't change, or it kept changing while saving"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Malformed steps or paths, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Replace the draft's starting flow (autosave). A flow that breaks a graph rule is saved too\nand answers with its problems; a malformed one is refused and nothing is stored.",
+        "tags": [
+          "purposes"
+        ]
+      }
+    },
+    "/api/v1/purposes/{id}/versions": {
+      "post": {
+        "operationId": "savePurposeVersion",
+        "parameters": [
+          {
+            "description": "The purpose's ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Purpose"
+                }
+              }
+            },
+            "description": "The purpose with its new latest version"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No signed-in operator"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such purpose"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A built-in purpose, nothing changed since the latest version, or it kept changing"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The draft has problems, each named in `errors`"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "databricksApps": []
+          }
+        ],
+        "summary": "Freeze the draft as the next version. Agents that pin an older one see an update.",
+        "tags": [
+          "purposes"
         ]
       }
     },
@@ -2983,7 +4856,11 @@
       "name": "plans"
     },
     {
-      "description": "The voices and languages an agent can use",
+      "description": "What agents are for and how they may work: versioned definitions with a starting flow, tools, guardrails and tighten-only compliance additions",
+      "name": "purposes"
+    },
+    {
+      "description": "The voices, languages and tools agents can use",
       "name": "catalog"
     },
     {

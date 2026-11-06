@@ -41,8 +41,24 @@ impl EscalationRule {
     /// `when` is a yes/no question, 1–200 characters; an end-of-call message is 1–500. Both
     /// are trimmed.
     pub fn new(when: &str, action: EscalationAction) -> Result<Self, GuardrailError> {
+        let when = when.trim();
+        if !(1..=Self::MAX_QUESTION).contains(&when.chars().count()) {
+            return Err(GuardrailError::InvalidQuestion);
+        }
+        let action = match action {
+            EscalationAction::EndCall { message } => {
+                let message = message.trim();
+                if !(1..=Self::MAX_MESSAGE).contains(&message.chars().count()) {
+                    return Err(GuardrailError::InvalidMessage);
+                }
+                EscalationAction::EndCall {
+                    message: message.to_owned(),
+                }
+            }
+            other => other,
+        };
         Ok(Self {
-            when: when.trim().to_owned(),
+            when: when.to_owned(),
             action,
         })
     }
@@ -188,12 +204,27 @@ impl Guardrails {
     /// (ignoring case) are dropped. At most 5 escalation rules; a call limit of 1–30 minutes;
     /// each kind of personal data once.
     pub fn new(spec: GuardrailsSpec) -> Result<Self, GuardrailError> {
+        if spec.escalations.len() > Self::MAX_ESCALATIONS {
+            return Err(GuardrailError::TooManyEscalations {
+                max: Self::MAX_ESCALATIONS,
+            });
+        }
+        let minutes = Self::MIN_CALL_MINUTES..=Self::MAX_CALL_MINUTES;
+        if !minutes.contains(&spec.max_call_minutes) {
+            return Err(GuardrailError::CallLengthOutOfRange {
+                min: Self::MIN_CALL_MINUTES,
+                max: Self::MAX_CALL_MINUTES,
+            });
+        }
         Ok(Self {
-            allowed_topics: spec.allowed_topics,
-            never: spec.never,
+            allowed_topics: items(spec.allowed_topics)?,
+            never: items(spec.never)?,
             escalations: spec.escalations,
             max_call_minutes: spec.max_call_minutes,
-            never_ask: spec.never_ask,
+            never_ask: PersonalData::ALL
+                .into_iter()
+                .filter(|kind| spec.never_ask.contains(kind))
+                .collect(),
         })
     }
 
@@ -222,4 +253,31 @@ impl Guardrails {
     pub fn never_ask(&self) -> &[PersonalData] {
         &self.never_ask
     }
+}
+
+/// Trimmed items of 1–200 characters, repeats (ignoring case) dropped, at most 20.
+fn items(raw: Vec<String>) -> Result<Vec<String>, GuardrailError> {
+    let mut kept: Vec<String> = Vec::new();
+    for item in raw {
+        let item = item.trim();
+        match item.chars().count() {
+            0 => return Err(GuardrailError::EmptyItem),
+            n if n > Guardrails::MAX_ITEM => {
+                return Err(GuardrailError::ItemTooLong {
+                    max: Guardrails::MAX_ITEM,
+                });
+            }
+            _ => {}
+        }
+        let folded = item.to_lowercase();
+        if !kept.iter().any(|seen| seen.to_lowercase() == folded) {
+            kept.push(item.to_owned());
+        }
+    }
+    if kept.len() > Guardrails::MAX_ITEMS {
+        return Err(GuardrailError::TooManyItems {
+            max: Guardrails::MAX_ITEMS,
+        });
+    }
+    Ok(kept)
 }

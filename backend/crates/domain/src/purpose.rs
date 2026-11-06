@@ -3,6 +3,7 @@
 //! compliance additions) with one editable draft and numbered, immutable versions. Agents pin
 //! a version. The six use cases are the built-in system purposes, at version 1.
 
+mod canonical;
 mod compliance;
 mod definition;
 mod guardrails;
@@ -15,7 +16,7 @@ use jiff::Timestamp;
 pub use compliance::{
     ComplianceAdditions, ComplianceAdditionsSpec, ComplianceError, EffectiveCompliance,
 };
-pub use definition::{PurposeDefinition, PurposeName, PurposeNameError, PurposeSpec};
+pub use definition::{PurposeDefinition, PurposeName, PurposeNameError, PurposePatch, PurposeSpec};
 pub use guardrails::{
     EscalationAction, EscalationRule, GuardrailError, Guardrails, GuardrailsSpec, PersonalData,
 };
@@ -274,9 +275,18 @@ impl Purpose {
         hosts: &ToolHosts,
         now: Timestamp,
     ) -> Result<(Self, PurposeVersion), PurposeError> {
-        let _ = hosts;
         if self.is_system() {
             return Err(PurposeError::ReadOnly);
+        }
+        if let Some(version) = self
+            .latest_version()
+            .filter(|_| !self.has_unsaved_changes())
+        {
+            return Err(PurposeError::Unchanged { version });
+        }
+        let problems = self.problems(hosts);
+        if !problems.is_empty() {
+            return Err(PurposeError::Invalid { problems });
         }
         let number = self.latest_version().unwrap_or(0).saturating_add(1);
         let version = PurposeVersion {

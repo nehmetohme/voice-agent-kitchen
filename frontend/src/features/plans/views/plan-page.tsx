@@ -40,5 +40,12 @@ export function PlanPage({ agentId, onSaved }: PlanPageProps) {
       />
     );
   }
-  return <PlanEditor key={agentId} agentId={agentId} initial={plan.data} onSaved={onSaved} />;
+  return (
+    <PlanEditor
+      key={agentId}
+      target={{ kind: 'agent', agentId }}
+      initial={plan.data}
+      onSaved={onSaved}
+    />
+  );
 }
