@@ -8,7 +8,8 @@ interface StepPathsProps {
   steps: readonly Step[];
   /** Problems on these paths: each is shown on the path it is about. */
   problems: readonly Problem[];
-  onRemove: (pathId: string) => void;
+  /** Left out when the flow is only shown. */
+  onRemove?: ((pathId: string) => void) | undefined;
 }
 
 /**
@@ -33,15 +34,17 @@ export function StepPaths({ paths, steps, problems, onRemove }: StepPathsProps) 
                 <ArrowRight aria-hidden className="size-4 text-muted" />
                 <span className="font-medium">{target}</span>
               </p>
-              <Button
-                variant="ghost"
-                aria-label={`Remove path to ${target}`}
-                onClick={() => {
-                  onRemove(path.id);
-                }}
-              >
-                <X aria-hidden className="size-4" />
-              </Button>
+              {onRemove !== undefined && (
+                <Button
+                  variant="ghost"
+                  aria-label={`Remove path to ${target}`}
+                  onClick={() => {
+                    onRemove(path.id);
+                  }}
+                >
+                  <X aria-hidden className="size-4" />
+                </Button>
+              )}
             </div>
             {own.map((problem) => (
               <p key={problem.message} className="text-sm text-danger">

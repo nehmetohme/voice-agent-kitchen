@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet, useMatches } from '@tanstack/react-router';
-import { AudioLines, Bot, Settings } from 'lucide-react';
+import { AudioLines, Bot, Settings, Target } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { AppShell, SidebarNav, SidebarNavItem, sidebarLinkClassName } from '../shared/ui/app-shell';
@@ -22,6 +22,7 @@ const PRODUCT = 'Voice Agent Kitchen';
 // Serial position: Agents first, Settings last. Miller: 7 items at most.
 const PRIMARY_NAV = [
   { to: '/agents', label: 'Agents', Icon: Bot },
+  { to: '/purposes', label: 'Purposes', Icon: Target },
   { to: '/settings', label: 'Settings', Icon: Settings },
 ] as const;
 

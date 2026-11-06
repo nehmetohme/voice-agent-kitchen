@@ -14,7 +14,7 @@ export type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'invalid' | 'failed';
 
 const SETTINGS_KEYS = [
   'name',
-  'useCase',
+  'purpose',
   'voice',
   'language',
   'jurisdiction',

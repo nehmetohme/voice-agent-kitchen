@@ -18,6 +18,7 @@ export const UpdateAgentBody = zod.object({
   "language": zod.string().optional(),
   "model": zod.enum(['balanced', 'fast']).optional().describe('Which LLM profile answers: `balanced` (the main voice model) or `fast` (quicker first\nwords, simpler answers).'),
   "name": zod.string().min(1).max(updateAgentBodyNameMax).optional(),
+  "purposeId": zod.uuid().optional().describe('Switch to this purpose\'s latest version; a saved plan stays. `useCase` alone switches\nto the use case\'s built-in purpose.'),
   "turnDetection": zod.object({
   "bargeIn": zod.boolean().describe('Whether the caller can interrupt the agent while it speaks.'),
   "silenceMs": zod.int().min(updateAgentBodyTurnDetectionSilenceMsMin).max(updateAgentBodyTurnDetectionSilenceMsMax).describe('Milliseconds of caller silence that end a turn, 200 to 2000.')

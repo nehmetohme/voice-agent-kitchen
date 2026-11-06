@@ -9,7 +9,10 @@
 | **Persona** | Name, purpose, tone, language, voice | Create needs only name, purpose and voice; everything else has defaults (Tesler's law) |
 | **Plan** | Goals, a flow graph, knowledge, guardrails, escalation rules | Validated by pure domain rules |
 | **Flow graph** | Nodes (`start`, `say`, `ask`, `collect`, `tool`, `transfer`, `end`) joined by edges | Each edge has a plain-language condition; the decision model chooses among a node's outgoing edges |
-| **Use case** | `support`, `service`, `booking`, `survey`, `telemarketing`, `custom` | Chosen at creation; selects a template and a default rule pack |
+| **Use case** | `support`, `service`, `booking`, `survey`, `telemarketing`, `custom` | Chosen at creation; selects a template and a default rule pack. Since M3b it is a purpose's compliance class |
+| **Purpose** | A versioned, workspace-wide definition of what agents are for: name, description, compliance class, persona, starting flow, tools, guardrails and compliance additions (`docs/plan/purposes.md`) | Six built-in purposes (one per use case, read-only, v1 equal to the templates and packs); agents pin a purpose version |
+| **Tool** | A built-in action (`transfer_to_human`, `end_call`, `record_answer`, `schedule_callback`, `mark_do_not_call`, always on) or a custom HTTP tool on the allow-list | Definitions only until M4b, which runs them |
+| **Guardrails** | Allowed topics, never-rules, escalation rules, limits (longest call, personal data never to ask for) | Topics, never-rules and never-ask are in the LLM instructions of test calls and test runs; enforcement comes with M4b |
 | **Jurisdiction** | e.g. `US`, `US-CA`, `EU-FR`, `UK` | Per agent; selects rule-pack variants |
 | **Rule pack** | Versioned compliance configuration: locked disclosure text, forbidden claims, opt-out phrases, recording notice, retention, and later calling windows and consent rules | Data, not code paths. Agents pin a rule-pack version |
 | **Version** | Immutable snapshot of a draft, with its content hash | Only created by publishing |
@@ -59,7 +62,9 @@ Connecting ─► Greeting (locked disclosure) ─► Conversing ⇄ Agent speak
 | `workspaces` | id, name | One workspace in MVP; the column exists for multi-tenancy later |
 | `operators` | id, workspace_id, external_id, email | From Databricks SSO headers |
 | `agents` | id, workspace_id, name, use_case, jurisdiction, archived_at | |
-| `agent_drafts` | agent_id (PK), persona JSONB, plan JSONB, scenarios JSONB, settings JSONB, rule_pack_id, rule_pack_version, content_hash, updated_at, updated_by | JSONB validated by domain types on every read and write; `scenarios` is NULL until saved (M5) |
+| `agent_drafts` | agent_id (PK), persona JSONB, plan JSONB, scenarios JSONB, settings JSONB, rule_pack_id, rule_pack_version, purpose_id, purpose_version, content_hash, updated_at, updated_by | JSONB validated by domain types on every read and write; `scenarios` is NULL until saved (M5); since M3b every draft pins a purpose version (built-in purposes have fixed IDs) |
+| `purposes` | id, workspace_id, name, draft JSONB, draft_hash, latest_version, revision, created_at, created_by, updated_at | The workspace's own purposes (M3b); built-in purposes live in code |
+| `purpose_versions` | purpose_id, version, definition JSONB, content_hash, created_at, created_by | Append-only (trigger) |
 | `agent_versions` | id, agent_id, number, snapshot JSONB, content_hash, test_run_id, created_by, created_at | Append-only; a DB trigger forbids UPDATE and DELETE |
 | `publications` | agent_id, channel, version_id, updated_at | One row per agent and channel |
 | `rule_packs` | id, version, jurisdiction, use_case, body JSONB | Later. Since M3 the packs are `contracts/rule-packs/*.toml`, embedded in the server (`vak-services`); immutable per version |
@@ -80,9 +85,10 @@ The REST API is documented in `contracts/openapi.json`. Errors follow RFC 9457 (
 |---|---|
 | Health | `GET /health`, `GET /ready` |
 | Identity | `GET /me` |
-| Catalog | `GET /catalog/voices`, `GET /catalog/languages`, `GET /templates`, `GET /rule-packs` |
+| Catalog | `GET /catalog/voices`, `GET /catalog/languages`, `GET /catalog/tools`, `GET /templates`, `GET /rule-packs` |
 | Agents | `POST /agents` (3 required fields), `GET /agents`, `GET /agents/{id}`, `PATCH /agents/{id}` (autosave), `DELETE /agents/{id}` (archive), `GET /agents/{id}/progress` |
 | Plan | `GET /agents/{id}/plan`, `PUT /agents/{id}/plan`, `POST /agents/{id}/plan/validate` |
+| Purposes | `GET /purposes`, `POST /purposes` (duplicate), `GET /purposes/{id}`, `PATCH /purposes/{id}` (autosave), `GET`/`PUT /purposes/{id}/flow`, `POST /purposes/{id}/versions`, `GET /agents/{id}/purpose`, `POST /agents/{id}/purpose/update` |
 | Live test | `POST /agents/{id}/sessions` returns a session ID and media URL; `GET /sessions/{id}`; `GET /sessions/{id}/turns` |
 | Voice | `GET /voice/latency`: per-stage latency histograms (STT, the opt-out decision, LLM time to first token, TTS first audio, mouth-to-ear) with p50 and p95 |
 | Scenarios | `GET`, `PUT /agents/{id}/scenarios` (the whole set; the use case's defaults until saved) |

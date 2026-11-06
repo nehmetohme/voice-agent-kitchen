@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use vak_domain::Actor;
-use vak_services::{AgentService, TestRunService, VoiceService};
+use vak_services::{AgentService, PurposeService, TestRunService, VoiceService};
 
 use crate::identity::Identity;
 
@@ -11,6 +11,7 @@ use crate::identity::Identity;
 #[derive(Clone)]
 pub struct AppState {
     pub(crate) agents: AgentService,
+    pub(crate) purposes: PurposeService,
     pub(crate) voice: VoiceService,
     /// `None`: this server runs no test runs.
     pub(crate) test_runs: Option<TestRunService>,
@@ -22,12 +23,14 @@ pub struct AppState {
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl AppState {
-    /// State whose routes accept only the identity Databricks Apps forwards. Voice sessions
-    /// are off until [`AppState::with_voice`] provides a service with models, and test runs
-    /// until [`AppState::with_test_runs`] does.
+    /// State whose routes accept only the identity Databricks Apps forwards. Purposes share
+    /// the agents' store (`AgentService::with_purposes`). Voice sessions are off until
+    /// [`AppState::with_voice`] provides a service with models, and test runs until
+    /// [`AppState::with_test_runs`] does.
     #[must_use]
     pub fn new(agents: AgentService) -> Self {
         Self {
+            purposes: PurposeService::new(&agents),
             voice: VoiceService::new(agents.clone(), None),
             test_runs: None,
             agents,

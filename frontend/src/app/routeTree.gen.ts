@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './../routes/index'
 import { Route as SettingsRouteImport } from './../routes/settings'
 import { Route as AgentsIndexRouteImport } from './../routes/agents/index'
 import { Route as AgentsNewRouteImport } from './../routes/agents/new'
+import { Route as PurposesIndexRouteImport } from './../routes/purposes/index'
+import { Route as PurposesPurposeIdRouteImport } from './../routes/purposes/$purposeId'
 import { Route as AgentsAgentIdPlanRouteImport } from './../routes/agents/$agentId/plan'
 import { Route as AgentsAgentIdProvisionRouteImport } from './../routes/agents/$agentId/provision'
 import { Route as AgentsAgentIdTestRouteImport } from './../routes/agents/$agentId/test'
@@ -37,6 +39,16 @@ const AgentsNewRoute = AgentsNewRouteImport.update({
   path: '/agents/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PurposesIndexRoute = PurposesIndexRouteImport.update({
+  id: '/purposes/',
+  path: '/purposes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PurposesPurposeIdRoute = PurposesPurposeIdRouteImport.update({
+  id: '/purposes/$purposeId',
+  path: '/purposes/$purposeId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsAgentIdPlanRoute = AgentsAgentIdPlanRouteImport.update({
   id: '/agents/$agentId/plan',
   path: '/agents/$agentId/plan',
@@ -57,7 +69,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/agents/new': typeof AgentsNewRoute
+  '/purposes/$purposeId': typeof PurposesPurposeIdRoute
   '/agents/': typeof AgentsIndexRoute
+  '/purposes/': typeof PurposesIndexRoute
   '/agents/$agentId/plan': typeof AgentsAgentIdPlanRoute
   '/agents/$agentId/provision': typeof AgentsAgentIdProvisionRoute
   '/agents/$agentId/test': typeof AgentsAgentIdTestRoute
@@ -66,7 +80,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/agents/new': typeof AgentsNewRoute
+  '/purposes/$purposeId': typeof PurposesPurposeIdRoute
   '/agents': typeof AgentsIndexRoute
+  '/purposes': typeof PurposesIndexRoute
   '/agents/$agentId/plan': typeof AgentsAgentIdPlanRoute
   '/agents/$agentId/provision': typeof AgentsAgentIdProvisionRoute
   '/agents/$agentId/test': typeof AgentsAgentIdTestRoute
@@ -76,7 +92,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/agents/new': typeof AgentsNewRoute
+  '/purposes/$purposeId': typeof PurposesPurposeIdRoute
   '/agents/': typeof AgentsIndexRoute
+  '/purposes/': typeof PurposesIndexRoute
   '/agents/$agentId/plan': typeof AgentsAgentIdPlanRoute
   '/agents/$agentId/provision': typeof AgentsAgentIdProvisionRoute
   '/agents/$agentId/test': typeof AgentsAgentIdTestRoute
@@ -87,7 +105,9 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/agents/new'
+    | '/purposes/$purposeId'
     | '/agents/'
+    | '/purposes/'
     | '/agents/$agentId/plan'
     | '/agents/$agentId/provision'
     | '/agents/$agentId/test'
@@ -96,7 +116,9 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/agents/new'
+    | '/purposes/$purposeId'
     | '/agents'
+    | '/purposes'
     | '/agents/$agentId/plan'
     | '/agents/$agentId/provision'
     | '/agents/$agentId/test'
@@ -105,7 +127,9 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/agents/new'
+    | '/purposes/$purposeId'
     | '/agents/'
+    | '/purposes/'
     | '/agents/$agentId/plan'
     | '/agents/$agentId/provision'
     | '/agents/$agentId/test'
@@ -115,7 +139,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
   AgentsNewRoute: typeof AgentsNewRoute
+  PurposesPurposeIdRoute: typeof PurposesPurposeIdRoute
   AgentsIndexRoute: typeof AgentsIndexRoute
+  PurposesIndexRoute: typeof PurposesIndexRoute
   AgentsAgentIdPlanRoute: typeof AgentsAgentIdPlanRoute
   AgentsAgentIdProvisionRoute: typeof AgentsAgentIdProvisionRoute
   AgentsAgentIdTestRoute: typeof AgentsAgentIdTestRoute
@@ -151,6 +177,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/purposes/': {
+      id: '/purposes/'
+      path: '/purposes'
+      fullPath: '/purposes/'
+      preLoaderRoute: typeof PurposesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/purposes/$purposeId': {
+      id: '/purposes/$purposeId'
+      path: '/purposes/$purposeId'
+      fullPath: '/purposes/$purposeId'
+      preLoaderRoute: typeof PurposesPurposeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agents/$agentId/plan': {
       id: '/agents/$agentId/plan'
       path: '/agents/$agentId/plan'
@@ -179,7 +219,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
   AgentsNewRoute: AgentsNewRoute,
+  PurposesPurposeIdRoute: PurposesPurposeIdRoute,
   AgentsIndexRoute: AgentsIndexRoute,
+  PurposesIndexRoute: PurposesIndexRoute,
   AgentsAgentIdPlanRoute: AgentsAgentIdPlanRoute,
   AgentsAgentIdProvisionRoute: AgentsAgentIdProvisionRoute,
   AgentsAgentIdTestRoute: AgentsAgentIdTestRoute,

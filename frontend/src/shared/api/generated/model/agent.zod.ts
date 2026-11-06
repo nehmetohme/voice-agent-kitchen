@@ -9,6 +9,7 @@ import * as zod from 'zod';
 
 export const agentDraftHashRegExp = new RegExp('^sha256:[0-9a-f]{64}$');
 
+
 export const agentTurnDetectionSilenceMsMin = 200;
 export const agentTurnDetectionSilenceMsMax = 2000;
 
@@ -22,6 +23,11 @@ export const Agent = zod.object({
   "language": zod.string().describe('A language code from `GET /api/v1/catalog/languages`.'),
   "model": zod.enum(['balanced', 'fast']).describe('Which LLM profile answers: `balanced` (the main voice model) or `fast` (quicker first\nwords, simpler answers).'),
   "name": zod.string(),
+  "purpose": zod.object({
+  "id": zod.uuid(),
+  "system": zod.boolean().describe('A built-in purpose.'),
+  "version": zod.int().min(1)
+}).describe('The purpose version it pins; its compliance class is `useCase`.'),
   "rulePack": zod.object({
   "id": zod.string(),
   "version": zod.int().min(1)

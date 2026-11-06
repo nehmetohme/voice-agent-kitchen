@@ -1,7 +1,7 @@
 use std::future::pending;
 
 use vak_domain::DraftField;
-use vak_repositories::{BoxFuture, Versioned};
+use vak_repositories::{BoxFuture, PurposeUsage, Versioned};
 use vak_testkit::repositories::InMemoryAgentRepo;
 
 use super::*;
@@ -335,6 +335,10 @@ impl AgentRepo for Hanging {
     }
 
     fn list(&self, _query: AgentQuery) -> BoxFuture<'_, Result<Vec<Agent>, RepoError>> {
+        Box::pin(pending())
+    }
+
+    fn purpose_usage(&self) -> BoxFuture<'_, Result<Vec<PurposeUsage>, RepoError>> {
         Box::pin(pending())
     }
 

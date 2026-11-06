@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { agentQueryOptions } from '../state/agents-queries';
 import { AgentActions } from './agent-actions';
+import { PurposeUpdate } from './purpose-update';
 import { SetupStepper } from './setup-stepper';
 
 /**
  * One row above every step of an agent: its name, the setup stepper that moves between the
- * steps (always in view: Zeigarnik), and its rare actions. Shared by the Provision and Plan
+ * steps (always in view: Zeigarnik), "Update available" when its purpose has a newer version,
+ * and its rare actions. Shared by the Provision and Plan
  * routes. While the agent loads it says so; when it is missing, the page below says what to do.
  */
 export function AgentHeader({ agentId }: { agentId: string }) {
@@ -29,6 +31,7 @@ export function AgentHeader({ agentId }: { agentId: string }) {
       <div className="max-lg:order-last max-lg:basis-full">
         <SetupStepper agentId={agentId} />
       </div>
+      <PurposeUpdate agentId={agentId} />
       <AgentActions agentId={agentId} name={name} />
     </div>
   );

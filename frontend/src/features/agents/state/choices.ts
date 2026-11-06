@@ -1,5 +1,6 @@
-/** The fixed choices the agent forms offer: six purposes and two model profiles (Hick). */
-import type { Choice, ModelProfile, UseCase } from '../api/agents-api';
+/** The choices the agent forms offer: the workspace's purposes and two model profiles (Hick). */
+import type { Choice, ModelProfile } from '../api/agents-api';
+import type { PurposeChoice } from '../api/purpose-api';
 
 /**
  * The catalog's choices, always including `current`: a picker must show the stored value even
@@ -12,19 +13,17 @@ export function withCurrent(options: readonly Choice[] | undefined, current: str
     : [{ value: current, label: current }, ...list];
 }
 
-export interface PurposeChoice {
-  value: UseCase;
-  label: string;
-}
-
-/** Every purpose, in the order the server lists use cases. */
-export const PURPOSES: readonly PurposeChoice[] = [
-  { value: 'support', label: 'Customer support' },
-  { value: 'service', label: 'Customer service' },
-  { value: 'booking', label: 'Appointment booking' },
-  { value: 'survey', label: 'Survey' },
-  { value: 'telemarketing', label: 'Outbound sales' },
-  { value: 'custom', label: 'Something else' },
+/**
+ * The six built-in purposes, in the order the server lists them: what the pickers offer
+ * before the workspace's purposes load, so creating an agent never waits for them.
+ */
+export const BUILT_IN_PURPOSES: readonly PurposeChoice[] = [
+  { value: 'support', label: 'Customer support', useCase: 'support', system: true },
+  { value: 'service', label: 'Customer service', useCase: 'service', system: true },
+  { value: 'booking', label: 'Appointment booking', useCase: 'booking', system: true },
+  { value: 'survey', label: 'Survey', useCase: 'survey', system: true },
+  { value: 'telemarketing', label: 'Outbound sales', useCase: 'telemarketing', system: true },
+  { value: 'custom', label: 'Something else', useCase: 'custom', system: true },
 ];
 
 export const MODELS: readonly { value: ModelProfile; label: string }[] = [
@@ -32,14 +31,9 @@ export const MODELS: readonly { value: ModelProfile; label: string }[] = [
   { value: 'fast', label: 'Fast: quicker replies, simpler answers' },
 ];
 
-/** The purpose's label, e.g. `Customer support`. */
-export function purposeLabel(useCase: UseCase): string {
-  return PURPOSES.find((purpose) => purpose.value === useCase)?.label ?? useCase;
-}
-
-/** Narrows a select's value back to a purpose. */
-export function toUseCase(value: string): UseCase | undefined {
-  return PURPOSES.find((purpose) => purpose.value === value)?.value;
+/** The purpose's label in `choices`, e.g. `Customer support`, or the value itself. */
+export function purposeLabel(choices: readonly PurposeChoice[], value: string): string {
+  return choices.find((purpose) => purpose.value === value)?.label ?? value;
 }
 
 /** Narrows a select's value back to a model profile. */

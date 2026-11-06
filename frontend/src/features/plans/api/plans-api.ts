@@ -7,6 +7,10 @@ import {
   saveAgentPlan as saveAgentPlanRequest,
 } from '../../../shared/api/generated/endpoints/plans/plans';
 import {
+  getPurposeFlow as getPurposeFlowRequest,
+  savePurposeFlow as savePurposeFlowRequest,
+} from '../../../shared/api/generated/endpoints/purposes/purposes';
+import {
   SaveAgentPlanBody,
   saveAgentPlanBodyEdgesItemConditionMax,
   saveAgentPlanBodyNodesItemLabelMax,
@@ -55,11 +59,22 @@ export interface PlanDraft {
   paths: Path[];
 }
 
-/** The agent's plan as the server sees it. */
+/** Whose flow the editor edits: an agent's plan, or a purpose's starting flow. */
+export type PlanTarget =
+  | { kind: 'agent'; agentId: string }
+  | { kind: 'purpose'; purposeId: string };
+
+/** The agent's plan, or a purpose's starting flow, as the server sees it. */
 export interface PlanView extends PlanDraft {
   /** `false` while this is the use case's template. */
   saved: boolean;
+  /** What the start step's text opens with, word for word (an agent's plan). */
   lockedTexts: LockedText[];
+  /**
+   * What every agent's opening says before a purpose's start step, shown for information: a
+   * purpose's flow doesn't carry the locked texts, since each agent's pack supplies them.
+   */
+  prependedTexts: LockedText[];
   optOutConfirmation: string | null;
   valid: boolean;
   problems: Problem[];
@@ -73,10 +88,12 @@ export const PLAN_LIMITS = {
   condition: saveAgentPlanBodyEdgesItemConditionMax,
 } as const;
 
-function toView(dto: AgentPlanDto): PlanView {
+function toView(dto: AgentPlanDto, target: PlanTarget['kind'] = 'agent'): PlanView {
+  const locked = dto.lockedTexts.map(({ key, text }) => ({ key, text }));
   return {
     saved: dto.saved,
-    lockedTexts: dto.lockedTexts.map(({ key, text }) => ({ key, text })),
+    lockedTexts: target === 'agent' ? locked : [],
+    prependedTexts: target === 'agent' ? [] : locked,
     optOutConfirmation: dto.optOutConfirmation,
     steps: dto.nodes.map(({ id, kind, label, text }) => ({ id, kind, label, text })),
     paths: dto.edges.map(({ id, from, to, condition }) => ({ id, from, to, condition })),
@@ -102,6 +119,29 @@ export async function savePlan(agentId: string, draft: PlanDraft): Promise<PlanV
   const body = { nodes: draft.steps, edges: draft.paths };
   SaveAgentPlanBody.parse(body);
   return toView(await saveAgentPlanRequest(agentId, body));
+}
+
+async function getPurposeFlow(purposeId: string): Promise<PlanView> {
+  return toView(await getPurposeFlowRequest(purposeId), 'purpose');
+}
+
+/** Saves a purpose's whole starting flow, checked against the contract first, like a plan. */
+async function savePurposeFlow(purposeId: string, draft: PlanDraft): Promise<PlanView> {
+  const body = { nodes: draft.steps, edges: draft.paths };
+  SaveAgentPlanBody.parse(body);
+  return toView(await savePurposeFlowRequest(purposeId, body), 'purpose');
+}
+
+/** Reads the target's flow. */
+export function getFlow(target: PlanTarget): Promise<PlanView> {
+  return target.kind === 'agent' ? getPlan(target.agentId) : getPurposeFlow(target.purposeId);
+}
+
+/** Saves the target's flow. */
+export function saveFlow(target: PlanTarget, draft: PlanDraft): Promise<PlanView> {
+  return target.kind === 'agent'
+    ? savePlan(target.agentId, draft)
+    : savePurposeFlow(target.purposeId, draft);
 }
 
 /** Whether `draft` can be sent: every field within the contract's request schema. */

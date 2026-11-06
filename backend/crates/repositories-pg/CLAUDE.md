@@ -17,6 +17,7 @@ Today:
 | `Database::migrate()` | Applies pending migrations |
 | `PgAgentRepo` | `AgentRepo`: each mutation is one transaction (operator upsert, agent, draft, audit event) |
 | `PgTestRunRepo` | `TestRunRepo` (`Database::test_runs`): a run is one row with its results as one JSONB array (`ResultRecord`s, read back through the domain's constructors; the stored verdict must be the one the results give); `create` and an operator's `update` commit with their audit event (entity `agent`, `details.testRunId`); `latest_verdicts` is one `DISTINCT ON` query over `unnest` of the agents' draft hashes |
+| `PgPurposeRepo` (`Database::purposes()`) | `PurposeRepo`: the draft and each version as JSONB (`DefinitionRecord` in `purpose_records.rs`), read back through the domain's constructors; each mutation is one transaction with its audit event |
 
 | Migration | Tables |
 |---|---|
@@ -25,6 +26,7 @@ Today:
 | `20261030120200_audit_events` | `audit_events`, append-only: triggers reject UPDATE, DELETE and TRUNCATE (SQLSTATE 42501) |
 | `20261102120000_agent_draft_plans` | `agent_drafts.plan` (the saved plan, `NULL` until one is saved) must be an object with `nodes` and `edges` arrays; rows read back through `PlanRecord` and the domain's constructors |
 | `20261107120000_test_runs` | `agent_drafts.scenarios` (saved scenarios, `NULL` until saved; an array, read back through `ScenarioRecord`); `test_runs` (status, verdict only when finished, models and seed together, results JSONB, revision; one queued or running run per agent by a partial unique index; indexes for an agent's runs, the latest finished run on a draft, and the queue) |
+| `20261108120000_purposes` | `purposes` (the workspace's own: name, draft JSONB, draft hash, latest version, revision; the built-in IDs are reserved), `purpose_versions`, append-only like `audit_events`; `agent_drafts.purpose_id` and `purpose_version`, backfilled to the use case's built-in purpose v1, so existing agents keep their behaviour and content hash |
 
 ## Dependencies
 
@@ -53,6 +55,7 @@ Today:
 - `#[sqlx::test]` gives each test a fresh database with migrations applied. Postgres comes from the nextest setup script `backend/tools/test-db.sh`: one Docker container per worktree, started on demand, locally and in CI alike.
 - `tests/agent_repo.rs` runs the `vak-testkit` conformance suite (the same suite the in-memory fake passes), plus the append-only audit trigger, operator upserts, rows the domain rejects, migrations on an empty database, and URL redaction.
 - `tests/test_run_repo.rs` runs `test_run_repo_conformance`, plus the audit events of starting and cancelling, rows the domain rejects, and the one-active-run index.
+- `tests/purpose_repo.rs` runs the purpose conformance suite, plus the append-only `purpose_versions` trigger, the audit details, a corrupt stored draft, and the migration of an agent made before purposes.
 
 ## Coverage floor
 

@@ -4,10 +4,10 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use vak_domain::{
-    Agent, AgentNameError, ModelProfile, RulePackRef, SetupProgress, SetupStep, TurnDetection,
-    UseCase,
+    Agent, AgentNameError, ModelProfile, PlanOnUpdate, PurposeChange, PurposeRef, RulePackRef,
+    SetupProgress, SetupStep, TurnDetection, UseCase,
 };
-use vak_services::AgentSummary;
+use vak_services::{AgentPurpose, AgentSummary};
 
 /// What the agent is for. It picks the starting template and the default rule pack.
 #[derive(Debug, Clone, Copy, Serialize, ToSchema)]
@@ -94,6 +94,28 @@ impl From<&RulePackRef> for RulePackDto {
     }
 }
 
+/// The purpose version an agent pins.
+#[derive(Debug, Serialize, ToSchema)]
+#[schema(as = PurposeRef)]
+pub(crate) struct PurposeRefDto {
+    #[schema(format = "uuid")]
+    id: String,
+    #[schema(minimum = 1)]
+    version: u32,
+    /// A built-in purpose.
+    system: bool,
+}
+
+impl From<&PurposeRef> for PurposeRefDto {
+    fn from(reference: &PurposeRef) -> Self {
+        Self {
+            id: reference.id().to_string(),
+            version: reference.version(),
+            system: reference.is_system(),
+        }
+    }
+}
+
 /// A voice agent and its current draft.
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -114,6 +136,8 @@ pub(crate) struct AgentDto {
     #[schema(example = "US")]
     jurisdiction: String,
     rule_pack: RulePackDto,
+    /// The purpose version it pins; its compliance class is `useCase`.
+    purpose: PurposeRefDto,
     model: ModelProfileDto,
     turn_detection: TurnDetectionDto,
     /// SHA-256 of the draft: what a test run tested and what a version froze.
@@ -141,6 +165,7 @@ impl From<&Agent> for AgentDto {
             language: persona.language().to_string(),
             jurisdiction: draft.jurisdiction().to_string(),
             rule_pack: draft.rule_pack().into(),
+            purpose: draft.purpose().into(),
             model: settings.model().into(),
             turn_detection: settings.turn_detection().into(),
             draft_hash: draft.content_hash().to_string(),
@@ -160,6 +185,7 @@ pub(crate) struct AgentSummaryDto {
     id: String,
     name: String,
     use_case: UseCaseDto,
+    purpose: PurposeRefDto,
     voice: String,
     #[schema(format = DateTime)]
     updated_at: String,
@@ -175,6 +201,7 @@ impl From<&AgentSummary> for AgentSummaryDto {
             id: summary.agent.id().to_string(),
             name: persona.name().to_string(),
             use_case: persona.use_case().into(),
+            purpose: summary.agent.draft().purpose().into(),
             voice: persona.voice().to_string(),
             updated_at: summary.agent.updated_at().to_string(),
             progress_percent: summary.progress.percent(),
@@ -257,5 +284,129 @@ pub(crate) fn name_message(error: AgentNameError) -> &'static str {
         AgentNameError::Empty => "Enter a name.",
         AgentNameError::TooLong { .. } => "Use 80 characters or fewer.",
         AgentNameError::ControlCharacter => "Remove line breaks and control characters.",
+    }
+}
+
+/// An area of a purpose that changes on update.
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+#[schema(as = PurposeChangeArea)]
+pub(crate) enum ChangeAreaDto {
+    Name,
+    Description,
+    ComplianceClass,
+    Persona,
+    Flow,
+    Tools,
+    Guardrails,
+    Compliance,
+}
+
+/// One thing that changes, in words.
+#[derive(Debug, Serialize, ToSchema)]
+#[schema(as = PurposeChange)]
+pub(crate) struct ChangeDto {
+    area: ChangeAreaDto,
+    summary: String,
+}
+
+fn change(change: PurposeChange) -> ChangeDto {
+    let (area, summary) = match change {
+        PurposeChange::Name => (ChangeAreaDto::Name, "The name changes.".to_owned()),
+        PurposeChange::Description => (
+            ChangeAreaDto::Description,
+            "The description changes.".to_owned(),
+        ),
+        PurposeChange::ComplianceClass { from, to } => (
+            ChangeAreaDto::ComplianceClass,
+            format!("The compliance class moves from {from} to {to}, and the rule pack with it."),
+        ),
+        PurposeChange::Persona => (
+            ChangeAreaDto::Persona,
+            "The persona changes, so the agent's instructions do too.".to_owned(),
+        ),
+        PurposeChange::Flow => (ChangeAreaDto::Flow, "The starting flow changes.".to_owned()),
+        PurposeChange::Tools => (ChangeAreaDto::Tools, "The tools change.".to_owned()),
+        PurposeChange::Guardrails => (
+            ChangeAreaDto::Guardrails,
+            "The guardrails change.".to_owned(),
+        ),
+        PurposeChange::ComplianceAdditions => (
+            ChangeAreaDto::Compliance,
+            "The compliance additions change.".to_owned(),
+        ),
+    };
+    ChangeDto { area, summary }
+}
+
+/// What an update does to the agent's plan: it `follows` the purpose (no saved plan), is
+/// `replaced` by the new flow (unedited, or edited and replaced on request), or is `kept`.
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+#[schema(as = PlanOnUpdate)]
+pub(crate) enum PlanOnUpdateDto {
+    Follows,
+    Replaced,
+    Kept,
+}
+
+impl From<PlanOnUpdate> for PlanOnUpdateDto {
+    fn from(plan: PlanOnUpdate) -> Self {
+        match plan {
+            PlanOnUpdate::FollowsPurpose => Self::Follows,
+            PlanOnUpdate::Replaced | PlanOnUpdate::ReplacedEdits => Self::Replaced,
+            PlanOnUpdate::KeptEdits => Self::Kept,
+        }
+    }
+}
+
+/// Moving to the purpose's latest version: what changes, and what happens to the plan unless
+/// the operator asks to replace an edited one.
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(as = PurposeUpdate)]
+pub(crate) struct UpdateDto {
+    #[schema(minimum = 1)]
+    version: u32,
+    changes: Vec<ChangeDto>,
+    plan: PlanOnUpdateDto,
+    /// The saved plan has the operator's own edits.
+    plan_edited: bool,
+}
+
+/// The purpose version an agent pins, and the update to a newer one.
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(as = AgentPurpose)]
+pub(crate) struct AgentPurposeDto {
+    #[schema(format = "uuid")]
+    id: String,
+    #[schema(minimum = 1)]
+    version: u32,
+    /// The pinned version's name.
+    name: String,
+    system: bool,
+    #[schema(required = true, minimum = 1)]
+    latest_version: Option<u32>,
+    /// `null` when the agent pins the latest version.
+    #[schema(required = true)]
+    update: Option<UpdateDto>,
+}
+
+impl From<&AgentPurpose> for AgentPurposeDto {
+    fn from(purpose: &AgentPurpose) -> Self {
+        Self {
+            id: purpose.reference.id().to_string(),
+            version: purpose.reference.version(),
+            name: purpose.name.as_str().to_owned(),
+            system: purpose.system,
+            latest_version: purpose.latest_version,
+            update: purpose.update.as_ref().map(|update| UpdateDto {
+                version: update.to().version(),
+                changes: update.changes().iter().copied().map(change).collect(),
+                plan: update.plan().into(),
+                plan_edited: update.plan_edited(),
+            }),
+        }
     }
 }

@@ -3,7 +3,8 @@
 //! [`AgentService::update_draft`]: one `agent.draft_updated` audit event for `plan`, nothing
 //! stored or audited when the plan is unchanged.
 
-use vak_domain::{Actor, AgentId, DraftPatch, DraftPlan, Plan, PlanError};
+use vak_domain::{Actor, AgentDraft, AgentId, DraftPatch, DraftPlan, Plan, PlanError};
+use vak_repositories::RepoError;
 
 use crate::{AgentService, FindAgentError, UpdateDraftError};
 
@@ -12,7 +13,9 @@ impl AgentService {
     /// the agent's pinned rule pack.
     pub async fn plan(&self, id: AgentId) -> Result<DraftPlan, FindAgentError> {
         let agent = self.get(id).await?;
-        Ok(DraftPlan::of(agent.draft(), &self.rule_packs))
+        self.shown_plan(agent.draft())
+            .await
+            .map_err(FindAgentError::Unavailable)
     }
 
     /// Replaces the agent's plan. A plan that breaks a graph rule is saved too: the answer
@@ -28,7 +31,19 @@ impl AgentService {
             ..DraftPatch::default()
         };
         let agent = self.update_draft(actor, id, &patch).await?;
-        Ok(DraftPlan::of(agent.draft(), &self.rule_packs))
+        self.shown_plan(agent.draft())
+            .await
+            .map_err(UpdateDraftError::Unavailable)
+    }
+
+    /// The saved plan, or the pinned purpose version's starting flow.
+    async fn shown_plan(&self, draft: &AgentDraft) -> Result<DraftPlan, RepoError> {
+        let purpose = self.pinned_purpose(draft).await?;
+        Ok(DraftPlan::for_purpose(
+            draft,
+            &self.rule_packs,
+            purpose.definition(),
+        ))
     }
 
     /// Checks `plan` against the agent's pinned rule pack, without saving it.

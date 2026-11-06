@@ -400,11 +400,43 @@ impl Plan {
     /// come in a stable order: the whole plan, then steps, then paths, then locked texts in
     /// the pack's order.
     pub fn validate(&self, pack: &RulePack) -> Result<(), Vec<PlanError>> {
-        let errors = validate::errors(self, pack);
+        let errors = validate::errors(self, pack.locked_texts());
         if errors.is_empty() {
             Ok(())
         } else {
             Err(errors)
+        }
+    }
+
+    /// Every graph rule this plan breaks, without the locked opening: what a purpose's
+    /// starting flow, whose start steps don't carry the locked texts yet, is checked against.
+    pub fn validate_graph(&self) -> Result<(), Vec<PlanError>> {
+        let errors = validate::errors(self, &[]);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+
+    /// This plan with each start step opening with `locked`, in order, then its own text: a
+    /// purpose's starting flow as an agent with that rule pack gets it.
+    #[must_use]
+    pub fn opened_with(&self, locked: &[LockedText]) -> Self {
+        let nodes = self
+            .nodes
+            .iter()
+            .map(|node| match node.kind {
+                NodeKind::Start => PlanNode {
+                    text: templates::opening(locked, &node.text),
+                    ..node.clone()
+                },
+                _ => node.clone(),
+            })
+            .collect();
+        Self {
+            nodes,
+            edges: self.edges.clone(),
         }
     }
 

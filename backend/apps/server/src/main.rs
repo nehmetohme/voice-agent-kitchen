@@ -20,8 +20,8 @@ use axum::Router;
 use clap::{Parser, Subcommand};
 use tokio::net::TcpListener;
 use vak_api::AppState;
-use vak_config::{DATABASE_URL_VAR, DEV_OPERATOR_VAR, Settings};
-use vak_domain::Actor;
+use vak_config::{DATABASE_URL_VAR, DEV_OPERATOR_VAR, Settings, TOOL_HOSTS_VAR};
+use vak_domain::{Actor, ToolHosts};
 use vak_repositories_pg::{Database, DatabaseConfig};
 use vak_services::{AgentService, TestRunService, TestRunWorker, VoiceService};
 
@@ -86,9 +86,14 @@ fn app(settings: &Settings, database: &Database) -> anyhow::Result<(Router, Test
     let rule_packs =
         vak_services::rule_packs::shipped().context("the shipped rule packs don't load")?;
     let test_runs = Arc::new(database.test_runs());
+    // A host that isn't a host name stops the server: the allow-list bounds where tools call.
+    let tool_hosts = ToolHosts::new(&settings.tools.hosts)
+        .with_context(|| format!("{TOOL_HOSTS_VAR} lists something that isn't a host name"))?;
     let agents = AgentService::new(Arc::new(database.agents()))
         .with_rule_packs(rule_packs)
-        .with_test_runs(test_runs.clone());
+        .with_test_runs(test_runs.clone())
+        .with_purposes(Arc::new(database.purposes()))
+        .with_tool_hosts(tool_hosts);
     let voice = VoiceService::new(agents.clone(), voice::engines(&settings.models)?);
     let runs = TestRunService::new(
         agents.clone(),

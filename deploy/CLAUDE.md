@@ -36,6 +36,8 @@ Production runs only on Databricks. Local development swaps in local servers beh
 
 **Identity:** in production the Databricks Apps proxy adds `X-Forwarded-User` and `X-Forwarded-Email`. Locally nothing does, so `env.sh` sets `VAK_DEV_OPERATOR_EMAIL=dev@localhost` and API requests without the headers act as that operator. `vak-config` refuses the variable outside the `local` profile. Set it empty in `.env` to require the headers.
 
+**Tool hosts:** `VAK_TOOL_HOSTS` is the allow-list of hosts purposes' custom HTTP tools may call (comma-separated; `*.example.com` for subdomains). Unset means none: a purpose with an HTTP tool can't save a version until its host is listed. Nothing calls those hosts before M4b.
+
 ## Conventions
 
 - **No secrets in files.** `.env` is gitignored; `.env.example` holds placeholders only.

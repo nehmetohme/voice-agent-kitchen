@@ -6,7 +6,7 @@ frontend-verify` does both). Chromium only. The web server is `vite preview`.
 **The real backend.** `/api` is never mocked here. Playwright starts two web servers:
 `support/backend-server.ts` (Postgres 18 in Docker with a throwaway in-memory database, then
 `vak-server migrate` and `vak-server serve` in the local profile with the dev operator
-`e2e@example.com`) and `vite preview`, whose `/api` proxy points at it (`VAK_API_URL`). So
+`e2e@example.com` and the tool host allow-list `calendar.example.com,*.tools.example.com`) and `vite preview`, whose `/api` proxy points at it (`VAK_API_URL`). So
 `pnpm e2e` needs Docker and the Rust toolchain; the first run builds `vak-server`. Stopping
 the run removes the container.
 

@@ -24,14 +24,17 @@ import {
   type UseCase,
 } from '../../../shared/api/generated/model';
 import { ApiError } from '../../../shared/api/http';
+import { purposeKey } from './purpose-api';
 
-export type { ModelProfile, SetupStep, UseCase };
+export type { ModelProfile, SetupStep };
 
 /** An agent as the list shows it. */
 export interface AgentListItem {
   id: string;
   name: string;
   useCase: UseCase;
+  /** The pinned purpose, as the pickers name it (`purposeKey`). */
+  purpose: string;
   updatedAt: string;
   progressPercent: number;
 }
@@ -44,7 +47,8 @@ interface TurnDetection {
 /** Everything the provision page edits. */
 export interface AgentSettings {
   name: string;
-  useCase: UseCase;
+  /** The pinned purpose, as the pickers name it: a built-in's use case, or a purpose ID. */
+  purpose: string;
   voice: string;
   language: string;
   jurisdiction: string;
@@ -55,6 +59,8 @@ export interface AgentSettings {
 export interface AgentDetails {
   id: string;
   archived: boolean;
+  /** The pinned purpose's compliance class. */
+  useCase: UseCase;
   settings: AgentSettings;
 }
 
@@ -63,6 +69,8 @@ export interface NewAgent {
   name: string;
   useCase: UseCase;
   voice: string;
+  /** A purpose of the workspace's; without it the use case's built-in purpose. */
+  purposeId?: string;
 }
 
 export interface SetupProgress {
@@ -84,9 +92,10 @@ function toDetails(dto: AgentDto): AgentDetails {
   return {
     id: dto.id,
     archived: dto.archivedAt !== null,
+    useCase: dto.useCase,
     settings: {
       name: dto.name,
-      useCase: dto.useCase,
+      purpose: purposeKey(dto.purpose, dto.useCase),
       voice: dto.voice,
       language: dto.language,
       jurisdiction: dto.jurisdiction,
@@ -102,6 +111,7 @@ export async function listAgents(): Promise<AgentListItem[]> {
     id: item.id,
     name: item.name,
     useCase: item.useCase,
+    purpose: purposeKey(item.purpose, item.useCase),
     updatedAt: item.updatedAt,
     progressPercent: item.progressPercent,
   }));
@@ -119,12 +129,33 @@ export async function createAgent(agent: NewAgent): Promise<AgentDetails> {
   return toDetails(await createAgentRequest(agent));
 }
 
+const USE_CASES: readonly string[] = [
+  'support',
+  'service',
+  'booking',
+  'survey',
+  'telemarketing',
+  'custom',
+] satisfies readonly UseCase[];
+
+function isUseCase(value: string): value is UseCase {
+  return USE_CASES.includes(value);
+}
+
+/** The request body: a built-in purpose goes as `useCase`, another as `purposeId`. */
+function updateBody(changes: Partial<AgentSettings>): UpdateAgentBody {
+  const { purpose, ...rest } = changes;
+  if (purpose === undefined) return rest;
+  return isUseCase(purpose) ? { ...rest, useCase: purpose } : { ...rest, purposeId: purpose };
+}
+
 export async function updateAgent(
   id: string,
   changes: Partial<AgentSettings>,
 ): Promise<AgentDetails> {
-  UpdateAgentBody.parse(changes);
-  return toDetails(await updateAgentRequest(id, changes));
+  const body = updateBody(changes);
+  UpdateAgentBody.parse(body);
+  return toDetails(await updateAgentRequest(id, body));
 }
 
 export async function archiveAgent(id: string): Promise<void> {
@@ -155,7 +186,7 @@ export async function listLanguages(): Promise<Choice[]> {
 
 const SETTINGS_FIELDS: readonly (keyof AgentSettings)[] = [
   'name',
-  'useCase',
+  'purpose',
   'voice',
   'language',
   'jurisdiction',
@@ -173,7 +204,8 @@ export function fieldErrorsOf(error: unknown): FieldErrors {
   const problem = Problem.safeParse(error.problem);
   const errors: FieldErrors = {};
   for (const { field, message } of problem.success ? (problem.data.errors ?? []) : []) {
-    if (isSettingsField(field)) errors[field] = message;
+    const named = field === 'useCase' || field === 'purposeId' ? 'purpose' : field;
+    if (isSettingsField(named)) errors[named] = message;
   }
   return errors;
 }

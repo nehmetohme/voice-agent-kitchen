@@ -4,18 +4,26 @@
 //! Business rules come from `vak-domain`; the outside world is reached only
 //! through repository and provider ports.
 
+mod agent_purpose;
 mod agents;
 pub mod catalog;
 pub mod latency;
 mod plans;
+mod purposes;
 pub mod rule_packs;
 mod scenarios;
 mod test_runs;
 mod voice;
 
+pub use agent_purpose::{AgentPurpose, UpdateAgentPurpose, UpdateAgentPurposeError};
 pub use agents::{
     AgentService, AgentSummary, ArchiveAgentError, CreateAgent, CreateAgentError, FindAgentError,
-    LIST_LIMIT, ListAgentsError, UpdateDraftError,
+    LIST_LIMIT, ListAgentsError, UpdateAgent, UpdateDraftError,
+};
+pub use purposes::{
+    ComplianceBaseline, DuplicatePurpose, DuplicatePurposeError, FindPurposeError,
+    PURPOSE_LIST_LIMIT, PurposeService, PurposeSummary, PurposeView, SavePurposeVersionError,
+    ToolCatalog, UpdatePurposeError,
 };
 pub use scenarios::AgentScenarios;
 pub use test_runs::{

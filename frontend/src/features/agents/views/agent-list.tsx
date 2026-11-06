@@ -2,9 +2,11 @@ import { Link } from '@tanstack/react-router';
 
 import { purposeLabel } from '../state/choices';
 import type { AgentListItem } from '../state/models';
+import { usePurposeChoices } from '../state/use-purpose-choices';
 
 /** Agents as rows: the name opens the agent, then its purpose and setup progress. */
 export function AgentList({ agents }: { agents: readonly AgentListItem[] }) {
+  const purposes = usePurposeChoices();
   return (
     <ul aria-label="Agents" className="flex flex-col gap-2">
       {agents.map((agent) => (
@@ -20,7 +22,7 @@ export function AgentList({ agents }: { agents: readonly AgentListItem[] }) {
             >
               {agent.name}
             </Link>
-            <span className="text-sm text-muted">{purposeLabel(agent.useCase)}</span>
+            <span className="text-sm text-muted">{purposeLabel(purposes, agent.purpose)}</span>
           </div>
           <span className="shrink-0 text-sm text-muted">{agent.progressPercent} % set up</span>
         </li>

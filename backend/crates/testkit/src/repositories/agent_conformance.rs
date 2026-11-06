@@ -7,9 +7,10 @@ use jiff::{SignedDuration, Timestamp};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    DraftPatch, LockedText, Plan, ScenarioSet, UseCase, VoiceId,
+    DraftPatch, LockedText, Plan, PurposeId, PurposeName, PurposeVersion, ScenarioSet, ToolHosts,
+    UseCase, VoiceId,
 };
-use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision};
+use vak_repositories::{AgentQuery, AgentRepo, PurposeUsage, RepoError, Revision};
 
 /// One stored audit event, as the suite reads it back.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,6 +120,7 @@ where
     updates_need_the_stored_revision(repo, &fx, &old, &audit_trail).await;
     stores_and_replaces_the_saved_plan(repo, &fx).await;
     stores_and_replaces_the_saved_scenarios(repo, &fx).await;
+    pins_purposes_and_counts_their_active_agents(repo, &fx).await;
 }
 
 /// Saved scenarios are part of the draft: create and update store them, and `get` reads them
@@ -163,6 +165,79 @@ async fn stores_and_replaces_the_saved_scenarios<R: AgentRepo + ?Sized>(repo: &R
     assert_eq!(
         reread.value, change.agent,
         "update replaces the saved scenarios"
+    );
+}
+
+/// The pinned purpose version is part of the draft, and `purpose_usage` counts the active
+/// agents per purpose, whatever version they pin. Runs last: it counts every agent so far.
+#[expect(
+    clippy::expect_used,
+    reason = "a conformance suite fails the calling test"
+)]
+async fn pins_purposes_and_counts_their_active_agents<R: AgentRepo + ?Sized>(
+    repo: &R,
+    fx: &Fixture,
+) {
+    let custom = vak_domain::Purpose::duplicate(
+        PurposeId::from_uuid(Uuid::now_v7()).expect("v7"),
+        PurposeVersion::system(UseCase::Survey).definition(),
+        PurposeName::parse("Short survey").expect("valid"),
+        fx.at(70),
+    );
+    let (_, version) = custom
+        .save_version(&ToolHosts::default(), fx.at(70))
+        .expect("version 1");
+    let agent = fx.agent("Surveyor", 71);
+    repo.create(&agent, &fx.created(&agent))
+        .await
+        .expect("create");
+    let patch = DraftPatch {
+        purpose: Some(version.choice()),
+        ..DraftPatch::default()
+    };
+    let change = agent
+        .update_draft(&patch, fx.at(72))
+        .expect("active")
+        .expect("changed");
+    let event = fx.event(
+        &change.agent,
+        AuditAction::AgentDraftUpdated {
+            fields: change.fields.clone(),
+            draft_hash: change.agent.draft().content_hash(),
+        },
+    );
+    repo.update(&change.agent, Revision::FIRST, &event)
+        .await
+        .expect("update with the purpose");
+
+    let reread = repo.get(agent.id()).await.expect("get");
+    assert_eq!(
+        reread.value.draft().purpose(),
+        &version.reference(),
+        "get reads the pinned purpose version back"
+    );
+    assert_eq!(reread.value, change.agent);
+    let active = repo.list(AgentQuery { limit: 200 }).await.expect("list");
+    let support = active
+        .iter()
+        .filter(|agent| agent.draft().persona().use_case() == UseCase::Support)
+        .count();
+    let mut usage = repo.purpose_usage().await.expect("usage");
+    usage.sort_by_key(|usage| usage.purpose);
+    let mut expected = vec![
+        PurposeUsage {
+            purpose: PurposeId::system(UseCase::Support),
+            agents: u32::try_from(support).expect("few agents"),
+        },
+        PurposeUsage {
+            purpose: custom.id(),
+            agents: 1,
+        },
+    ];
+    expected.sort_by_key(|usage| usage.purpose);
+    assert_eq!(
+        usage, expected,
+        "purpose_usage counts active agents per purpose, archived ones left out"
     );
 }
 

@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../lib/cn';
+import { useCoveredByModal } from './modal-layer';
 
 /**
  * The only button in the app (shadcn pattern on Base UI). Variants are fixed (similarity):
@@ -54,12 +55,15 @@ export function Button({
   type = 'button',
   ...props
 }: ButtonProps) {
+  // Behind an open modal, the modal's own primary action is the one that stands out.
+  const covered = useCoveredByModal();
+  const shown = variant === 'primary' && covered ? 'secondary' : variant;
   return (
     <ButtonPrimitive
       data-slot="button"
-      data-variant={variant}
+      data-variant={shown}
       type={type}
-      className={cn(buttonVariants({ variant }), className)}
+      className={cn(buttonVariants({ variant: shown }), className)}
       {...props}
     />
   );

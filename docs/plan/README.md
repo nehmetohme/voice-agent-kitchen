@@ -29,6 +29,7 @@ A platform where an operator creates a voice agent in four steps:
 |---|---|
 | [architecture.md](architecture.md) | System diagrams (prod and local), backend crates and layer rules, voice pipeline, frontend modules, deployment |
 | [domain.md](domain.md) | Domain model, lifecycles, database tables, API surface |
+| [purposes.md](purposes.md) | M3b Purposes: versioned definitions, system purposes, tools, guardrails, tighten-only compliance, agent pins and updates |
 | [quality.md](quality.md) | Verify contract, TDD and contract tags, worktrees, Claude Code hooks, 14 reviewer subagents, CI, GitHub settings, Graphify |
 | [milestones.md](milestones.md) | Build order, spikes, contract tests per milestone, exit criteria |
 | [skeleton.md](skeleton.md) | Full folder tree and what each `CLAUDE.md` says |

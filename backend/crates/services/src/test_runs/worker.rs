@@ -133,6 +133,9 @@ impl TestRunWorker {
             tracing::warn!(test_run = %stored.value.id(), "a queued test run can't run");
             return self.interrupt(&stored).await.map(|()| false);
         };
+        // The agent's pinned purpose version shapes its replies, as in a live test call.
+        let purpose = inner.agents.pinned_purpose(agent.draft()).await?;
+        let script = SessionScript::for_agent(agent.draft(), purpose.definition());
         let models = RunModels::new(
             engines.llm_model.as_str(),
             engines.decision_model.as_str(),
@@ -148,7 +151,6 @@ impl TestRunWorker {
         let id = running.id();
         tracing::info!(test_run = %id, scenarios = running.scenarios().len(), "test run started");
         let signal = CancelSignal::register(&self.service, id);
-        let script = SessionScript::for_draft(agent.draft());
         self.play(running, revision, &script, &engines, &signal.token)
             .await
             .map(|()| true)
@@ -299,7 +301,7 @@ fn conversation(
         reply: settings.llm_reply,
     };
     let opt_out = OptOutPolicy::new(
-        script.opt_out_phrases().iter().copied(),
+        script.opt_out_phrases().iter().cloned(),
         script.opt_out_confirmation(),
     )
     .with_check_question(script.opt_out_check_question())

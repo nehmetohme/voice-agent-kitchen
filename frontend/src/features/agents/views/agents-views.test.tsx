@@ -16,9 +16,13 @@ function ProvisionAtId() {
   return <ProvisionPage agentId={AGENT_ID} />;
 }
 
+function CreateAgent() {
+  return <CreateAgentPage />;
+}
+
 const ROUTES = [
   { path: '/agents', component: AgentsOverview },
-  { path: '/agents/new', component: CreateAgentPage },
+  { path: '/agents/new', component: CreateAgent },
   { path: '/agents/$agentId/provision', component: ProvisionAtId },
 ];
 

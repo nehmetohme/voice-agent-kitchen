@@ -18,6 +18,7 @@ mod latency;
 mod openapi;
 mod plans;
 mod problem;
+mod purposes;
 mod scenarios;
 mod sessions;
 mod state;

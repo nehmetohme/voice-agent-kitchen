@@ -36,6 +36,7 @@ mod jurisdiction;
 mod opt_out;
 mod plan;
 mod progress;
+mod purpose;
 mod rule_pack;
 mod scenario;
 mod session;
@@ -48,13 +49,13 @@ mod voice;
 pub use actor::{Actor, ActorError};
 pub use agent::{Agent, AgentError, DraftChange};
 pub use agent_name::{AgentName, AgentNameError};
-pub use audit::{AuditAction, AuditEvent};
+pub use audit::{AuditAction, AuditEvent, PurposeAuditAction, PurposeAuditEvent};
 pub use catalog::{Language, LanguageError, VoiceId, VoiceIdError};
 pub use decision::{Answer, ChoiceOption, DecisionError, Question, QuestionId, QuestionKind};
 pub use draft::{AgentDraft, DraftField, DraftPatch, Persona};
 pub use draft_plan::DraftPlan;
 pub use hash::{ContentHash, ContentHashError};
-pub use ids::{AgentId, AuditEventId, IdError, TestRunId};
+pub use ids::{AgentId, AuditEventId, IdError, PurposeId, TestRunId};
 pub use jurisdiction::{Jurisdiction, JurisdictionError};
 pub use opt_out::{
     DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION, DEFAULT_OPT_OUT_PHRASES,
@@ -62,6 +63,15 @@ pub use opt_out::{
 };
 pub use plan::{EdgeId, NodeId, NodeKind, Plan, PlanEdge, PlanError, PlanNode, PlanShapeError};
 pub use progress::{ProgressFacts, SetupProgress, SetupStep, StepProgress};
+pub use purpose::{
+    BuiltinTool, ComplianceAdditions, ComplianceAdditionsSpec, ComplianceError,
+    EffectiveCompliance, EscalationAction, EscalationRule, GuardrailError, Guardrails,
+    GuardrailsSpec, HttpMethod, HttpTool, HttpToolSpec, ParamKind, PersonalData, PlanOnUpdate,
+    Purpose, PurposeChange, PurposeChoice, PurposeDefinition, PurposeError, PurposeName,
+    PurposeNameError, PurposePatch, PurposeProblem, PurposeRef, PurposeSpec, PurposeTools,
+    PurposeUpdate, PurposeVersion, SecretRef, ToolError, ToolHosts, ToolInputs, ToolName,
+    ToolParam, ToolUrl, UrlError,
+};
 pub use rule_pack::{
     LockedText, Retention, RulePack, RulePackCatalog, RulePackError, RulePackRef, RulePackRefError,
     RulePackSpec,

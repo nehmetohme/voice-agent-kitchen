@@ -8,12 +8,14 @@ use axum::extract::{Path, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
-use vak_domain::{Actor, AgentId, DraftPatch};
-use vak_services::CreateAgent;
+use vak_domain::{Actor, AgentId};
+use vak_services::{UpdateAgent, UpdateAgentPurpose};
 
-pub(crate) use self::dto::RulePackDto;
-use self::dto::{AgentDto, AgentListDto, AgentSummaryDto, SetupProgressDto};
-pub(crate) use self::requests::{CreateAgentRequest, UpdateAgentRequest};
+use self::dto::{AgentDto, AgentListDto, AgentPurposeDto, AgentSummaryDto, SetupProgressDto};
+pub(crate) use self::dto::{RulePackDto, UseCaseDto};
+pub(crate) use self::requests::{
+    CreateAgentRequest, NewAgent, UpdateAgentPurposeRequest, UpdateAgentRequest,
+};
 use crate::json::JsonBody;
 use crate::problem::{ApiError, Problem};
 use crate::state::AppState;
@@ -45,8 +47,11 @@ pub(crate) async fn create(
     Extension(actor): Extension<Actor>,
     JsonBody(body): JsonBody<CreateAgentRequest>,
 ) -> Result<Response, ApiError> {
-    let command = CreateAgent::try_from(body)?;
-    let agent = state.agents.create(&actor, command).await?;
+    let NewAgent { agent, purpose } = NewAgent::try_from(body)?;
+    let agent = state
+        .agents
+        .create_with_purpose(&actor, agent, purpose)
+        .await?;
     let location = format!("/api/v1/agents/{}", agent.id());
     Ok((
         StatusCode::CREATED,
@@ -126,8 +131,8 @@ pub(crate) async fn update(
     JsonBody(body): JsonBody<UpdateAgentRequest>,
 ) -> Result<Json<AgentDto>, ApiError> {
     let id = agent_id(&id)?;
-    let patch = DraftPatch::try_from(body)?;
-    let agent = state.agents.update_draft(&actor, id, &patch).await?;
+    let command = UpdateAgent::try_from(body)?;
+    let agent = state.agents.update(&actor, id, command).await?;
     Ok(Json(AgentDto::from(&agent)))
 }
 
@@ -177,4 +182,59 @@ pub(crate) async fn progress(
 ) -> Result<Json<SetupProgressDto>, ApiError> {
     let progress = state.agents.progress(agent_id(&id)?).await?;
     Ok(Json(SetupProgressDto::from(&progress)))
+}
+
+/// The purpose version the agent pins, and the update to a newer one with what it changes.
+#[utoipa::path(
+    get,
+    path = "/agents/{id}/purpose",
+    operation_id = "getAgentPurpose",
+    tag = "agents",
+    params(("id" = String, Path, format = "uuid", description = "The agent's ID")),
+    responses(
+        (status = OK, description = "The pinned purpose version, and the update if a newer one exists", body = AgentPurposeDto),
+        (status = UNAUTHORIZED, description = "No signed-in operator", body = Problem, content_type = "application/problem+json"),
+        (status = NOT_FOUND, description = "No such agent", body = Problem, content_type = "application/problem+json"),
+        (status = SERVICE_UNAVAILABLE, description = "Storage is unavailable", body = Problem, content_type = "application/problem+json"),
+    ),
+    security(("databricksApps" = []))
+)]
+pub(crate) async fn purpose(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<AgentPurposeDto>, ApiError> {
+    let purpose = state.agents.purpose(agent_id(&id)?).await?;
+    Ok(Json(AgentPurposeDto::from(&purpose)))
+}
+
+/// Move the agent to another version of its purpose. A plan with the operator's own edits is
+/// kept unless `replacePlan` is set.
+#[utoipa::path(
+    post,
+    path = "/agents/{id}/purpose/update",
+    operation_id = "updateAgentPurpose",
+    tag = "agents",
+    params(("id" = String, Path, format = "uuid", description = "The agent's ID")),
+    request_body = UpdateAgentPurposeRequest,
+    responses(
+        (status = OK, description = "The purpose version the agent pins now", body = AgentPurposeDto),
+        (status = BAD_REQUEST, description = "The body is not JSON", body = Problem, content_type = "application/problem+json"),
+        (status = UNAUTHORIZED, description = "No signed-in operator", body = Problem, content_type = "application/problem+json"),
+        (status = NOT_FOUND, description = "No such agent", body = Problem, content_type = "application/problem+json"),
+        (status = CONFLICT, description = "The agent is archived, or kept changing while saving", body = Problem, content_type = "application/problem+json"),
+        (status = UNPROCESSABLE_ENTITY, description = "No such version, or the one the agent pins", body = Problem, content_type = "application/problem+json"),
+        (status = SERVICE_UNAVAILABLE, description = "Storage is unavailable", body = Problem, content_type = "application/problem+json"),
+    ),
+    security(("databricksApps" = []))
+)]
+pub(crate) async fn update_purpose(
+    State(state): State<AppState>,
+    Extension(actor): Extension<Actor>,
+    Path(id): Path<String>,
+    JsonBody(body): JsonBody<UpdateAgentPurposeRequest>,
+) -> Result<Json<AgentPurposeDto>, ApiError> {
+    let id = agent_id(&id)?;
+    let command = UpdateAgentPurpose::try_from(body)?;
+    let purpose = state.agents.update_purpose(&actor, id, command).await?;
+    Ok(Json(AgentPurposeDto::from(&purpose)))
 }

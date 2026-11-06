@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
 
+import { ChoiceField } from '../../../shared/ui/choice-field';
 import { SaveStatus } from '../../../shared/ui/save-status';
 import { SelectField } from '../../../shared/ui/select-field';
 import { TextField } from '../../../shared/ui/text-field';
 import { languagesQueryOptions, voicesQueryOptions } from '../state/agents-queries';
-import { PURPOSES, toUseCase, withCurrent } from '../state/choices';
+import { withCurrent } from '../state/choices';
 import { LIMITS, type AgentDetails } from '../state/models';
 import { useAutosave } from '../state/use-autosave';
+import { usePurposeChoices } from '../state/use-purpose-choices';
 import { AdvancedSettings } from './advanced-settings';
 
 /**
@@ -20,6 +22,7 @@ export function AgentSettingsForm({ agent }: { agent: AgentDetails }) {
   const { draft, edit, status, errors, retry } = useAutosave(agent);
   const voices = useQuery(voicesQueryOptions());
   const languages = useQuery(languagesQueryOptions());
+  const purposes = usePurposeChoices({ value: draft.purpose, label: 'This purpose' });
   const titleId = useId();
   return (
     <section
@@ -47,16 +50,15 @@ export function AgentSettingsForm({ agent }: { agent: AgentDetails }) {
           />
         </div>
         <div className="col-span-3">
-          <SelectField
+          <ChoiceField
             label="Purpose"
-            value={draft.useCase}
-            onValueChange={(value) => {
-              const useCase = toUseCase(value);
-              if (useCase !== undefined) edit('useCase', useCase);
+            value={draft.purpose}
+            onValueChange={(purpose) => {
+              edit('purpose', purpose);
             }}
-            options={PURPOSES}
+            options={purposes}
             description="Also picks the compliance rule pack."
-            error={errors.useCase}
+            error={errors.purpose}
           />
         </div>
         <div className="col-span-6">

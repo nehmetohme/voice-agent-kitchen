@@ -26,7 +26,17 @@ test('create an agent from the Agents page', { tag: '@golden' }, async ({ page }
   await expect(form.getByLabel('Voice', { exact: true })).toBeEnabled();
   await auditScreen(page);
   await act(() => form.getByLabel('Name', { exact: true }).fill('Appointment desk'));
-  await act(() => form.getByLabel('Purpose', { exact: true }).selectOption('booking'));
+  // A native select up to seven purposes; past seven (the workspace's own purposes) a
+  // searchable combobox (HICK-3), which a person types into and picks from.
+  const purpose = form.getByLabel('Purpose', { exact: true });
+  await act(async () => {
+    if (await purpose.evaluate((field) => field.tagName === 'SELECT')) {
+      await purpose.selectOption('booking');
+      return;
+    }
+    await purpose.fill('Appointment booking');
+    await page.getByRole('option', { name: 'Appointment booking', exact: true }).click();
+  });
   // The recommended voice is preselected, so the path needs no voice step.
   await act(() => form.getByRole('button', { name: 'Create agent', exact: true }).click());
 

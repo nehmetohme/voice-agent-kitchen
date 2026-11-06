@@ -3,10 +3,10 @@
 use std::collections::{BTreeSet, VecDeque};
 
 use super::{NodeId, NodeKind, Plan, PlanError, PlanNode};
-use crate::RulePack;
+use crate::LockedText;
 
-/// Every rule `plan` breaks against `pack`, in a stable order.
-pub(super) fn errors(plan: &Plan, pack: &RulePack) -> Vec<PlanError> {
+/// Every rule `plan` breaks when its start steps must open with `locked`, in a stable order.
+pub(super) fn errors(plan: &Plan, locked: &[LockedText]) -> Vec<PlanError> {
     let ids: BTreeSet<&NodeId> = plan.nodes.iter().map(PlanNode::id).collect();
     let starts: Vec<&PlanNode> = plan
         .nodes
@@ -54,7 +54,7 @@ pub(super) fn errors(plan: &Plan, pack: &RulePack) -> Vec<PlanError> {
         }
     }
     for start in &starts {
-        errors.extend(missing_locked_texts(&start.text, pack).map(|key| {
+        errors.extend(missing_locked_texts(&start.text, locked).map(|key| {
             PlanError::MissingLockedText {
                 node: start.id.clone(),
                 key,
@@ -86,15 +86,15 @@ fn reachable<'a>(
     reached
 }
 
-/// The keys of the locked texts `opening` doesn't open with. The pack's texts are walked in
-/// order: each must come next, word for word, after optional whitespace. A text that isn't
-/// there is missing, and the next one must then stand where it would have.
+/// The keys of the locked texts `opening` doesn't open with. The texts are walked in order:
+/// each must come next, word for word, after optional whitespace. A text that isn't there is
+/// missing, and the next one must then stand where it would have.
 fn missing_locked_texts<'a>(
     opening: &'a str,
-    pack: &'a RulePack,
+    locked: &'a [LockedText],
 ) -> impl Iterator<Item = String> + 'a {
     let mut rest = opening.trim_start();
-    pack.locked_texts().iter().filter_map(move |locked| {
+    locked.iter().filter_map(move |locked| {
         if let Some(after) = rest.strip_prefix(locked.text()) {
             rest = after.trim_start();
             None

@@ -395,10 +395,12 @@ const fn parts(use_case: UseCase) -> (&'static [Step], &'static [Path]) {
     }
 }
 
-/// The opening: the locked texts in order, then the greeting.
-fn opening(locked: &[LockedText], greeting: &str) -> String {
+/// The opening: the locked texts in order, then the greeting (if any).
+pub(super) fn opening(locked: &[LockedText], greeting: &str) -> String {
     let mut parts: Vec<&str> = locked.iter().map(LockedText::text).collect();
-    parts.push(greeting);
+    if !greeting.is_empty() {
+        parts.push(greeting);
+    }
     parts.join(" ")
 }
 

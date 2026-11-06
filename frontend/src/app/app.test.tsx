@@ -49,7 +49,7 @@ describe('app shell', () => {
     renderApp('/agents');
     const nav = await screen.findByRole('navigation', { name: 'Primary' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((link) => link.textContent)).toEqual(['Agents', 'Settings']);
+    expect(links.map((link) => link.textContent)).toEqual(['Agents', 'Purposes', 'Settings']);
     expect(links[0]).toHaveAttribute('aria-current', 'page');
   });
 

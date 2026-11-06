@@ -7,7 +7,7 @@ use uuid::Uuid;
 use vak_domain::{
     Agent, AgentDraft, AgentId, AgentName, AgentSettings, AuditAction, ContentHash, DraftField,
     EdgeId, Jurisdiction, Language, ModelProfile, NodeId, NodeKind, Persona, Plan, PlanEdge,
-    PlanNode, RulePackRef, TestRunId, TurnDetection, UseCase, VoiceId,
+    PlanNode, PurposeId, PurposeRef, RulePackRef, TestRunId, TurnDetection, UseCase, VoiceId,
 };
 use vak_repositories::{RepoError, Revision, Versioned};
 
@@ -36,7 +36,8 @@ struct TurnRecord {
     barge_in: bool,
 }
 
-/// `agent_drafts.plan`: the saved plan, `NULL` until the operator saves one.
+/// `agent_drafts.plan` (the saved plan, `NULL` until the operator saves one), and a purpose's
+/// starting flow.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PlanRecord {
@@ -98,8 +99,11 @@ impl SettingsRecord {
 
 impl PlanRecord {
     pub(crate) fn of(draft: &AgentDraft) -> Option<Json<Self>> {
-        let plan = draft.plan()?;
-        Some(Json(Self {
+        draft.plan().map(|plan| Json(Self::from_plan(plan)))
+    }
+
+    pub(crate) fn from_plan(plan: &Plan) -> Self {
+        Self {
             nodes: plan
                 .nodes()
                 .iter()
@@ -120,11 +124,11 @@ impl PlanRecord {
                     condition: edge.condition().to_owned(),
                 })
                 .collect(),
-        }))
+        }
     }
 
     /// The plan, through the domain's constructors.
-    fn into_plan(self) -> Result<Plan, RepoError> {
+    pub(crate) fn into_plan(self) -> Result<Plan, RepoError> {
         let nodes = self
             .nodes
             .into_iter()
@@ -180,7 +184,7 @@ impl AuditDetails {
 
 /// A stored row that the domain rejects: the database was changed outside this crate.
 #[derive(Debug, thiserror::Error)]
-#[error("stored agent row is invalid: {0}")]
+#[error("stored row is invalid: {0}")]
 pub(crate) struct CorruptRow(&'static str);
 
 pub(crate) fn corrupt<E>(what: &'static str) -> impl FnOnce(E) -> RepoError {
@@ -204,6 +208,8 @@ pub(crate) struct AgentRow {
     pub(crate) scenarios: Option<Json<Vec<ScenarioRecord>>>,
     pub(crate) rule_pack_id: String,
     pub(crate) rule_pack_version: i32,
+    pub(crate) purpose_id: Uuid,
+    pub(crate) purpose_version: i32,
     pub(crate) content_hash: String,
 }
 
@@ -237,6 +243,11 @@ impl TryFrom<AgentRow> for Versioned<Agent> {
             .scenarios
             .map(|Json(scenarios)| ScenarioRecord::into_set(scenarios))
             .transpose()?;
+        let purpose = PurposeRef::new(
+            PurposeId::from_uuid(row.purpose_id).map_err(corrupt("purpose_id"))?,
+            u32::try_from(row.purpose_version).map_err(corrupt("purpose_version"))?,
+        )
+        .map_err(corrupt("purpose_version"))?;
         let draft = AgentDraft::restore(
             persona,
             Jurisdiction::parse(&row.jurisdiction).map_err(corrupt("jurisdiction"))?,
@@ -244,7 +255,8 @@ impl TryFrom<AgentRow> for Versioned<Agent> {
             settings,
             plan,
         )
-        .with_restored_scenarios(scenarios);
+        .with_restored_scenarios(scenarios)
+        .with_purpose(purpose);
         let stored_hash = ContentHash::parse(&row.content_hash).map_err(corrupt("content_hash"))?;
         if draft.content_hash() != stored_hash {
             return Err(corrupt("content_hash")(()));

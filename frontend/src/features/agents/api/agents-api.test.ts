@@ -41,7 +41,7 @@ const server = startMswServer();
 
 const settings = {
   name: 'Front desk',
-  useCase: 'support',
+  purpose: 'support',
   voice: 'af_heart',
   language: 'en-US',
   jurisdiction: 'US',
@@ -58,6 +58,7 @@ describe('agents API', () => {
             id: AGENT_ID,
             name: 'Front desk',
             useCase: 'booking',
+            purpose: { id: '019a0000-0000-7000-8000-000000000003', version: 1, system: true },
             voice: 'af_heart',
             updatedAt: '2026-10-30T10:00:00Z',
             progressPercent: 25,
@@ -71,6 +72,7 @@ describe('agents API', () => {
         id: AGENT_ID,
         name: 'Front desk',
         useCase: 'booking',
+        purpose: 'booking',
         updatedAt: '2026-10-30T10:00:00Z',
         progressPercent: 25,
       },
@@ -80,7 +82,12 @@ describe('agents API', () => {
   it('maps an agent to its settings and archived flag', async () => {
     server.use(getGetAgentMockHandler(agentBody({ archivedAt: '2026-10-30T11:00:00Z' })));
 
-    await expect(getAgent(AGENT_ID)).resolves.toEqual({ id: AGENT_ID, archived: true, settings });
+    await expect(getAgent(AGENT_ID)).resolves.toEqual({
+      id: AGENT_ID,
+      archived: true,
+      useCase: 'support',
+      settings,
+    });
   });
 
   it('creates with the three required fields only', async () => {
@@ -99,7 +106,7 @@ describe('agents API', () => {
     });
 
     expect(sent).toEqual({ name: 'Front desk', useCase: 'support', voice: 'af_heart' });
-    expect(created).toEqual({ id: AGENT_ID, archived: false, settings });
+    expect(created).toEqual({ id: AGENT_ID, archived: false, useCase: 'support', settings });
   });
 
   it('sends only the changed fields', async () => {

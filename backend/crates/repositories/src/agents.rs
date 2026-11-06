@@ -1,6 +1,6 @@
 //! The agent aggregate's port: the agent, its draft and its audit trail.
 
-use vak_domain::{Agent, AgentId, AuditEvent};
+use vak_domain::{Agent, AgentId, AuditEvent, PurposeId};
 
 use crate::{BoxFuture, RepoError, Revision, Versioned};
 
@@ -9,6 +9,14 @@ use crate::{BoxFuture, RepoError, Revision, Versioned};
 pub struct AgentQuery {
     /// At most this many agents.
     pub limit: u16,
+}
+
+/// How many active agents pin a version of a purpose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PurposeUsage {
+    pub purpose: PurposeId,
+    /// Active (not archived) agents, whichever version they pin.
+    pub agents: u32,
 }
 
 /// Stores agents with their drafts. Every mutation writes its audit event in the same
@@ -28,6 +36,10 @@ pub trait AgentRepo: Send + Sync {
 
     /// Active (not archived) agents, most recently updated first.
     fn list(&self, query: AgentQuery) -> BoxFuture<'_, Result<Vec<Agent>, RepoError>>;
+
+    /// For each purpose that active agents pin, how many pin it. Purposes no active agent
+    /// pins are left out.
+    fn purpose_usage(&self) -> BoxFuture<'_, Result<Vec<PurposeUsage>, RepoError>>;
 
     /// Replaces the stored agent and draft, and stores `event`, if the stored revision is
     /// `expected`. Returns the new revision. Fails with [`RepoError::Conflict`] on a stale

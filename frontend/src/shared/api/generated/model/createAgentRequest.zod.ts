@@ -12,6 +12,7 @@ export const createAgentRequestLanguageDefault = `en-US`;
 export const createAgentRequestModelDefault = `balanced`;
 export const createAgentRequestNameMax = 80;
 
+export const createAgentRequestPurposeIdDefault = null;
 export const createAgentRequestTurnDetectionSilenceMsMin = 200;
 export const createAgentRequestTurnDetectionSilenceMsMax = 2000;
 
@@ -21,6 +22,7 @@ export const CreateAgentRequest = zod.object({
   "language": zod.string().default(createAgentRequestLanguageDefault).describe('A language code from `GET /api/v1/catalog/languages`.'),
   "model": zod.enum(['balanced', 'fast']).default(createAgentRequestModelDefault).describe('Which LLM profile answers: `balanced` (the main voice model) or `fast` (quicker first\nwords, simpler answers).'),
   "name": zod.string().min(1).max(createAgentRequestNameMax).describe('Display name, 1 to 80 characters.'),
+  "purposeId": zod.uuid().nullish().default(createAgentRequestPurposeIdDefault).describe('Pin this purpose\'s latest version (from `GET /api/v1/purposes`); `useCase` must then be\nits compliance class. `null` pins the use case\'s built-in purpose.'),
   "turnDetection": zod.object({
   "bargeIn": zod.boolean().describe('Whether the caller can interrupt the agent while it speaks.'),
   "silenceMs": zod.int().min(createAgentRequestTurnDetectionSilenceMsMin).max(createAgentRequestTurnDetectionSilenceMsMax).describe('Milliseconds of caller silence that end a turn, 200 to 2000.')

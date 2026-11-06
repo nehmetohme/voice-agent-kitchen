@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { AgentSettings } from '../api/agents-api';
 import { changedSettings, saveStatus, validateSettings } from './autosave';
-import { MODELS, PURPOSES, purposeLabel, toModel, toUseCase, withCurrent } from './choices';
+import { BUILT_IN_PURPOSES, MODELS, purposeLabel, toModel, withCurrent } from './choices';
 import { checkNewAgent } from './new-agent';
 import { toChecklist } from './setup-checklist';
 
 const saved: AgentSettings = {
   name: 'Front desk',
-  useCase: 'support',
+  purpose: 'support',
   voice: 'af_heart',
   language: 'en-US',
   jurisdiction: 'US',
@@ -120,39 +120,69 @@ describe('toChecklist', () => {
   });
 });
 
+const CLINIC = {
+  value: '019a5a5a-0000-7000-8000-000000000001',
+  label: 'Clinic bookings',
+  useCase: 'booking' as const,
+  system: false,
+};
+const CHOICES = [...BUILT_IN_PURPOSES, CLINIC];
+
 describe('checkNewAgent', () => {
-  it('builds the agent from the three fields', () => {
-    expect(checkNewAgent({ name: 'Front desk', purpose: 'booking', voice: 'af_heart' })).toEqual({
+  it('builds the agent from the three fields, a built-in purpose as its use case', () => {
+    expect(
+      checkNewAgent({ name: 'Front desk', purpose: 'booking', voice: 'af_heart' }, CHOICES),
+    ).toEqual({
       agent: { name: 'Front desk', useCase: 'booking', voice: 'af_heart' },
     });
   });
 
+  it('sends another purpose as its ID, with its compliance class as the use case', () => {
+    expect(
+      checkNewAgent({ name: 'Clinic desk', purpose: CLINIC.value, voice: 'af_heart' }, CHOICES),
+    ).toEqual({
+      agent: {
+        name: 'Clinic desk',
+        useCase: 'booking',
+        voice: 'af_heart',
+        purposeId: CLINIC.value,
+      },
+    });
+  });
+
   it('names every missing field', () => {
-    expect(checkNewAgent({ name: ' ', purpose: '', voice: '' })).toEqual({
+    expect(checkNewAgent({ name: ' ', purpose: '', voice: '' }, CHOICES)).toEqual({
       errors: {
         name: 'Enter a name.',
-        useCase: 'Choose a purpose.',
+        purpose: 'Choose a purpose.',
         voice: 'Choose a voice.',
       },
     });
-    expect(checkNewAgent({ name: 'Desk', purpose: 'booking', voice: '' }).errors).toEqual({
+    expect(checkNewAgent({ name: 'Desk', purpose: 'booking', voice: '' }, CHOICES).errors).toEqual({
       voice: 'Choose a voice.',
     });
   });
 });
 
 describe('choices', () => {
-  it('offers at most seven purposes (Hick) and two models', () => {
-    expect(PURPOSES.length).toBeLessThanOrEqual(7);
+  it('offers the six built-in purposes before the list loads, and two models', () => {
+    expect(BUILT_IN_PURPOSES.map((purpose) => purpose.value)).toEqual([
+      'support',
+      'service',
+      'booking',
+      'survey',
+      'telemarketing',
+      'custom',
+    ]);
     expect(MODELS.map((model) => model.value)).toEqual(['balanced', 'fast']);
   });
 
-  it('narrows select values back to their types', () => {
-    expect(toUseCase('survey')).toBe('survey');
-    expect(toUseCase('sales')).toBeUndefined();
+  it('narrows select values back to their types and names purposes', () => {
     expect(toModel('fast')).toBe('fast');
     expect(toModel('huge')).toBeUndefined();
-    expect(purposeLabel('telemarketing')).toBe('Outbound sales');
+    expect(purposeLabel(CHOICES, 'telemarketing')).toBe('Outbound sales');
+    expect(purposeLabel(CHOICES, CLINIC.value)).toBe('Clinic bookings');
+    expect(purposeLabel(CHOICES, 'unknown')).toBe('unknown');
   });
 
   it('keeps the stored value in a picker even before the catalog loads', () => {

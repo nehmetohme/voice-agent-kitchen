@@ -4,4 +4,12 @@
  * they come through here.
  */
 export { PLAN_LIMITS, isNotFound } from '../api/plans-api';
-export type { LockedText, Path, PlanView, Problem, Step, StepKind } from '../api/plans-api';
+export type {
+  LockedText,
+  Path,
+  PlanTarget,
+  PlanView,
+  Problem,
+  Step,
+  StepKind,
+} from '../api/plans-api';
