@@ -13,8 +13,13 @@ jiff = { workspace = true }
 # Rule packs: contracts/rule-packs/*.toml, embedded at build time and parsed at startup.
 serde = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["time"] }
+# Test runs: the worker plays scenarios as tasks (`JoinSet`), waits for queued runs (`Notify`)
+# and stops a cancelled run (`CancellationToken`).
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
 toml = { workspace = true }
+# Test runs log their lifecycle: IDs, counts and statuses, never transcripts.
+tracing = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
 vak-domain = { workspace = true }
 vak-pipeline = { workspace = true }

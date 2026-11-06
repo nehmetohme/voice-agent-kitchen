@@ -13,6 +13,7 @@ use std::future::Future;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use axum::Router;
@@ -22,12 +23,15 @@ use vak_api::AppState;
 use vak_config::{DATABASE_URL_VAR, DEV_OPERATOR_VAR, Settings};
 use vak_domain::Actor;
 use vak_repositories_pg::{Database, DatabaseConfig};
-use vak_services::{AgentService, VoiceService};
+use vak_services::{AgentService, TestRunService, TestRunWorker, VoiceService};
 
 mod voice;
 
 /// The user ID the local dev operator acts under.
 const DEV_OPERATOR_ID: &str = "dev-operator";
+/// How long shutdown waits for the test run worker. A run still playing is left running, and
+/// the next start interrupts it.
+const WORKER_SHUTDOWN: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Parser)]
 #[command(name = "vak-server", version, about = "Voice Agent Kitchen server")]
@@ -75,15 +79,26 @@ fn database(settings: &Settings) -> anyhow::Result<Database> {
     Database::connect_lazy(&DatabaseConfig::new(url)).context("configuring the database pool")
 }
 
-/// The application: Postgres repositories behind the services, behind the API.
-fn app(settings: &Settings, database: &Database) -> anyhow::Result<Router> {
+/// The application: Postgres repositories behind the services, behind the API; and the worker
+/// that runs its queued test runs.
+fn app(settings: &Settings, database: &Database) -> anyhow::Result<(Router, TestRunWorker)> {
     // A rule pack that doesn't load stops the server: plans can't be checked without them.
     let rule_packs =
         vak_services::rule_packs::shipped().context("the shipped rule packs don't load")?;
-    let agents = AgentService::new(Arc::new(database.agents())).with_rule_packs(rule_packs);
+    let test_runs = Arc::new(database.test_runs());
+    let agents = AgentService::new(Arc::new(database.agents()))
+        .with_rule_packs(rule_packs)
+        .with_test_runs(test_runs.clone());
     let voice = VoiceService::new(agents.clone(), voice::engines(&settings.models)?);
+    let runs = TestRunService::new(
+        agents.clone(),
+        test_runs,
+        voice::test_engines(&settings.models)?,
+    );
+    let worker = runs.worker();
     let mut state = AppState::new(agents)
         .with_voice(voice)
+        .with_test_runs(runs)
         .with_request_timeout(settings.http.request_timeout);
     if let Some(email) = &settings.auth.dev_operator_email {
         let operator = Actor::new(DEV_OPERATOR_ID, email)
@@ -93,7 +108,7 @@ fn app(settings: &Settings, database: &Database) -> anyhow::Result<Router> {
         );
         state = state.with_dev_operator(operator);
     }
-    Ok(vak_api::app(state))
+    Ok((vak_api::app(state), worker))
 }
 
 async fn migrate(settings: &Settings) -> anyhow::Result<()> {
@@ -125,13 +140,26 @@ fn write_openapi(out: &mut impl Write) -> anyhow::Result<()> {
 }
 
 async fn serve(settings: &Settings) -> anyhow::Result<()> {
-    let app = app(settings, &database(settings)?)?;
+    let (app, worker) = app(settings, &database(settings)?)?;
     let addr = settings.http.addr;
     let listener = TcpListener::bind(addr)
         .await
         .with_context(|| format!("binding {addr}"))?;
     tracing::info!(addr = %listener.local_addr()?, "listening");
-    run(listener, app, shutdown_signal()).await
+    // The test run worker stops with the server: dropping `stop` ends its `changed()`.
+    let (stop, mut stopping) = tokio::sync::watch::channel(());
+    let worker = tokio::spawn(worker.run(async move {
+        let _ = stopping.changed().await;
+    }));
+    let served = run(listener, app, async move {
+        shutdown_signal().await;
+        drop(stop);
+    })
+    .await;
+    if tokio::time::timeout(WORKER_SHUTDOWN, worker).await.is_err() {
+        tracing::warn!("the test run worker didn't stop in time");
+    }
+    served
 }
 
 /// Serves `app` on `listener` until `shutdown` completes, then waits for in-flight requests
@@ -183,8 +211,6 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use clap::CommandFactory as _;
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
     use tokio::net::TcpStream;
@@ -246,7 +272,9 @@ mod tests {
         let settings = settings(&[LAZY_DB, ("VAK_DEV_OPERATOR_EMAIL", "nobody")]);
         let database = database(&settings).expect("lazy");
 
-        let error = app(&settings, &database).expect_err("not an email");
+        let Err(error) = app(&settings, &database) else {
+            panic!("not an email")
+        };
 
         assert!(format!("{error:#}").contains("VAK_DEV_OPERATOR_EMAIL"));
     }
@@ -273,7 +301,7 @@ mod tests {
         let strict = settings(&[LAZY_DB]);
         let local = settings(&[LAZY_DB, ("VAK_DEV_OPERATOR_EMAIL", "dev@localhost")]);
         for (settings, expected) in [(strict, "401 Unauthorized"), (local, "200 OK")] {
-            let app = app(&settings, &database(&settings).expect("lazy")).expect("app");
+            let (app, _) = app(&settings, &database(&settings).expect("lazy")).expect("app");
             let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
             let addr = listener.local_addr().expect("local addr");
             let (stop, stopped) = oneshot::channel::<()>();

@@ -8,6 +8,9 @@
 mod agents;
 mod database;
 mod records;
+mod scenario_records;
+mod test_runs;
 
 pub use agents::PgAgentRepo;
 pub use database::{Database, DatabaseConfig, DatabaseError};
+pub use test_runs::PgTestRunRepo;

@@ -72,8 +72,8 @@ pub use settings::{
     AgentSettings, ModelProfile, ModelProfileError, TurnDetection, TurnDetectionError,
 };
 pub use test_run::{
-    RubricCheck, RunModels, RunProgress, ScenarioResult, ScenarioStatus, TestRun, TestRunStatus,
-    TranscriptLine, Verdict,
+    RubricCheck, RunModels, RunProgress, ScenarioResult, ScenarioStatus, TestRun, TestRunParts,
+    TestRunStatus, TranscriptLine, Verdict,
 };
 pub use timeline::{StageLatencies, TurnTimeline};
 pub use use_case::{UseCase, UseCaseError};

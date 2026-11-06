@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, agent_id, draft_hash, status, verdict, llm_model, decision_model, seed,\n                      scenarios AS \"scenarios: _\", revision,\n                      created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      started_at AS \"started_at: jiff_sqlx::Timestamp\",\n                      finished_at AS \"finished_at: jiff_sqlx::Timestamp\"\n               FROM test_runs\n               WHERE status = 'running' AND workspace_id = $1\n               ORDER BY created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "agent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "agent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "draft_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "draft_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "verdict",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "verdict"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "llm_model",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "llm_model"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "decision_model",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "decision_model"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "seed",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "seed"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "scenarios: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "scenarios"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "started_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "finished_at: jiff_sqlx::Timestamp",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "test_runs",
+            "name": "finished_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "4cf7fbb4cf874a6c8e9ac8ec59979f9eb2f064f8d15a97733e73002558fc3f27"
+}

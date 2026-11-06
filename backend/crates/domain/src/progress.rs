@@ -61,8 +61,16 @@ impl ProgressFacts {
     /// on the draft hash `tested` (`None`: no finished run on it).
     #[must_use]
     pub fn with_test_verdict(self, tested: &ContentHash, verdict: Option<Verdict>) -> Self {
-        let _ = (tested, verdict);
-        self
+        let passing_test_run = if verdict == Some(Verdict::Passed) {
+            Some(tested.clone())
+        } else {
+            // The latest finished run on `tested` didn't pass, so no run on it counts.
+            self.passing_test_run.filter(|passing| passing != tested)
+        };
+        Self {
+            passing_test_run,
+            ..self
+        }
     }
 }
 

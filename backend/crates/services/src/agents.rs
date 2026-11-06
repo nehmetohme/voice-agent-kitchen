@@ -4,6 +4,7 @@
 //! Every mutation hands its audit event to the same `AgentRepo` call that stores the change,
 //! so both land in one transaction.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,8 +13,8 @@ use jiff::{Timestamp, Unit};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
-    SetupProgress, TurnDetection, UseCase, VoiceId,
+    ContentHash, DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
+    SetupProgress, TurnDetection, UseCase, Verdict, VoiceId,
 };
 use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision, TestRunRepo};
 
@@ -200,12 +201,14 @@ impl AgentService {
             .within(self.repo.list(AgentQuery { limit: LIST_LIMIT }))
             .await
             .map_err(ListAgentsError::Unavailable)?;
+        let progress = self
+            .progress_of(&agents)
+            .await
+            .map_err(ListAgentsError::Unavailable)?;
         Ok(agents
             .into_iter()
-            .map(|agent| AgentSummary {
-                progress: self.progress_of(&agent),
-                agent,
-            })
+            .zip(progress)
+            .map(|(agent, progress)| AgentSummary { agent, progress })
             .collect())
     }
 
@@ -216,7 +219,12 @@ impl AgentService {
 
     /// The agent's setup progress, derived from its current state.
     pub async fn progress(&self, id: AgentId) -> Result<SetupProgress, FindAgentError> {
-        Ok(self.progress_of(&self.get(id).await?))
+        let agent = self.get(id).await?;
+        let progress = self
+            .progress_of(std::slice::from_ref(&agent))
+            .await
+            .map_err(FindAgentError::Unavailable)?;
+        progress.into_iter().next().ok_or(FindAgentError::NotFound)
     }
 
     /// Applies `patch` to the draft (autosave). A patch that changes nothing stores nothing
@@ -278,12 +286,31 @@ impl AgentService {
         Err(ArchiveAgentError::Conflict)
     }
 
-    /// Progress derived from the agent and what its draft says about the plan. Test runs
-    /// and versions arrive in later milestones.
-    fn progress_of(&self, agent: &Agent) -> SetupProgress {
-        let _ = &self.test_runs;
-        let facts = ProgressFacts::from_draft(agent.draft(), &self.rule_packs);
-        SetupProgress::derive(agent.draft(), &facts)
+    /// Each agent's progress, derived from its draft (the plan) and its latest finished test
+    /// run on the current draft hash, asked for all agents in one repository call. Versions
+    /// arrive with M6.
+    async fn progress_of(&self, agents: &[Agent]) -> Result<Vec<SetupProgress>, RepoError> {
+        let drafts: Vec<(AgentId, ContentHash)> = agents
+            .iter()
+            .map(|agent| (agent.id(), agent.draft().content_hash()))
+            .collect();
+        let verdicts: HashMap<AgentId, Verdict> = match &self.test_runs {
+            Some(runs) if !drafts.is_empty() => self
+                .within(runs.latest_verdicts(&drafts))
+                .await?
+                .into_iter()
+                .collect(),
+            _ => HashMap::new(),
+        };
+        Ok(agents
+            .iter()
+            .zip(&drafts)
+            .map(|(agent, (id, hash))| {
+                let facts = ProgressFacts::from_draft(agent.draft(), &self.rule_packs)
+                    .with_test_verdict(hash, verdicts.get(id).copied());
+                SetupProgress::derive(agent.draft(), &facts)
+            })
+            .collect())
     }
 
     async fn save(
@@ -323,7 +350,7 @@ fn audit_event(actor: &Actor, agent: &Agent, action: AuditAction) -> Result<Audi
 /// it was written. Rounding fails only within a microsecond of jiff's maximum timestamp
 /// (year 9999), which a clock never reads; the unrounded value is then still correct, just
 /// finer than the database keeps.
-fn now() -> Timestamp {
+pub(crate) fn now() -> Timestamp {
     let now = Timestamp::now();
     now.round(Unit::Microsecond).unwrap_or(now)
 }

@@ -228,8 +228,9 @@ impl AgentDraft {
 
     /// A versioned, length-prefixed `key=<length>:<value>` line per field, in a fixed order.
     /// Length prefixes keep any value from forging another field. Changing this encoding
-    /// changes every hash, so it carries a version. A saved plan adds its lines at the end;
-    /// a draft without one encodes exactly as before plans existed, so its hash is unchanged.
+    /// changes every hash, so it carries a version. A saved plan adds its lines at the end, and
+    /// saved scenarios theirs after it; a draft without them encodes exactly as before they
+    /// existed, so its hash is unchanged.
     fn canonical_bytes(&self) -> Vec<u8> {
         let turn = self.settings.turn_detection();
         let fields: [(&str, String); 10] = [
@@ -265,6 +266,16 @@ impl AgentDraft {
                 line(&format!("plan.edge.{i}.from"), edge.from().as_str());
                 line(&format!("plan.edge.{i}.to"), edge.to().as_str());
                 line(&format!("plan.edge.{i}.condition"), edge.condition());
+            }
+        }
+        if let Some(scenarios) = &self.scenarios {
+            // Each scenario by its version: a hash of everything that defines it.
+            line("scenarios", &scenarios.scenarios().len().to_string());
+            for (i, scenario) in scenarios.scenarios().iter().enumerate() {
+                line(
+                    &format!("scenario.{i}.version"),
+                    scenario.version().as_str(),
+                );
             }
         }
         bytes

@@ -19,8 +19,8 @@ pub use agents::{
 };
 pub use scenarios::AgentScenarios;
 pub use test_runs::{
-    AgentTestRuns, CancelTestRunError, FindTestRunError, StartTestRunError, TestEngines,
-    TestRunService, TestRunSettings, TestRunWorker,
+    AgentTestRuns, CancelTestRunError, FindTestRunError, RUNS_LISTED, StartTestRunError,
+    TestEngines, TestRunService, TestRunSettings, TestRunWorker,
 };
 pub use voice::{
     MediaSession, OpenMediaError, SessionTicket, StartSessionError, VoiceService, VoiceSettings,

@@ -13,10 +13,6 @@ pub struct AppState {
     pub(crate) agents: AgentService,
     pub(crate) voice: VoiceService,
     /// `None`: this server runs no test runs.
-    #[expect(
-        dead_code,
-        reason = "the test run routes arrive with the implementation"
-    )]
     pub(crate) test_runs: Option<TestRunService>,
     pub(crate) identity: Identity,
     pub(crate) request_timeout: Duration,
@@ -27,7 +23,8 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl AppState {
     /// State whose routes accept only the identity Databricks Apps forwards. Voice sessions
-    /// are off until [`AppState::with_voice`] provides a service with models.
+    /// are off until [`AppState::with_voice`] provides a service with models, and test runs
+    /// until [`AppState::with_test_runs`] does.
     #[must_use]
     pub fn new(agents: AgentService) -> Self {
         Self {

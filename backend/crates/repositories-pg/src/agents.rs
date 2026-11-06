@@ -8,13 +8,14 @@ use vak_domain::{Actor, Agent, AgentId, AuditEvent};
 use vak_repositories::{AgentQuery, AgentRepo, BoxFuture, RepoError, Revision, Versioned};
 
 use crate::records::{AgentRow, AuditDetails, PersonaRecord, PlanRecord, SettingsRecord};
+use crate::scenario_records::ScenarioRecord;
 
 /// The single MVP workspace, seeded by the first migration.
-const DEFAULT_WORKSPACE: Uuid = Uuid::from_u128(0x01923a00_0000_7000_8000_000000000001);
+pub(crate) const DEFAULT_WORKSPACE: Uuid = Uuid::from_u128(0x01923a00_0000_7000_8000_000000000001);
 
 /// Maps a driver error to the port's error: unique violation → `Conflict`, no row →
 /// `NotFound`, anything else → `Unavailable` with the driver error as its source.
-fn map_error(error: sqlx::Error) -> RepoError {
+pub(crate) fn map_error(error: sqlx::Error) -> RepoError {
     match &error {
         sqlx::Error::RowNotFound => RepoError::NotFound,
         sqlx::Error::Database(database) if database.is_unique_violation() => RepoError::Conflict,
@@ -22,7 +23,7 @@ fn map_error(error: sqlx::Error) -> RepoError {
     }
 }
 
-fn to_i64(revision: Revision) -> Result<i64, RepoError> {
+pub(crate) fn to_i64(revision: Revision) -> Result<i64, RepoError> {
     i64::try_from(revision.get()).map_err(RepoError::unavailable)
 }
 
@@ -62,9 +63,10 @@ impl PgAgentRepo {
         .await
         .map_err(map_error)?;
         sqlx::query!(
-            "INSERT INTO agent_drafts (agent_id, persona, settings, plan, rule_pack_id,
-                                       rule_pack_version, content_hash, updated_at, updated_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "INSERT INTO agent_drafts (agent_id, persona, settings, plan, scenarios,
+                                       rule_pack_id, rule_pack_version, content_hash,
+                                       updated_at, updated_by)
+             VALUES ($1, $2, $3, $4, $10, $5, $6, $7, $8, $9)",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
             SettingsRecord::of(draft) as _,
@@ -74,6 +76,7 @@ impl PgAgentRepo {
             content_hash.as_str(),
             agent.updated_at().to_sqlx() as _,
             operator,
+            ScenarioRecord::of_draft(draft.scenarios()) as _,
         )
         .execute(&mut *tx)
         .await
@@ -91,7 +94,7 @@ impl PgAgentRepo {
                       a.updated_at AS "updated_at: jiff_sqlx::Timestamp",
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
-                      d.plan AS "plan: _",
+                      d.plan AS "plan: _", d.scenarios AS "scenarios: _",
                       d.rule_pack_id, d.rule_pack_version, d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.id = $1 AND a.workspace_id = $2"#,
@@ -113,7 +116,7 @@ impl PgAgentRepo {
                       a.updated_at AS "updated_at: jiff_sqlx::Timestamp",
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
-                      d.plan AS "plan: _",
+                      d.plan AS "plan: _", d.scenarios AS "scenarios: _",
                       d.rule_pack_id, d.rule_pack_version, d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.workspace_id = $1 AND a.archived_at IS NULL
@@ -167,7 +170,8 @@ impl PgAgentRepo {
         sqlx::query!(
             "UPDATE agent_drafts
              SET persona = $2, settings = $3, plan = $4, rule_pack_id = $5,
-                 rule_pack_version = $6, content_hash = $7, updated_at = $8, updated_by = $9
+                 rule_pack_version = $6, content_hash = $7, updated_at = $8, updated_by = $9,
+                 scenarios = $10
              WHERE agent_id = $1",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
@@ -178,6 +182,7 @@ impl PgAgentRepo {
             content_hash.as_str(),
             agent.updated_at().to_sqlx() as _,
             operator,
+            ScenarioRecord::of_draft(draft.scenarios()) as _,
         )
         .execute(&mut *tx)
         .await
@@ -209,7 +214,7 @@ async fn missing_or_stale(tx: &mut Transaction<'_, Postgres>, id: AgentId) -> Re
 
 /// Creates the operator on first sight and returns their ID. The row is rewritten only when
 /// the email changed or `last_seen_at` is a minute old, so autosaves don't write it each time.
-async fn upsert_operator(
+pub(crate) async fn upsert_operator(
     tx: &mut Transaction<'_, Postgres>,
     actor: &Actor,
 ) -> Result<Uuid, RepoError> {
@@ -236,7 +241,7 @@ async fn upsert_operator(
     .map_err(map_error)
 }
 
-async fn insert_event(
+pub(crate) async fn insert_event(
     tx: &mut Transaction<'_, Postgres>,
     operator: Uuid,
     event: &AuditEvent,

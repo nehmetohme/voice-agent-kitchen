@@ -7,7 +7,7 @@ use jiff::{SignedDuration, Timestamp};
 use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
-    DraftPatch, LockedText, Plan, UseCase, VoiceId,
+    DraftPatch, LockedText, Plan, ScenarioSet, UseCase, VoiceId,
 };
 use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision};
 
@@ -118,6 +118,52 @@ where
     reads_back_what_create_stored(repo, &fx, &old, &audit_trail).await;
     updates_need_the_stored_revision(repo, &fx, &old, &audit_trail).await;
     stores_and_replaces_the_saved_plan(repo, &fx).await;
+    stores_and_replaces_the_saved_scenarios(repo, &fx).await;
+}
+
+/// Saved scenarios are part of the draft: create and update store them, and `get` reads them
+/// back exactly.
+#[expect(
+    clippy::expect_used,
+    reason = "a conformance suite fails the calling test"
+)]
+async fn stores_and_replaces_the_saved_scenarios<R: AgentRepo + ?Sized>(repo: &R, fx: &Fixture) {
+    let created = fx.agent("Tester", 70);
+    let with = |use_case| DraftPatch {
+        scenarios: Some(ScenarioSet::defaults_for(use_case)),
+        ..DraftPatch::default()
+    };
+    let agent = Agent::restore(
+        created.id(),
+        created.draft().apply(&with(UseCase::Survey)),
+        created.created_at(),
+        created.updated_at(),
+        None,
+    );
+    repo.create(&agent, &fx.created(&agent))
+        .await
+        .expect("create with saved scenarios");
+    let reread = repo.get(agent.id()).await.expect("get");
+    assert_eq!(reread.value, agent, "create stores the saved scenarios");
+    let change = agent
+        .update_draft(&with(UseCase::Booking), fx.at(71))
+        .expect("active")
+        .expect("changed");
+    let event = fx.event(
+        &change.agent,
+        AuditAction::AgentDraftUpdated {
+            fields: change.fields.clone(),
+            draft_hash: change.agent.draft().content_hash(),
+        },
+    );
+    repo.update(&change.agent, Revision::FIRST, &event)
+        .await
+        .expect("update with other scenarios");
+    let reread = repo.get(agent.id()).await.expect("get");
+    assert_eq!(
+        reread.value, change.agent,
+        "update replaces the saved scenarios"
+    );
 }
 
 /// The saved plan is part of the draft: an update stores it, `get` and `list` read it back

@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
-use crate::PgAgentRepo;
+use crate::{PgAgentRepo, PgTestRunRepo};
 
 /// The migrations in `migrations/`, embedded at compile time.
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
@@ -83,5 +83,11 @@ impl Database {
     #[must_use]
     pub fn agents(&self) -> PgAgentRepo {
         PgAgentRepo::new(self.pool.clone())
+    }
+
+    /// The test run repository on this pool.
+    #[must_use]
+    pub fn test_runs(&self) -> PgTestRunRepo {
+        PgTestRunRepo::new(self.pool.clone())
     }
 }

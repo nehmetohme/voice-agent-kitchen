@@ -18,8 +18,10 @@ mod latency;
 mod openapi;
 mod plans;
 mod problem;
+mod scenarios;
 mod sessions;
 mod state;
+mod test_runs;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
@@ -62,6 +64,11 @@ pub fn router() -> Router {
 /// | `POST /api/v1/agents/{id}/sessions` | prepare a live test call |
 /// | `GET /api/v1/sessions/{id}/media` | the call's media WebSocket (`vak.media.v1`) |
 /// | `GET /api/v1/voice/latency` | the voice path's stage latencies |
+/// | `GET`, `PUT /api/v1/agents/{id}/scenarios` | the test scenarios (or the defaults), save them |
+/// | `POST /api/v1/test-runs` | queue a test run of an agent (202) |
+/// | `GET /api/v1/test-runs/{id}` | a run's progress, results and verdict |
+/// | `POST /api/v1/test-runs/{id}/cancel` | cancel a queued or running run |
+/// | `GET /api/v1/agents/{id}/test-runs` | an agent's runs, newest first |
 ///
 /// The media WebSocket has the identity check but not the request deadline: a call lasts
 /// longer than any request.

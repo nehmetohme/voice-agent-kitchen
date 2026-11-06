@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.plan AS \"plan: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.id = $1 AND a.workspace_id = $2",
+  "query": "SELECT a.id, a.name, a.use_case, a.jurisdiction, a.revision,\n                      a.created_at AS \"created_at: jiff_sqlx::Timestamp\",\n                      a.updated_at AS \"updated_at: jiff_sqlx::Timestamp\",\n                      a.archived_at AS \"archived_at: jiff_sqlx::Timestamp\",\n                      d.persona AS \"persona: _\", d.settings AS \"settings: _\",\n                      d.plan AS \"plan: _\", d.scenarios AS \"scenarios: _\",\n                      d.rule_pack_id, d.rule_pack_version, d.content_hash\n               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id\n               WHERE a.workspace_id = $1 AND a.archived_at IS NULL\n               ORDER BY a.updated_at DESC, a.id DESC\n               LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "scenarios: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "agent_drafts",
+            "name": "scenarios"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "rule_pack_id",
         "type_info": "Text",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "rule_pack_version",
         "type_info": "Int4",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "content_hash",
         "type_info": "Text",
         "origin": {
@@ -161,7 +172,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Int8"
       ]
     },
     "nullable": [
@@ -176,10 +187,11 @@
       false,
       false,
       true,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "680278ffb497eb8a25042a8c86cc02468b0aabd3994884ca359293e8c46e25f5"
+  "hash": "8c32c1f748dddf085df37c650d133e0a8234bd28f13cbc05671d35920c9f2510"
 }

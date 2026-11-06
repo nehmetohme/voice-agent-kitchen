@@ -21,6 +21,8 @@ tokio = { workspace = true, features = [
   "net",
   "rt-multi-thread",
   "signal",
+  "sync",
+  "time",
 ] }
 tracing = { workspace = true }
 serde_json = { workspace = true }

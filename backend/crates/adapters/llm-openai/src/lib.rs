@@ -3,7 +3,8 @@
 //! the local llama-server in development; only base URL and auth differ.
 //!
 //! ```text
-//! POST {base_url}/chat/completions   {"model":…,"stream":true,"messages":[…],"tools":[…], …extra body}
+//! POST {base_url}/chat/completions   {"model":…,"stream":true,"messages":[…],"tools":[…],
+//!                                     "temperature":0,"seed":…, …extra body}
 //! → text/event-stream: data: {"choices":[{"delta":{"content":"…"}}]} … data: [DONE]
 //! ```
 //!
@@ -159,6 +160,11 @@ impl OpenAiLlm {
         if let Some(max_tokens) = request.max_tokens() {
             body.insert("max_tokens".to_owned(), json!(max_tokens));
         }
+        if let Some(seed) = request.greedy_seed() {
+            // Greedy sampling with a seed: the same request gets the same reply.
+            body.insert("temperature".to_owned(), json!(0));
+            body.insert("seed".to_owned(), json!(seed));
+        }
         if !request.tools().is_empty() {
             let tools = request
                 .tools()
@@ -278,6 +284,14 @@ mod tests {
         assert_eq!(body["model"], "real");
         assert_eq!(body["top_k"], 20);
         assert!(body.get("tools").is_none() && body.get("max_tokens").is_none());
+        assert!(body.get("temperature").is_none() && body.get("seed").is_none());
+        let greedy = llm
+            .body(&LlmRequest::new(Duration::from_secs(1)).with_greedy_sampling(7))
+            .unwrap();
+        assert_eq!(
+            (greedy["temperature"].clone(), greedy["seed"].clone()),
+            (json!(0), json!(7))
+        );
         let broken = LlmRequest::new(Duration::from_secs(1))
             .with_tool(ToolSpec::new("t", "d").with_parameters_json("{not json"));
         assert!(matches!(llm.body(&broken), Err(ProviderError::Protocol(_))));
