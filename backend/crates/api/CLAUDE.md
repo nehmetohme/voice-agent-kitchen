@@ -17,9 +17,16 @@ Today it exposes:
 
 | Route (`/api/v1`) | Handler (`operationId`) |
 |---|---|
-| `POST /agents` | `createAgent`: only `name`, `useCase`, `voice` required; 201 with `Location` |
+| `POST /agents` | `createAgent`: only `name`, `useCase`, `voice` required; `purposeId` (optional) pins that purpose's latest version, else the use case's built-in purpose v1; 201 with `Location` |
 | `GET /agents` | `listAgents`: active agents, newest first, with `progressPercent` |
-| `GET`, `PATCH`, `DELETE /agents/{id}` | `getAgent`, `updateAgent` (autosave; send changed fields only), `archiveAgent` (204, idempotent) |
+| `GET`, `PATCH`, `DELETE /agents/{id}` | `getAgent`, `updateAgent` (autosave; send changed fields only; `useCase` pins its built-in purpose, `purposeId` another purpose), `archiveAgent` (204, idempotent). Agents and list items carry `purpose: {id, version, system}` |
+| `GET /agents/{id}/purpose` | `getAgentPurpose`: the pinned version, its name, `latestVersion`, and `update` (`{version, changes: [{area, summary}], plan: follows\|replaced\|kept, planEdited}`, or `null`) |
+| `POST /agents/{id}/purpose/update` | `updateAgentPurpose`: `{version, replacePlan}` moves the agent to that version; an edited plan is replaced only with `replacePlan` |
+| `GET`, `POST /purposes` | `listPurposes` (built-in first, then the workspace's, with `usedBy`), `createPurpose` (`{duplicateOf, name?, version?}`: a copy; 201 with `Location`) |
+| `GET`, `PATCH /purposes/{id}` | `getPurpose` (the draft, `latestVersion`, `unsavedChanges`, `usedBy`, `problems`, and per jurisdiction the pack's read-only `baselines` with the `effective` policy), `updatePurpose` (autosave: each section sent replaces it whole; 409 for a built-in purpose) |
+| `GET`, `PUT /purposes/{id}/flow` | `getPurposeFlow`, `savePurposeFlow`: the starting flow, shaped like an agent's plan |
+| `POST /purposes/{id}/versions` | `savePurposeVersion`: freezes the draft as the next version (201); 409 when unchanged or read-only, 422 with the located problems |
+| `GET /catalog/tools` | `listTools`: the built-in tools and the HTTP tool host allow-list |
 | `GET /agents/{id}/progress` | `getAgentProgress`: four steps, `percent`, `nextStep` |
 | `GET`, `PUT /agents/{id}/plan` | `getAgentPlan` (the saved plan, or the template with `saved: false`, with `rulePack`, `lockedTexts`, `optOutConfirmation` and `validation`), `saveAgentPlan` (replaces the plan; graph problems come back as located errors, malformed fields are a 422; 409 when archived) |
 | `POST /agents/{id}/plan/validate` | `validateAgentPlan`: `{valid, errors: [{code, message, nodeId?, edgeId?}]}`, nothing saved |
@@ -41,14 +48,14 @@ Today it exposes:
   - 404: also for an ID that can't name an agent, and for a session ticket that is unknown, expired, used or another operator's.
   - 409: archived (it can't be edited, take calls or be tested), still conflicting after retries, a test run already active, or a run that is over and can't be cancelled.
   - 415.
-  - 422: with `errors: [{field, message}]`, one per invalid field; plan fields are paths such as `nodes[2].label`.
+  - 422: with `errors: [{field, message}]`, one per invalid field; plan fields are paths such as `nodes[2].label`, purpose fields such as `tools.http[0].url`.
   - 503: storage unavailable or the request deadline passed (a source is logged once, never sent), or a refusal with a detail for people that logs nothing (`ApiError::Refused`: voice sessions aren't set up on this server, or too many test calls are running).
-- **Body limit:** 64 KiB on `/api/v1`; the plan routes raise it to 512 KiB (`plans::BODY_LIMIT`), enough for 50 steps of 2,000 characters. The media WebSocket has none: its messages and frames are capped at 64 KiB.
+- **Body limit:** 64 KiB on `/api/v1`; the plan and purpose routes raise it to 512 KiB (`plans::BODY_LIMIT`), enough for 50 steps of 2,000 characters. The media WebSocket has none: its messages and frames are capped at 64 KiB.
 - **Request deadline** (`src/deadline.rs`): every `/api/v1` request except the media WebSocket runs under `AppState::with_request_timeout` (default 10 s; `vak-server` passes `VAK_HTTP_REQUEST_TIMEOUT_MS`); past it the handler is dropped and the answer is a 503 problem. `/health` is outside it too. The media WebSocket's route comes from its own `OpenApiRouter` (`openapi::v1_media()`), which `app()` gives the identity layer only and merges under `/api/v1`, so a call can outlast any request.
 - **Media bridge** (`src/sessions/bridge.rs`): one task per socket moves frames between the WebSocket and the session's `MediaPeer`, and does nothing else. The session itself runs in a spawned task (`MediaSession::run`). Client audio goes through an `InputFramer` and is pushed without waiting: when the pipeline falls behind, frames are dropped and counted (`dropped_frames`, logged when the socket closes). Agent frames are written into one reused `BytesMut`, so no frame allocates. Each socket write has a 5 s timeout: a client that stops reading is gone, and its session ends instead of holding a slot. When either side ends, the other one ends too.
 - **Same origin** (`sessions::same_origin`): a media handshake whose `Origin` isn't the app's own host (`X-Forwarded-Host` behind the Databricks Apps proxy, else `Host`) is refused with 403, so a page on another site can't open a call with the operator's session (cross-site WebSocket hijacking). A handshake without `Origin` isn't a browser and carries no ambient credentials, so it passes.
 
-Every route comes from an `OpenApiRouter` (`src/openapi.rs`: `public()`, `v1()` and `v1_media()`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`, `tests/contract_plan_api.rs`, `tests/contract_test_runs_api.rs` (`test-runs` v1; here, not in `vak-contract-tests`, because booting the API needs `vak-services`, which that crate may not depend on). Voice sessions: `tests/sessions.rs`. The scenario and test-run routes are tagged `testing`.
+Every route comes from an `OpenApiRouter` (`src/openapi.rs`: `public()`, `v1()` and `v1_media()`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`, `tests/contract_plan_api.rs`, `tests/contract_test_runs_api.rs` (`test-runs` v1; here, not in `vak-contract-tests`, because booting the API needs `vak-services`, which that crate may not depend on), `tests/contract_purposes_api.rs` (`purposes` v1, here for the same reason). Voice sessions: `tests/sessions.rs`. The scenario and test-run routes are tagged `testing`.
 
 ## Dependencies
 

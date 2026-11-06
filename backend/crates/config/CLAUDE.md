@@ -10,7 +10,7 @@ This crate holds the application `Settings` with defaults and overrides:
 
 Today:
 
-- **Shape:** `Settings { profile, http: { addr, request_timeout }, log: { filter }, database: { url: Option<SecretString> }, auth: { dev_operator_email: Option<String> }, models }`.
+- **Shape:** `Settings { profile, http: { addr, request_timeout }, log: { filter }, database: { url: Option<SecretString> }, auth: { dev_operator_email: Option<String> }, models, tools: { hosts: Vec<String> } }`.
 - **Models** (`src/models.rs`): `ModelSettings { llm, stt, tts, decisions }`, each `Option`:
   - `llm`: `LlmSettings { base_url, model, api_key: Option<SecretString>, extra_body: Option<String> }`. `extra_body` is JSON text, which the composition root parses.
   - `stt`, `tts`: `ServingSettings { base_url, endpoint }`.
@@ -39,6 +39,7 @@ Today:
 | `VAK_DECISION_BASE_URL` | `models.decisions.base_url` | The System One server root. Sets decisions |
 | `VAK_DECISION_MODEL` | `models.decisions.model` | Required with `VAK_DECISION_BASE_URL` (`ConfigError::Missing`) |
 | `VAK_DECISION_PATH` | `models.decisions.path` | Unset means the adapter's `/v1/systemone` (llama-server); Databricks serves `/ai-gateway/typesafe/v1/systemone` |
+| `VAK_TOOL_HOSTS` | `tools.hosts` | Comma-separated hosts purposes' HTTP tools may call: exact names, or `*.example.com` for subdomains. Unset means none. `vak-server` checks each entry (`ToolHosts`) and fails startup on a bad one |
 
 ## Dependencies
 

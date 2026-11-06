@@ -85,7 +85,7 @@ A place to build purposes and say how each works: its starting flow, tools, guar
 
 Exit:
 - Existing agents migrate to their use case's system purpose v1, with unchanged hashes, plans and instructions.
-- A live test call follows a custom purpose's topics, never-rules, never-ask list and call length.
+- A live test call follows a custom purpose's topics, never-rules, never-ask list and call length; an M5 test run uses the same instructions, and its default scenarios follow the purpose's compliance class.
 - The pinned contracts pass unchanged, and the OpenAPI breaking-change check passes.
 
 ## M4: Voice core

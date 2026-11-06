@@ -53,7 +53,7 @@ They are read-only and can be **duplicated** to customize. A duplicate starts as
 | `purpose_versions` | (purpose_id, version), definition JSONB, content_hash, created_at, created_by | Append-only (trigger). JSONB read back through the domain's constructors; the hash is recomputed and compared |
 | `agent_drafts` | + purpose_id, purpose_version | NOT NULL. The migration sets every existing agent to its use case's system purpose, version 1 |
 
-Migration `20261107120000_purposes.sql`. No foreign key from `agent_drafts.purpose_id`: system purposes are code, not rows; versions are never deleted, so a pinned custom version always resolves.
+Migration `20261108120000_purposes.sql`. No foreign key from `agent_drafts.purpose_id`: system purposes are code, not rows; versions are never deleted, so a pinned custom version always resolves.
 
 ## 2. Agents and purposes
 
@@ -117,7 +117,8 @@ M3b stores and validates definitions only. M4b executes tools and needs the owne
 
 - SSRF checks at call time: resolve the host, refuse private, loopback, link-local and metadata addresses, pin the resolved address for the request (DNS rebinding), and refuse redirects
 - response caps (size, content type) and the timeout above
-- secret resolution from the secret store, sent as `Authorization: Bearer <secret>`, never logged
+- secret resolution from the secret store, sent as `Authorization: Bearer <secret>`, never logged; only from a scope (or name prefix) reserved for tool secrets, so a tool can never name a platform secret such as the database URL
+- the host allow-list checked again at call time, not only when a version is saved
 - the LLM tool specs from `inputs`, and the confirmation turn for `confirm` tools
 
 ## 4. Guardrails
