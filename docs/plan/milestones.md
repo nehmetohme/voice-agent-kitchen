@@ -72,6 +72,22 @@ Exit: the create-agent golden path passes, including `auditScreen()`.
 
 Exit: an agent created from each template has a valid plan; progress shows 50%.
 
+## M3b: Purposes
+
+A place to build purposes and say how each works: its starting flow, tools, guardrails and compliance additions, versioned so a tested agent never changes behind the operator's back. Definitions, the editor and agent linkage only; no tool runs yet. Design: [purposes.md](purposes.md).
+
+| Contract tests first | |
+|---|---|
+| Domain | Compliance is tighten-only (property-based): the effective policy keeps the pack's locked texts, opt-out confirmation and audit retention, and only adds phrases and claims or shortens recording and transcript retention. Versions are immutable and numbered; an unchanged or invalid draft can't be saved. The six system purposes equal today's templates, packs and instructions. Tool definitions (LLM-safe names, https URLs with DNS hosts, the timeout cap, secret names, inputs) and guardrails are validated; `mark_do_not_call` is always on |
+| Services | Every system purpose's effective policy equals every shipped pack exactly, and its flow is valid against it |
+| API | `GET/POST /purposes`, `GET/PATCH /purposes/{id}`, `GET/PUT /purposes/{id}/flow`, `POST /purposes/{id}/versions`, `GET /catalog/tools`, `GET /agents/{id}/purpose`, `POST /agents/{id}/purpose/update`; `useCase`-only agent creation maps to the system purpose; "used by" counts; an edited plan is kept on update unless replaced |
+| UI | Duplicate a system purpose, add a custom HTTP tool and a guardrail, save a version, create an agent from it, save a newer version, see "Update available" and update; the purpose page doesn't scroll at 1280×800 |
+
+Exit:
+- Existing agents migrate to their use case's system purpose v1, with unchanged hashes, plans and instructions.
+- A live test call follows a custom purpose's topics, never-rules, never-ask list and call length.
+- The pinned contracts pass unchanged, and the OpenAPI breaking-change check passes.
+
 ## M4: Voice core
 
 | Contract tests first | |
@@ -79,7 +95,7 @@ Exit: an agent created from each template has a valid plan; progress shows 50%.
 | Pipeline (simulated time, fake engines) | Locked disclosure is spoken first; barge-in stops agent audio within 1 frame and cancels the LLM; turn order preserved; per-stage timings recorded |
 | Pipeline | Opt-out: each of the three layers alone ends the session; a decision timeout never suppresses an opt-out |
 | Pipeline (`opt-out-confirm`, after the first live call) | Confirm when unsure: a decision score from 0.3 up to 0.8 asks a check question instead of ending the call; a clear yes ends it, anything else carries on |
-| Pipeline | Plan routing: the decision picks the edge; low confidence falls back to an LLM tool call |
+| Pipeline (M4b) | Plan routing: the decision picks the edge; low confidence falls back to an LLM tool call. Purpose tools run (the built-ins, and custom HTTP tools through a new tools adapter with SSRF checks at call time, response caps and secret resolution) and guardrails are enforced: allowed topics, never-rules and the never-ask list by the decision engine, escalation rules acted on without blocking a reply ([purposes.md](purposes.md) §3–4) |
 | Media protocol | `vak.media.v1` event schemas, checked on server and client |
 | Adapters | Each adapter passes its port's shared contract suite against wiremock and the local servers |
 
