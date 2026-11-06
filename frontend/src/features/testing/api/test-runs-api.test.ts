@@ -162,4 +162,16 @@ describe('test runs API', () => {
     );
     await expect(startTestRun(AGENT_ID)).rejects.toMatchObject({ status: 409 });
   });
+
+  it('checks the start request against the contract before it leaves', async () => {
+    let sent = false;
+    server.use(
+      http.post('*/api/v1/test-runs', () => {
+        sent = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    await expect(startTestRun('not-an-agent-id')).rejects.toThrow(/Invalid UUID/);
+    expect(sent).toBe(false);
+  });
 });

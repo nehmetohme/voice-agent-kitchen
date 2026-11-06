@@ -20,6 +20,7 @@ import {
   saveAgentScenariosBodyScenariosItemRubricItemQuestionMax,
   saveAgentScenariosBodyScenariosItemRubricMax,
   saveAgentScenariosBodyScenariosMax,
+  StartTestRunBody,
   type AgentScenarios as AgentScenariosDto,
   type ScenarioEndReason,
   type ScenarioOptOutLayer,
@@ -170,8 +171,9 @@ export function isSendable(scenarios: readonly Scenario[]): boolean {
   return SaveAgentScenariosBody.safeParse({ scenarios: [...scenarios] }).success;
 }
 
+/** Queues a run of the agent's current draft; the body is checked like every request (POS-4). */
 export async function startTestRun(agentId: string): Promise<TestRunView> {
-  return toRun(await startTestRunRequest({ agentId }));
+  return toRun(await startTestRunRequest(StartTestRunBody.parse({ agentId })));
 }
 
 export async function getTestRun(id: string): Promise<TestRunView> {

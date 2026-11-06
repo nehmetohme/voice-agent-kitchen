@@ -135,6 +135,38 @@ describe('Test page', () => {
     );
   });
 
+  it('shows Run tests busy at once while the start is in flight (Doherty)', async () => {
+    renderPage();
+    const answers: (() => void)[] = [];
+    server.use(
+      http.post(
+        '*/api/v1/test-runs',
+        () =>
+          new Promise<Response>((resolve) => {
+            answers.push(() => {
+              resolve(problemResponse(409));
+            });
+          }),
+      ),
+    );
+    const run = await screen.findByRole('button', { name: 'Run tests' });
+    await waitFor(() => {
+      expect(status()).toHaveTextContent('No test run yet.');
+    });
+    fireEvent.click(run);
+    // Busy before the server answers: the next render, well within 100 ms.
+    await waitFor(() => {
+      expect(run).toHaveAttribute('aria-busy', 'true');
+    });
+    await waitFor(() => {
+      expect(answers).toHaveLength(1);
+    });
+    for (const answer of answers) answer();
+    await waitFor(() => {
+      expect(run).not.toHaveAttribute('aria-busy', 'true');
+    });
+  });
+
   it('adds, edits and deletes scenarios, and keeps one required', async () => {
     const { api, onChange } = renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Add scenario' }));

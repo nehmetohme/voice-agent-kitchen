@@ -8,8 +8,8 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use vak_domain::{
-    Question, QuestionId, RubricCheck, RunModels, Scenario, ScenarioResult, SessionEndReason,
-    SessionScript, TestRun, TestRunId, TranscriptLine,
+    Question, QuestionId, RubricCheck, RubricItem, RunModels, Scenario, ScenarioResult,
+    SessionEndReason, SessionScript, TestRun, TestRunId, TranscriptLine,
 };
 use vak_pipeline::{
     LlmCaller, OptOutPolicy, TextDeadlines, TextEngines, TextSessionConfig, run_text_session,
@@ -107,12 +107,14 @@ impl TestRunWorker {
             if self.service.cancels().contains_key(&stored.value.id()) {
                 continue;
             }
-            if let Some(run) = stored.value.interrupt(now())
-                && within(inner.runs.update(&run, stored.revision, None))
-                    .await
-                    .is_ok()
-            {
-                interrupted += 1;
+            let Some(run) = stored.value.interrupt(now()) else {
+                continue;
+            };
+            match within(inner.runs.update(&run, stored.revision, None)).await {
+                Ok(_) => interrupted += 1,
+                Err(error) => {
+                    tracing::warn!(test_run = %run.id(), %error, "can't interrupt a test run left running");
+                }
             }
         }
         interrupted
@@ -183,7 +185,10 @@ impl TestRunWorker {
                 }
                 match self.save(&run, revision).await? {
                     Saved::Kept(next_revision) => revision = next_revision,
-                    Saved::Lost => return stop(&mut playing).await,
+                    Saved::Lost => {
+                        stop(&mut playing).await;
+                        return Ok(());
+                    }
                 }
                 let scenario = Scenario::clone(started.scenario());
                 playing.spawn(play_scenario(
@@ -195,7 +200,10 @@ impl TestRunWorker {
             }
             let joined = tokio::select! {
                 biased;
-                () = cancel.cancelled() => return stop(&mut playing).await,
+                () = cancel.cancelled() => {
+                    stop(&mut playing).await;
+                    return Ok(());
+                }
                 joined = playing.join_next() => joined,
             };
             let Some(joined) = joined else { break };
@@ -215,7 +223,10 @@ impl TestRunWorker {
             }
             match self.save(&run, revision).await? {
                 Saved::Kept(next_revision) => revision = next_revision,
-                Saved::Lost => return stop(&mut playing).await,
+                Saved::Lost => {
+                    stop(&mut playing).await;
+                    return Ok(());
+                }
             }
         }
         if let Some(finished) = run.finish(now()) {
@@ -266,10 +277,9 @@ impl Drop for CancelSignal {
 }
 
 /// Aborts the scenarios in flight and waits until their tasks (and model calls) are gone.
-async fn stop(playing: &mut JoinSet<ScenarioResult>) -> Result<(), RepoError> {
+async fn stop(playing: &mut JoinSet<ScenarioResult>) {
     playing.abort_all();
     while playing.join_next().await.is_some() {}
-    Ok(())
 }
 
 /// A scenario's conversation: the agent's script against the scenario's caller.
@@ -339,16 +349,14 @@ async fn play_scenario(
     result.finished(end, transcript, checks, started.elapsed())
 }
 
-/// The rubric questions' IDs in the decision request: `rubric_1`, `rubric_2`…
-fn rubric_questions(scenario: &Scenario) -> Vec<(QuestionId, Question)> {
+/// Each rubric item with its question's ID in the decision request: `rubric_1`, `rubric_2`…
+/// Every item stays: one whose ID can't be made is never asked, so its check has no answer.
+fn rubric_questions(scenario: &Scenario) -> Vec<(&RubricItem, Option<QuestionId>)> {
     scenario
         .rubric()
         .iter()
         .enumerate()
-        .filter_map(|(i, item)| {
-            let id = QuestionId::parse(&format!("rubric_{}", i + 1)).ok()?;
-            Some((id, Question::yes_no(item.question())))
-        })
+        .map(|(i, item)| (item, QuestionId::parse(&format!("rubric_{}", i + 1)).ok()))
         .collect()
 }
 
@@ -366,9 +374,12 @@ async fn score(
         .fold(DecisionRequest::new(deadline), |request, line| {
             request.with_turn(line.speaker(), line.text())
         });
-    let request = questions.iter().fold(request, |request, (id, question)| {
-        request.with_question(id.clone(), question.clone())
-    });
+    let request = questions
+        .iter()
+        .filter_map(|(item, id)| Some((item, id.as_ref()?)))
+        .fold(request, |request, (item, id)| {
+            request.with_question(id.clone(), Question::yes_no(item.question()))
+        });
     let answers = tokio::time::timeout(deadline, decisions.decide(&request))
         .await
         .unwrap_or(Err(vak_providers::ProviderError::Timeout));
@@ -379,18 +390,15 @@ async fn score(
             None
         }
     };
-    scenario
-        .rubric()
+    questions
         .iter()
-        .zip(&questions)
-        .map(|(item, (id, _))| {
-            let probability =
-                answers
-                    .as_ref()
-                    .and_then(|answers| match answers.answer(id.as_str()) {
-                        Some(vak_domain::Answer::YesNo { probability }) => Some(*probability),
-                        _ => None,
-                    });
+        .map(|(item, id)| {
+            let probability = answers.as_ref().zip(id.as_ref()).and_then(|(answers, id)| {
+                match answers.answer(id.as_str()) {
+                    Some(vak_domain::Answer::YesNo { probability }) => Some(*probability),
+                    _ => None,
+                }
+            });
             RubricCheck::score(item, probability)
         })
         .collect()

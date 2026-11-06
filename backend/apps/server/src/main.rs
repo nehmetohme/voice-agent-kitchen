@@ -156,8 +156,10 @@ async fn serve(settings: &Settings) -> anyhow::Result<()> {
         drop(stop);
     })
     .await;
-    if tokio::time::timeout(WORKER_SHUTDOWN, worker).await.is_err() {
-        tracing::warn!("the test run worker didn't stop in time");
+    match tokio::time::timeout(WORKER_SHUTDOWN, worker).await {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => tracing::error!(%error, "the test run worker failed"),
+        Err(_) => tracing::warn!("the test run worker didn't stop in time"),
     }
     served
 }
