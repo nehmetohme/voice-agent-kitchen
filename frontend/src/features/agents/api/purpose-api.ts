@@ -7,11 +7,12 @@ import {
   updateAgentPurpose as updateAgentPurposeRequest,
 } from '../../../shared/api/generated/endpoints/agents/agents';
 import { listPurposes as listPurposesRequest } from '../../../shared/api/generated/endpoints/purposes/purposes';
-import type {
-  AgentPurpose as AgentPurposeDto,
-  PlanOnUpdate,
-  PurposeChangeArea,
-  UseCase,
+import {
+  UpdateAgentPurposeBody,
+  type AgentPurpose as AgentPurposeDto,
+  type PlanOnUpdate,
+  type PurposeChangeArea,
+  type UseCase,
 } from '../../../shared/api/generated/model';
 
 /**
@@ -89,5 +90,7 @@ export async function updateAgentPurpose(
   version: number,
   replacePlan: boolean,
 ): Promise<AgentPurpose> {
-  return toAgentPurpose(await updateAgentPurposeRequest(agentId, { version, replacePlan }));
+  // Checked against the contract before it leaves (POS-4).
+  const body = UpdateAgentPurposeBody.parse({ version, replacePlan });
+  return toAgentPurpose(await updateAgentPurposeRequest(agentId, body));
 }

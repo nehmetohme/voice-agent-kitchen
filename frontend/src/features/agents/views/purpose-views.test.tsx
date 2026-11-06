@@ -104,6 +104,21 @@ describe('Update available', () => {
     });
   });
 
+  it('stays open and says so when the update fails', async () => {
+    use({ update: updateBody({ plan: 'follows', planEdited: false }) });
+    server.use(http.post('*/api/v1/agents/:id/purpose/update', () => problemResponse(503)));
+    renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Update available' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Update to version 2' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Update to version 2' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      "The agent wasn't updated. Try again.",
+    );
+    expect(screen.getByRole('dialog', { name: 'Update to version 2' })).toBeVisible();
+  });
+
   it('shows nothing when the agent pins the latest version', async () => {
     use();
     renderRoutes(`/agents/${AGENT_ID}/provision`, ROUTES);

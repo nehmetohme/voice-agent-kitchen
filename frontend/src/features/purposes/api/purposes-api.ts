@@ -10,7 +10,7 @@ import {
   savePurposeVersion as savePurposeVersionRequest,
   updatePurpose as updatePurposeRequest,
 } from '../../../shared/api/generated/endpoints/purposes/purposes';
-import { Problem, UpdatePurposeBody } from '../../../shared/api/generated/model';
+import { CreatePurposeBody, Problem, UpdatePurposeBody } from '../../../shared/api/generated/model';
 import { ApiError } from '../../../shared/api/http';
 import { sectionsBody, toDetails } from './purpose-mapping';
 import type {
@@ -40,7 +40,9 @@ export async function getPurpose(id: string): Promise<PurposeDetails> {
 
 /** Copies `source` (its latest version) into a new draft named `name`. */
 export async function duplicatePurpose(source: string, name: string): Promise<PurposeDetails> {
-  return toDetails(await createPurposeRequest({ duplicateOf: source, name }));
+  // Checked against the contract before it leaves (POS-4).
+  const body = CreatePurposeBody.parse({ duplicateOf: source, name });
+  return toDetails(await createPurposeRequest(body));
 }
 
 /** Saves the changed sections (autosave); the answer carries the draft's problems. */

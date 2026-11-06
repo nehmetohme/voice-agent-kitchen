@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Button } from './button';
 import { ChoiceField, MAX_SELECT_OPTIONS } from './choice-field';
 import { FormDialog } from './form-dialog';
+import { RadioGroupField } from './radio-group-field';
 import { SectionNav, sectionLinkClassName } from './section-nav';
 import { TextListField } from './text-list-field';
 
@@ -159,6 +160,28 @@ describe('SectionNav', () => {
       'aria-current',
       'page',
     );
+  });
+});
+
+describe('RadioGroupField', () => {
+  it('is a named group of radios with one chosen', () => {
+    const onValueChange = vi.fn<(value: 'keep' | 'replace') => void>();
+    render(
+      <RadioGroupField
+        label="Your plan"
+        value="keep"
+        onValueChange={onValueChange}
+        options={[
+          { value: 'keep', label: 'Keep my plan' },
+          { value: 'replace', label: 'Replace my plan' },
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Your plan' });
+    expect(within(group).getByRole('radio', { name: 'Keep my plan' })).toBeChecked();
+    fireEvent.click(within(group).getByRole('radio', { name: 'Replace my plan' }));
+    expect(onValueChange).toHaveBeenCalledWith('replace');
   });
 });
 

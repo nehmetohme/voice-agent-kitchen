@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 
 import { FormDialog } from '../../../shared/ui/form-dialog';
+import { RadioGroupField } from '../../../shared/ui/radio-group-field';
 import { useUpdateAgentPurpose } from '../state/agent-mutations';
 import { agentPurposeQueryOptions } from '../state/agents-queries';
 import type { PurposeUpdate as Update } from '../state/models';
@@ -24,49 +25,25 @@ const PLAN_OUTCOME: Record<Update['plan'], string> = {
   kept: 'Your plan has your own edits, so it stays as it is unless you replace it.',
 };
 
-/** Keep or replace an edited plan: a named group of two radios (UC-1), keep chosen. */
-function PlanChoice({
-  replace,
-  onChange,
-}: {
-  replace: boolean;
-  onChange: (replace: boolean) => void;
-}) {
-  const name = useId();
-  const options = [
-    { value: false, label: 'Keep my plan' },
-    { value: true, label: 'Replace my plan with the new starting flow' },
-  ];
-  return (
-    <fieldset className="flex flex-col">
-      <legend className="text-sm font-medium">Your plan</legend>
-      {options.map((option) => (
-        <label key={option.label} className="flex min-h-target cursor-pointer items-center gap-3">
-          <input
-            type="radio"
-            name={name}
-            checked={replace === option.value}
-            onChange={() => {
-              onChange(option.value);
-            }}
-            className="size-4 accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          />
-          <span className="text-sm">{option.label}</span>
-        </label>
-      ))}
-    </fieldset>
-  );
-}
+/** Keep or replace an edited plan (UC-1): keep is chosen until the operator says otherwise. */
+const PLAN_CHOICES = [
+  { value: 'keep', label: 'Keep my plan' },
+  { value: 'replace', label: 'Replace my plan with the new starting flow' },
+] as const;
+
+type PlanChoice = (typeof PLAN_CHOICES)[number]['value'];
 
 /**
  * "Update available": the agent pins an older version of its purpose. The dialog says what
  * moving to the latest version changes, and what happens to the plan; an edited plan is kept
- * unless the operator chooses to replace it. Nothing changes until they confirm.
+ * unless the operator chooses to replace it. Nothing changes until they confirm, and the dialog
+ * stays open, busy, until the update is stored; once it is, the agent has no update to offer.
  */
 export function PurposeUpdate({ agentId }: { agentId: string }) {
   const purpose = useQuery(agentPurposeQueryOptions(agentId));
   const update = useUpdateAgentPurpose(agentId);
-  const [replace, setReplace] = useState(false);
+  const [plan, setPlan] = useState<PlanChoice>('keep');
+  const [failed, setFailed] = useState(false);
   const next = purpose.data?.update;
   if (next === undefined || next === null) return null;
   const title = `Update to version ${String(next.version)}`;
@@ -77,11 +54,22 @@ export function PurposeUpdate({ agentId }: { agentId: string }) {
       submitLabel={title}
       pending={update.isPending}
       onOpenChange={(open) => {
-        if (open) setReplace(false);
+        if (!open) return;
+        setPlan('keep');
+        setFailed(false);
       }}
       onSubmit={() => {
-        update.mutate({ version: next.version, replacePlan: next.planEdited && replace });
-        return true;
+        setFailed(false);
+        const replacePlan = next.planEdited && plan === 'replace';
+        update.mutate(
+          { version: next.version, replacePlan },
+          {
+            onError: () => {
+              setFailed(true);
+            },
+          },
+        );
+        return false;
       }}
     >
       <p className="text-sm">
@@ -96,7 +84,19 @@ export function PurposeUpdate({ agentId }: { agentId: string }) {
         ))}
       </ul>
       <p className="text-sm text-muted">{PLAN_OUTCOME[next.plan]}</p>
-      {next.planEdited && <PlanChoice replace={replace} onChange={setReplace} />}
+      {next.planEdited && (
+        <RadioGroupField
+          label="Your plan"
+          value={plan}
+          onValueChange={setPlan}
+          options={PLAN_CHOICES}
+        />
+      )}
+      {failed && (
+        <p role="alert" className="text-sm text-danger">
+          The agent wasn&apos;t updated. Try again.
+        </p>
+      )}
     </FormDialog>
   );
 }
