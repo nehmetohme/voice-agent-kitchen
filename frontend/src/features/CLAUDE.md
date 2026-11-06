@@ -22,9 +22,10 @@ call's reply p50/p95 (`state/call-summary.ts`, nearest rank), "Run tests" and "P
 **Testing** (`testing/`, M5): `TestPage` (`views/test-page.tsx`) is the Test step, a workspace
 that fits the screen from `lg`: `RunBar` (the run's outcome as a polite status, its progress
 while it runs, "Run tests" or "Cancel run"; the stale notice when the run tested an earlier
-draft), then `ScenarioList` (each scenario with "Required" and its latest result; Edit and
-Delete per row; "Add scenario") beside `ScenarioResult` (the selected scenario's ending, its
-transcript in `CallTranscript` with "Caller" lines, and `RubricChecks`). `state/use-test-page.ts`
+draft), then `ScenarioList` (each row selects a scenario and shows "Required" and its latest
+result; "Add scenario") beside `ScenarioResult` (the selected scenario's name with its Edit and
+Delete in `ScenarioActions`, how it ended, `RubricChecks`, then its transcript in
+`CallTranscript` with "Caller" lines, opened at the start: `follow={false}`). `state/use-test-page.ts`
 reads the scenarios, the agent's latest run (read again every second while it runs) and calls
 `onChange` when the set is saved or a run ends; `state/run-view.ts` and
 `state/scenario-edits.ts` hold the rules in words and the set's checks (pure). The route

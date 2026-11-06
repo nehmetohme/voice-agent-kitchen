@@ -108,9 +108,8 @@ describe('Test page', () => {
     });
     api.state.current = false;
     // Saving the set changes the draft, so the list is read again.
-    fireEvent.click(
-      within(row('Asks to be called back') ?? list()).getByRole('button', { name: 'Edit' }),
-    );
+    fireEvent.click(within(list()).getByRole('button', { name: /^Asks to be called back/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save scenario' }));
     expect(await screen.findByText(/tested an earlier version of the agent/)).toBeVisible();
   });
@@ -154,7 +153,7 @@ describe('Test page', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Add check' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove check 2' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Add scenario' }));
-    expect(await screen.findByText('Books later')).toBeVisible();
+    expect(await within(list()).findByText('Books later')).toBeVisible();
     expect(api.state.savedBodies).toHaveLength(1);
     expect(api.state.scenarios.at(-1)).toMatchObject({
       id: 'books-later',
@@ -168,9 +167,8 @@ describe('Test page', () => {
     });
 
     // Deleting the only required scenario is refused before anything is sent.
-    fireEvent.click(
-      within(row('Completes the survey') ?? list()).getByRole('button', { name: 'Delete' }),
-    );
+    fireEvent.click(within(list()).getByRole('button', { name: /^Completes the survey/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
     );
@@ -179,12 +177,14 @@ describe('Test page', () => {
     );
     expect(api.state.savedBodies).toHaveLength(1);
 
-    fireEvent.click(within(row('Books later') ?? list()).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(list()).getByRole('button', { name: /^Books later/ }));
+    await screen.findByRole('heading', { name: 'Books later' });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
     );
     await waitFor(() => {
-      expect(screen.queryByText('Books later')).toBeNull();
+      expect(within(list()).queryByText('Books later')).toBeNull();
     });
     expect(api.state.savedBodies).toHaveLength(2);
   });
@@ -192,12 +192,8 @@ describe('Test page', () => {
   it('says when saving the scenarios failed', async () => {
     renderPage();
     server.use(http.put('*/api/v1/agents/:id/scenarios', () => problemResponse(503)));
-    fireEvent.click(
-      within((await screen.findByText('Asks to be called back')).closest('li') ?? list()).getByRole(
-        'button',
-        { name: 'Edit' },
-      ),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: /^Asks to be called back/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save scenario' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save the scenarios.");
   });

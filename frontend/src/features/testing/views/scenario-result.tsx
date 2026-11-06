@@ -7,6 +7,7 @@ import type { TranscriptLine } from '../state/test-call';
 import type { TestPageModel } from '../state/use-test-page';
 import { CallTranscript } from './call-transcript';
 import { RubricChecks } from './rubric-checks';
+import { ScenarioActions } from './scenario-actions';
 
 /** A run's transcript as the call transcript shows lines: one per turn, in order. */
 function linesOf(result: Result | null): TranscriptLine[] {
@@ -48,8 +49,9 @@ function Summary({ scenario, result }: { scenario: Scenario; result: Result | nu
 }
 
 /**
- * The selected scenario's latest result: its outcome, the conversation (its own scroll
- * region) and the rubric checks, each passed or failed. Before a run, its rubric.
+ * The selected scenario, outcome first (SP-4): its name with Edit and Delete, how it ended, its
+ * rubric checks (each passed or failed; before a run, the questions), then the conversation in
+ * its own scroll region.
  */
 export function ScenarioResult({ page }: { page: TestPageModel }) {
   const titleId = useId();
@@ -62,20 +64,26 @@ export function ScenarioResult({ page }: { page: TestPageModel }) {
       className="flex flex-col gap-3 rounded-md border border-line p-4 max-lg:h-dvh lg:min-h-0 lg:flex-1"
     >
       <div className="flex flex-col gap-1">
-        <h3 id={titleId} className="text-lg font-semibold">
-          {scenario.name}
-        </h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 id={titleId} className="min-w-0 text-lg font-semibold">
+            {scenario.name}
+          </h3>
+          <ScenarioActions scenario={scenario} page={page} />
+        </div>
         <Summary scenario={scenario} result={result} />
       </div>
+      <div className="max-h-2/5 shrink-0 overflow-y-auto">
+        <RubricChecks rubric={scenario.rubric} checks={result?.checks ?? []} />
+      </div>
+      {/* A result doesn't grow line by line: it opens at the start, anew per scenario. */}
       <CallTranscript
+        key={scenario.id}
         lines={linesOf(result)}
         hearing={null}
         callerLabel="Caller"
         empty={<NotPlayed />}
+        follow={false}
       />
-      <div className="max-h-2/5 shrink-0 overflow-y-auto">
-        <RubricChecks rubric={scenario.rubric} checks={result?.checks ?? []} />
-      </div>
     </section>
   );
 }

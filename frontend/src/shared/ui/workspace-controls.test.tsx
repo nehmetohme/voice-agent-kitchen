@@ -108,9 +108,9 @@ function layOut(region: HTMLElement, sizes: { scrollHeight: number; clientHeight
   Object.defineProperty(region, 'clientHeight', { configurable: true, value: sizes.clientHeight });
 }
 
-function Lines({ count }: { count: number }) {
+function Lines({ count, follow = true }: { count: number; follow?: boolean }) {
   return (
-    <FollowScroll label="Transcript">
+    <FollowScroll label="Transcript" follow={follow}>
       <ol>
         {Array.from({ length: count }, (_, index) => (
           <li key={index}>Line {index + 1}</li>
@@ -167,5 +167,17 @@ describe('FollowScroll', () => {
       rerender(<Lines count={4} />);
     });
     expect(region.scrollTop).toBe(1_200);
+  });
+
+  it('stays where the reader is, from the start, when it does not follow', () => {
+    const { rerender } = render(<Lines count={2} follow={false} />);
+    const region = screen.getByRole('region', { name: 'Transcript' });
+    layOut(region, { scrollHeight: 900, clientHeight: 300 });
+    rerender(<Lines count={3} follow={false} />);
+    expect(region.scrollTop).toBe(0);
+
+    region.scrollTop = 100;
+    fireEvent.scroll(region);
+    expect(screen.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
   });
 });

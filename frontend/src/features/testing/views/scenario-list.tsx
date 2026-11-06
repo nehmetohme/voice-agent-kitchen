@@ -6,9 +6,9 @@ import { ScenarioDialog } from './scenario-dialog';
 import { ScenarioRow } from './scenario-row';
 
 /**
- * The agent's scenarios, each with how it did in the latest run; picking one shows its result
- * beside the list. Until scenarios are saved, these are the use case's defaults. The list
- * scrolls on its own; "Add scenario" stays under it.
+ * The agent's scenarios, each with how it did in the latest run; picking one shows its result,
+ * and its Edit and Delete, beside the list. Until scenarios are saved, these are the use case's
+ * defaults. The list scrolls on its own; "Add scenario" stays under it.
  */
 export function ScenarioList({ page }: { page: TestPageModel }) {
   const titleId = useId();
@@ -38,15 +38,10 @@ export function ScenarioList({ page }: { page: TestPageModel }) {
           <ScenarioRow
             key={scenario.id}
             scenario={scenario}
-            scenarios={scenarios}
             standing={standingOf(page.latest.run, scenario.id)}
             selected={page.selected?.id === scenario.id}
             onSelect={() => {
               page.select(scenario.id);
-            }}
-            onSave={page.saveScenario}
-            onDelete={() => {
-              page.deleteScenario(scenario.id);
             }}
           />
         ))}

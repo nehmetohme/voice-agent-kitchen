@@ -126,7 +126,7 @@ describe('Provision', () => {
     expect(steps.map((step) => step.textContent)).toEqual([
       'ProvisionDone: Name, purpose and voice',
       'PlanNext: Goals, flow and guardrails',
-      'TestLater: Run test scenarios and scores',
+      'TestTo do: Run test scenarios and scores',
       'PublishLater: Release a version to a channel',
     ]);
     expect(screen.getByRole('status')).toHaveTextContent('Saved');
@@ -147,9 +147,12 @@ describe('Provision', () => {
       'href',
       `/agents/${AGENT_ID}/plan`,
     );
-    expect(within(stepper).queryByRole('link', { name: 'Test' })).toBeNull();
+    expect(within(stepper).getByRole('link', { name: 'Test' })).toHaveAttribute(
+      'href',
+      `/agents/${AGENT_ID}/test`,
+    );
     expect(within(stepper).queryByRole('link', { name: 'Publish' })).toBeNull();
-    expect(within(stepper).getAllByText('Later')).toHaveLength(2);
+    expect(within(stepper).getAllByText('Later')).toHaveLength(1);
   });
 
   it('says so, with a retry, when setup progress fails to load', async () => {

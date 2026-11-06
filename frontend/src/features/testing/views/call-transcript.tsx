@@ -13,6 +13,8 @@ interface CallTranscriptProps {
   callerLabel?: string | undefined;
   /** What shows before the first line (default: how to talk to the agent). */
   empty?: ReactNode;
+  /** Follow the newest line (default: a live call). Off for a finished conversation. */
+  follow?: boolean | undefined;
 }
 
 interface BubbleProps {
@@ -87,9 +89,10 @@ export function CallTranscript({
   hearing,
   callerLabel = 'You',
   empty,
+  follow = true,
 }: CallTranscriptProps) {
   return (
-    <FollowScroll label="Transcript">
+    <FollowScroll label="Transcript" follow={follow}>
       {lines.length === 0 && hearing === null ? (
         (empty ?? <NothingSaidYet />)
       ) : (
