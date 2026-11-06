@@ -14,9 +14,9 @@ use uuid::Uuid;
 use vak_domain::{
     Actor, Agent, AgentDraft, AgentId, AgentName, AuditAction, AuditEvent, AuditEventId,
     ContentHash, DraftPatch, Jurisdiction, Language, ModelProfile, ProgressFacts, RulePackCatalog,
-    SetupProgress, TurnDetection, UseCase, Verdict, VoiceId,
+    SetupProgress, ToolHosts, TurnDetection, UseCase, Verdict, VoiceId,
 };
-use vak_repositories::{AgentQuery, AgentRepo, RepoError, Revision, TestRunRepo};
+use vak_repositories::{AgentQuery, AgentRepo, PurposeRepo, RepoError, Revision, TestRunRepo};
 
 /// The most agents [`AgentService::list`] returns.
 pub const LIST_LIMIT: u16 = 200;
@@ -121,11 +121,17 @@ impl From<FindAgentError> for UpdateDraftError {
 
 /// The agent use cases, over an [`AgentRepo`] and the rule packs plans are checked against.
 #[derive(Clone)]
+#[expect(
+    dead_code,
+    reason = "the purpose use cases arrive with the implementation"
+)]
 pub struct AgentService {
     repo: Arc<dyn AgentRepo>,
     deadline: Duration,
     pub(crate) rule_packs: Arc<RulePackCatalog>,
     test_runs: Option<Arc<dyn TestRunRepo>>,
+    pub(crate) purposes: Option<Arc<dyn PurposeRepo>>,
+    pub(crate) tool_hosts: Arc<ToolHosts>,
 }
 
 impl AgentService {
@@ -138,6 +144,8 @@ impl AgentService {
             deadline: DEFAULT_DEADLINE,
             rule_packs: Arc::new(crate::rule_packs::shipped().unwrap_or_default()),
             test_runs: None,
+            purposes: None,
+            tool_hosts: Arc::new(ToolHosts::default()),
         }
     }
 
@@ -147,6 +155,25 @@ impl AgentService {
     pub fn with_test_runs(self, test_runs: Arc<dyn TestRunRepo>) -> Self {
         Self {
             test_runs: Some(test_runs),
+            ..self
+        }
+    }
+
+    /// The same service with the workspace's own purposes stored in `repo`. Without one,
+    /// only the six system purposes exist and none can be made.
+    #[must_use]
+    pub fn with_purposes(self, repo: Arc<dyn PurposeRepo>) -> Self {
+        Self {
+            purposes: Some(repo),
+            ..self
+        }
+    }
+
+    /// The same service with this tool host allow-list (default: empty, no host allowed).
+    #[must_use]
+    pub fn with_tool_hosts(self, hosts: ToolHosts) -> Self {
+        Self {
+            tool_hosts: Arc::new(hosts),
             ..self
         }
     }

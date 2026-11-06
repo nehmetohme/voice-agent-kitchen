@@ -63,6 +63,18 @@ uuid_v7_id!(
     /// Identifies a test run.
     TestRunId
 );
+uuid_v7_id!(
+    /// Identifies a purpose: one of the six built-in system purposes (fixed IDs) or one the
+    /// workspace made.
+    PurposeId
+);
+
+impl PurposeId {
+    /// A fixed ID known to be a UUID v7 (the system purposes'); a unit test checks each one.
+    pub(crate) const fn from_v7_bits(bits: u128) -> Self {
+        Self(Uuid::from_u128(bits))
+    }
+}
 
 #[cfg(test)]
 mod tests {

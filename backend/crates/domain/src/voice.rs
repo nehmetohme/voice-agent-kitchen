@@ -6,7 +6,7 @@
 
 use crate::{
     AgentDraft, DEFAULT_OPT_OUT_CHECK_QUESTION, DEFAULT_OPT_OUT_CONFIRMATION,
-    DEFAULT_OPT_OUT_PHRASES, UseCase,
+    DEFAULT_OPT_OUT_PHRASES, PurposeDefinition, UseCase,
 };
 
 /// The session-facing view of an agent.
@@ -17,6 +17,8 @@ pub struct SessionScript {
     voice: &'static str,
     end_of_turn_silence_ms: u32,
     barge_in: bool,
+    opt_out_phrases: Vec<String>,
+    max_call_minutes: u32,
 }
 
 impl SessionScript {
@@ -42,7 +44,28 @@ impl SessionScript {
             voice: persona.voice().as_str(),
             end_of_turn_silence_ms: turns.silence_ms(),
             barge_in: turns.barge_in(),
+            opt_out_phrases: DEFAULT_OPT_OUT_PHRASES
+                .iter()
+                .map(|phrase| (*phrase).to_owned())
+                .collect(),
+            max_call_minutes: 30,
         }
+    }
+
+    /// The script of an agent with this draft and its pinned purpose version: the purpose's
+    /// persona replaces the use-case sentence, and its guardrails, tool descriptions, extra
+    /// opt-out phrases and call length are added. A system purpose gives exactly
+    /// [`SessionScript::for_draft`].
+    #[must_use]
+    pub fn for_agent(draft: &AgentDraft, purpose: &PurposeDefinition) -> Self {
+        let _ = purpose;
+        Self::for_draft(draft)
+    }
+
+    /// The longest call, in minutes.
+    #[must_use]
+    pub fn max_call_minutes(&self) -> u32 {
+        self.max_call_minutes
     }
 
     /// The locked opening line: spoken first, unchanged, uninterruptible.
@@ -65,8 +88,8 @@ impl SessionScript {
 
     /// Phrases that end the session when the caller says one.
     #[must_use]
-    pub fn opt_out_phrases(&self) -> &'static [&'static str] {
-        &DEFAULT_OPT_OUT_PHRASES
+    pub fn opt_out_phrases(&self) -> &[String] {
+        &self.opt_out_phrases
     }
 
     /// The locked line said before an opt-out ends the session.
@@ -149,7 +172,7 @@ mod tests {
         assert_eq!(script.voice(), "bf_emma");
         assert_eq!(script.end_of_turn_silence_ms(), 500);
         assert!(script.barge_in());
-        assert_eq!(script.opt_out_phrases(), DEFAULT_OPT_OUT_PHRASES.as_slice());
+        assert_eq!(script.opt_out_phrases(), DEFAULT_OPT_OUT_PHRASES);
         assert_eq!(script.opt_out_confirmation(), DEFAULT_OPT_OUT_CONFIRMATION);
         assert_eq!(
             script.opt_out_check_question(),

@@ -1,11 +1,13 @@
 //! In-memory `AgentRepo`: deterministic, with switches to make calls fail.
 
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use vak_domain::{Agent, AgentId, AuditEvent};
-use vak_repositories::{AgentQuery, AgentRepo, BoxFuture, RepoError, Revision, Versioned};
+use vak_repositories::{
+    AgentQuery, AgentRepo, BoxFuture, PurposeUsage, RepoError, Revision, Versioned,
+};
 
 #[derive(Debug, Default)]
 struct State {
@@ -120,6 +122,37 @@ impl AgentRepo for InMemoryAgentRepo {
             agents.sort_by_key(|agent| Reverse((agent.updated_at(), agent.id())));
             agents.truncate(usize::from(query.limit));
             Ok(agents)
+        })
+    }
+
+    fn purpose_usage(&self) -> BoxFuture<'_, Result<Vec<PurposeUsage>, RepoError>> {
+        Box::pin(async move {
+            self.wait_unless_stalled().await;
+            let state = self.lock();
+            Self::check_available(&state)?;
+            let active: Vec<&Agent> = state
+                .agents
+                .values()
+                .map(|(agent, _)| agent)
+                .filter(|agent| !agent.is_archived())
+                .collect();
+            let purposes: BTreeSet<_> = active
+                .iter()
+                .map(|agent| agent.draft().purpose().id())
+                .collect();
+            Ok(purposes
+                .into_iter()
+                .map(|purpose| PurposeUsage {
+                    purpose,
+                    agents: u32::try_from(
+                        active
+                            .iter()
+                            .filter(|agent| agent.draft().purpose().id() == purpose)
+                            .count(),
+                    )
+                    .unwrap_or(u32::MAX),
+                })
+                .collect())
         })
     }
 

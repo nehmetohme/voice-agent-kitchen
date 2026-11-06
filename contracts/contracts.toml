@@ -135,3 +135,20 @@ paths = [
   "frontend/e2e/support/fake-models.ts",
   "frontend/e2e/golden/test-call.golden.spec.ts",
 ]
+
+# M3b Purposes: the six use cases as built-in system purposes at version 1, equal to today's
+# templates, packs and instructions; drafts and immutable numbered versions; tighten-only
+# compliance (property-based); built-in and custom HTTP tool definitions (LLM-safe names,
+# https URLs with DNS hosts on the allow-list, capped timeouts, secrets by name) and guardrails,
+# checked; agents pinning (purpose, version) with an unchanged hash on the system purpose, and
+# updates that say what changes and keep an edited plan unless replaced. The API under
+# /api/v1/purposes, /catalog/tools and /agents/{id}/purpose, and the duplicate → tool and
+# guardrails → version → agent → newer version → "Update available" path end to end.
+[features.purposes]
+version = 1
+paths = [
+  "backend/crates/domain/tests/contract_purposes.rs",
+  "backend/crates/services/tests/contract_purposes_system.rs",
+  "backend/crates/api/tests/contract_purposes_api.rs",
+  "frontend/e2e/contract/purposes/**",
+]

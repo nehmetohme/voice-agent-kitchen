@@ -219,7 +219,7 @@ impl VoiceService {
             .with_turn_policy(turns)
             .with_opt_out(
                 OptOutPolicy::new(
-                    script.opt_out_phrases().iter().copied(),
+                    script.opt_out_phrases().iter().cloned(),
                     script.opt_out_confirmation(),
                 )
                 .with_check_question(script.opt_out_check_question())

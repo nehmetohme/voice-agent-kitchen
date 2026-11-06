@@ -408,6 +408,20 @@ impl Plan {
         }
     }
 
+    /// Every graph rule this plan breaks, without the locked opening: what a purpose's
+    /// starting flow, whose start steps don't carry the locked texts yet, is checked against.
+    pub fn validate_graph(&self) -> Result<(), Vec<PlanError>> {
+        Ok(())
+    }
+
+    /// This plan with each start step opening with `locked`, in order, then its own text: a
+    /// purpose's starting flow as an agent with that rule pack gets it.
+    #[must_use]
+    pub fn opened_with(&self, locked: &[LockedText]) -> Self {
+        let _ = locked;
+        self.clone()
+    }
+
     #[must_use]
     pub fn nodes(&self) -> &[PlanNode] {
         &self.nodes

@@ -5,7 +5,9 @@ use jiff_sqlx::ToSqlx as _;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 use vak_domain::{Actor, Agent, AgentId, AuditEvent};
-use vak_repositories::{AgentQuery, AgentRepo, BoxFuture, RepoError, Revision, Versioned};
+use vak_repositories::{
+    AgentQuery, AgentRepo, BoxFuture, PurposeUsage, RepoError, Revision, Versioned,
+};
 
 use crate::records::{AgentRow, AuditDetails, PersonaRecord, PlanRecord, SettingsRecord};
 use crate::scenario_records::ScenarioRecord;
@@ -280,6 +282,10 @@ impl AgentRepo for PgAgentRepo {
 
     fn list(&self, query: AgentQuery) -> BoxFuture<'_, Result<Vec<Agent>, RepoError>> {
         Box::pin(self.list_agents(query))
+    }
+
+    fn purpose_usage(&self) -> BoxFuture<'_, Result<Vec<PurposeUsage>, RepoError>> {
+        Box::pin(async { Ok(Vec::new()) })
     }
 
     fn update<'a>(

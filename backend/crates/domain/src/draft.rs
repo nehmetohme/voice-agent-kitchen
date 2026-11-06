@@ -1,8 +1,8 @@
 //! The agent's draft: its current, editable configuration.
 
 use crate::{
-    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, Plan, RulePackRef,
-    ScenarioSet, TurnDetection, UseCase, VoiceId,
+    AgentName, AgentSettings, ContentHash, Jurisdiction, Language, ModelProfile, Plan,
+    PurposeChoice, PurposeRef, RulePackRef, ScenarioSet, TurnDetection, UseCase, VoiceId,
 };
 
 /// Who the agent is: name, purpose, voice and language.
@@ -57,6 +57,7 @@ pub struct AgentDraft {
     settings: AgentSettings,
     plan: Option<Plan>,
     scenarios: Option<ScenarioSet>,
+    purpose: PurposeRef,
 }
 
 /// Changes to a draft. `None` leaves a field as it is.
@@ -73,6 +74,9 @@ pub struct DraftPatch {
     pub plan: Option<Plan>,
     /// Replaces the saved test scenarios.
     pub scenarios: Option<ScenarioSet>,
+    /// Pins another purpose version; its compliance class becomes the use case. Without it,
+    /// a new use case pins that use case's system purpose.
+    pub purpose: Option<PurposeChoice>,
 }
 
 /// A part of the draft, as named in audit events.
@@ -88,6 +92,7 @@ pub enum DraftField {
     TurnDetection,
     Plan,
     Scenarios,
+    Purpose,
 }
 
 impl DraftField {
@@ -105,6 +110,7 @@ impl DraftField {
             Self::TurnDetection => "turn_detection",
             Self::Plan => "plan",
             Self::Scenarios => "scenarios",
+            Self::Purpose => "purpose",
         }
     }
 }
@@ -121,6 +127,7 @@ impl AgentDraft {
             settings: AgentSettings::default(),
             plan: None,
             scenarios: None,
+            purpose: PurposeRef::system(use_case),
         }
     }
 
@@ -134,6 +141,7 @@ impl AgentDraft {
         plan: Option<Plan>,
     ) -> Self {
         Self {
+            purpose: PurposeRef::system(persona.use_case),
             persona,
             jurisdiction,
             rule_pack,
@@ -148,6 +156,13 @@ impl AgentDraft {
     #[must_use]
     pub fn with_restored_scenarios(self, scenarios: Option<ScenarioSet>) -> Self {
         Self { scenarios, ..self }
+    }
+
+    /// This restored draft pinning `purpose`, as stored. Drafts restored without it pin their
+    /// use case's system purpose, version 1.
+    #[must_use]
+    pub fn with_purpose(self, purpose: PurposeRef) -> Self {
+        Self { purpose, ..self }
     }
 
     /// This draft with `patch` applied. When the use case or the jurisdiction changes, the
@@ -187,6 +202,7 @@ impl AgentDraft {
             settings,
             plan: patch.plan.clone().or_else(|| self.plan.clone()),
             scenarios: patch.scenarios.clone().or_else(|| self.scenarios.clone()),
+            purpose: self.purpose,
         }
     }
 
@@ -299,6 +315,12 @@ impl AgentDraft {
     #[must_use]
     pub fn settings(&self) -> &AgentSettings {
         &self.settings
+    }
+
+    /// The purpose version the agent pins.
+    #[must_use]
+    pub fn purpose(&self) -> &PurposeRef {
+        &self.purpose
     }
 
     /// The saved plan, if the operator has saved one.
@@ -451,6 +473,7 @@ mod tests {
                         .and_then(|(ms, barge_in)| TurnDetection::new(ms, barge_in).ok()),
                     plan: None,
                     scenarios: None,
+                    purpose: None,
                 },
             )
     }

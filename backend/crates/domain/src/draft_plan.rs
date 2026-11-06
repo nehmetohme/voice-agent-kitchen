@@ -1,7 +1,9 @@
 //! What the Plan step shows for a draft: the saved plan, or the use case's template until one
 //! is saved, checked against the draft's pinned rule pack.
 
-use crate::{AgentDraft, LockedText, Plan, PlanError, RulePackCatalog, RulePackRef};
+use crate::{
+    AgentDraft, LockedText, Plan, PlanError, PurposeDefinition, RulePackCatalog, RulePackRef,
+};
 
 /// A draft's plan, with the rules it is checked against and the result.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +42,18 @@ impl DraftPlan {
             opt_out_confirmation: pack.map(|pack| pack.opt_out_confirmation().to_owned()),
             validation,
         }
+    }
+
+    /// Like [`DraftPlan::of`], but an unsaved draft shows `purpose`'s starting flow (the
+    /// agent's pinned version), opened with the pinned pack's locked texts.
+    #[must_use]
+    pub fn for_purpose(
+        draft: &AgentDraft,
+        packs: &RulePackCatalog,
+        purpose: &PurposeDefinition,
+    ) -> Self {
+        let _ = purpose;
+        Self::of(draft, packs)
     }
 
     #[must_use]

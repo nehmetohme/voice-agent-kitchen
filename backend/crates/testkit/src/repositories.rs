@@ -2,11 +2,13 @@
 
 mod agent_conformance;
 mod agents;
+mod purposes;
 mod test_run_conformance;
 mod test_runs;
 
 pub use agent_conformance::{AuditRow, agent_repo_conformance};
 pub use agents::InMemoryAgentRepo;
+pub use purposes::InMemoryPurposeRepo;
 pub use test_run_conformance::test_run_repo_conformance;
 pub use test_runs::InMemoryTestRunRepo;
 

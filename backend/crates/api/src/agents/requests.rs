@@ -183,6 +183,7 @@ impl TryFrom<UpdateAgentRequest> for DraftPatch {
             // `PUT /agents/{id}/scenarios`.
             plan: None,
             scenarios: None,
+            purpose: None,
         };
         if fields.errors.is_empty() {
             Ok(patch)
