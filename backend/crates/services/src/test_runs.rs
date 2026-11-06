@@ -358,3 +358,6 @@ async fn within<T>(call: impl Future<Output = Result<T, RepoError>>) -> Result<T
         .await
         .unwrap_or_else(|elapsed| Err(RepoError::unavailable(elapsed)))
 }
+
+#[cfg(test)]
+mod tests;

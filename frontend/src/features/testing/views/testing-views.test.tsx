@@ -1,13 +1,13 @@
 // The test call panel through the user's eyes, against the voice API fake and a fake browser:
 // the real session code runs, only the socket and Web Audio are pretend.
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http, type RequestHandler } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_ID } from '../../../test/agents-api';
 import { installFakeVoiceBrowser, lastSocket, microphone } from '../../../test/fake-voice-browser';
 import { startMswServer } from '../../../test/msw-server';
+import { renderRoutes } from '../../../test/render-routes';
 import { emptyLatencyBody, fakeVoiceApi, measuredLatencyBody } from '../../../test/voice-api';
 import { TestCallPanel } from './test-call-panel';
 
@@ -20,16 +20,18 @@ const format = (sampleRate: number) => ({
   frame_ms: 20,
 });
 
-/** Renders the panel; `overrides` answer before the fake (a failing endpoint, say). */
-function renderPanel(latency: object = emptyLatencyBody(), ...overrides: RequestHandler[]) {
+/**
+ * Renders the panel on the agent's page (its summary links to the Test step); `overrides`
+ * answer before the fake (a failing endpoint, say).
+ */
+async function renderPanel(latency: object = emptyLatencyBody(), ...overrides: RequestHandler[]) {
   const api = fakeVoiceApi(latency);
   server.use(...overrides, ...api.handlers);
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <TestCallPanel agentId={AGENT_ID} />
-    </QueryClientProvider>,
-  );
+  renderRoutes(`/agents/${AGENT_ID}/provision`, [
+    { path: '/agents/$agentId/provision', component: () => <TestCallPanel agentId={AGENT_ID} /> },
+    { path: '/agents/$agentId/test', component: () => <p>Test step</p> },
+  ]);
+  await screen.findByRole('region', { name: 'Test call' });
   return api;
 }
 
@@ -57,7 +59,7 @@ function transcriptLines() {
 
 describe('Test call', () => {
   it('starts a call, shows the conversation and hangs up', async () => {
-    const api = renderPanel();
+    const api = await renderPanel();
     const section = screen.getByRole('region', { name: 'Test call' });
     expect(within(section).getByText('Talk to this agent through your microphone.')).toBeVisible();
 
@@ -137,10 +139,18 @@ describe('Test call', () => {
     expect(within(section).getByText('Call ended.')).toBeVisible();
     expect(within(section).getByRole('button', { name: 'Call again' })).toBeVisible();
     expect(microphone.track.stop).toHaveBeenCalledOnce();
+
+    // The summary (peak-end): turns and this call's reply latency, then the next steps.
+    const summary = within(section).getByRole('status', { name: 'Call summary' });
+    expect(summary).toHaveTextContent('3 turns · replies p50 640 ms · p95 640 ms');
+    expect(within(section).getByRole('button', { name: 'Publish' })).toBeDisabled();
+    expect(within(section).getByText('Later')).toBeVisible();
+    fireEvent.click(within(section).getByRole('link', { name: 'Run tests' }));
+    expect(await screen.findByText('Test step')).toBeVisible();
   });
 
   it('shows a caller line spoken over the disclosure after it, and marks an interruption', async () => {
-    renderPanel();
+    await renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
     const socket = await answer();
 
@@ -167,7 +177,7 @@ describe('Test call', () => {
   });
 
   it('says why the agent ended the call', async () => {
-    renderPanel();
+    await renderPanel();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
     const socket = await answer();
@@ -185,7 +195,7 @@ describe('Test call', () => {
   });
 
   it('shows the server reason when a call is refused', async () => {
-    renderPanel(
+    await renderPanel(
       emptyLatencyBody(),
       http.post('*/api/v1/agents/:id/sessions', () =>
         HttpResponse.json(
@@ -208,7 +218,7 @@ describe('Test call', () => {
   });
 
   it('asks for the microphone when the browser refuses it', async () => {
-    renderPanel();
+    await renderPanel();
     microphone.getUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Start test call' }));
@@ -216,8 +226,8 @@ describe('Test call', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Allow microphone access');
   });
 
-  it('never claims the page status role, which the autosave status owns', () => {
-    renderPanel();
+  it('never claims the page status role, which the autosave status owns', async () => {
+    await renderPanel();
 
     expect(screen.queryByRole('status')).toBeNull();
   });
@@ -225,7 +235,7 @@ describe('Test call', () => {
 
 describe('Latency', () => {
   it('shows each stage median in one row, and the full table in Details', async () => {
-    renderPanel(measuredLatencyBody());
+    await renderPanel(measuredLatencyBody());
 
     const strip = screen.getByRole('region', { name: 'Latency' });
     expect(await within(strip).findByText('End to end')).toBeVisible();
@@ -249,7 +259,7 @@ describe('Latency', () => {
   });
 
   it('offers a retry when latency fails to load', async () => {
-    renderPanel(
+    await renderPanel(
       emptyLatencyBody(),
       http.get('*/api/v1/voice/latency', () => HttpResponse.error(), { once: true }),
     );

@@ -17,10 +17,13 @@ const ICONS: Record<StepState, typeof Circle> = {
 
 const STATE_TEXT: Record<StepState, string> = { done: 'Done', next: 'Next', todo: 'To do' };
 
-/** The steps that have a page yet. Test arrives in M5 and Publish in M6. */
-const PAGES: Partial<Record<SetupStep, '/agents/$agentId/provision' | '/agents/$agentId/plan'>> = {
+type StepPage = '/agents/$agentId/provision' | '/agents/$agentId/plan' | '/agents/$agentId/test';
+
+/** The steps that have a page yet. Publish arrives in M6. */
+const PAGES: Partial<Record<SetupStep, StepPage>> = {
   provision: '/agents/$agentId/provision',
   plan: '/agents/$agentId/plan',
+  test: '/agents/$agentId/test',
 };
 
 const STEP = 'flex min-h-target min-w-target items-center gap-2 rounded-md px-2 text-sm';

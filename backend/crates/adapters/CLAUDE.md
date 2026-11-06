@@ -11,6 +11,8 @@ This folder has one crate per external system, and each crate implements **exact
 | `vak-adapter-tts-serving` | `TtsEngine` | `ServingTts`, `ServingTtsConfig` | Databricks serving invocations contract for TTS, local model shim |
 | `vak-adapter-decision-systemone` | `DecisionEngine` | `SystemOneDecisions`, `SystemOneConfig` | System One API: Unity Gateway, local llama-server |
 
+The LLM adapter sends `"temperature": 0` and `"seed"` when a request pins greedy sampling (test runs); live calls don't.
+
 Switching between local and Databricks changes **only base URL, model or endpoint, and auth**, set through configuration (`vak-server` builds all four from `vak_config::ModelSettings`). Never add an outside model vendor.
 
 Shared shape today (M4a):

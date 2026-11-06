@@ -12,7 +12,7 @@ This crate holds:
 Today it exposes:
 
 - `pub fn router() -> axum::Router`: the unauthenticated routes, `GET /health` (200 and `{"status":"ok","version":"<CARGO_PKG_VERSION>"}`).
-- `pub fn app(AppState) -> axum::Router`: `router()` plus `/api/v1`, the app `vak-server` serves. `AppState::new(AgentService)` accepts only the forwarded identity, and voice sessions are off (a `VoiceService` without engines). `.with_voice(VoiceService)` turns them on, `.with_request_timeout(Duration)` sets the request deadline, and `.with_dev_operator(Actor)` (local profile only, `vak-server` enforces it) lets requests without identity headers act as that operator.
+- `pub fn app(AppState) -> axum::Router`: `router()` plus `/api/v1`, the app `vak-server` serves. `AppState::new(AgentService)` accepts only the forwarded identity, and voice sessions are off (a `VoiceService` without engines). `.with_voice(VoiceService)` turns them on, `.with_test_runs(TestRunService)` turns on test runs (without it their routes answer 503), `.with_request_timeout(Duration)` sets the request deadline, and `.with_dev_operator(Actor)` (local profile only, `vak-server` enforces it) lets requests without identity headers act as that operator.
 - `pub fn openapi_json()`: the OpenAPI 3.1 document for the same routes, as pretty JSON with sorted keys and a trailing newline. `vak-server openapi` writes it to `contracts/openapi.json`.
 
 | Route (`/api/v1`) | Handler (`operationId`) |
@@ -27,6 +27,11 @@ Today it exposes:
 | `POST /agents/{id}/sessions` | `startSession`: 201 with `{id, mediaUrl}`; `mediaUrl` is `/api/v1/sessions/{id}/media`, to open within a minute, once, by the same operator |
 | `GET /sessions/{id}/media` | `openSessionMedia`: the media WebSocket. The upgrade must offer the subprotocol `vak.media.v1` (`contracts/media/`), or the answer is 400. Messages and frames are capped at 64 KiB |
 | `GET /voice/latency` | `getVoiceLatency`: per stage (`stt`, `decision`, `llm_ttft`, `tts_first_audio`, `mouth_to_ear`), the count, `p50Ms`, `p95Ms` and histogram `buckets` (`leMs`, `count`; `null` bounds the overflow bucket) |
+| `GET`, `PUT /agents/{id}/scenarios` | `getAgentScenarios` (the saved set, or the use case's defaults with `saved: false`), `saveAgentScenarios` (the whole set: `id`, `name`, `goal`, `persona`, `required`, `maxTurns`, `rubric: [{question, expected: yes \| no}]`; malformed fields are a 422 by path, `scenarios[1].rubric[0].question`, and the set's own rules on `scenarios` or the duplicate's `id`; 409 when archived) |
+| `POST /test-runs` | `startTestRun` (`{agentId}`): 202 with `Location` and the queued run; 409 when archived or a run is active, 422 for a missing or malformed `agentId`, 503 without models |
+| `GET /test-runs/{id}` | `getTestRun`: `status`, `progress` (`done`, `total`, `percent`), `verdict` (`null` until finished), `draftHash`, `models` (`llm`, `decisions`, `seed`), times, and per scenario its definition, `version`, `status`, `endReason` (`caller_hung_up`, `opt_out`, `turn_cap`, `error`), `optOutLayer`, `durationMs`, `transcript` and `checks` (`question`, `expected`, `probability`, `passed`) |
+| `POST /test-runs/{id}/cancel` | `cancelTestRun`: the cancelled run (again: unchanged); 409 when it is over |
+| `GET /agents/{id}/test-runs` | `listAgentTestRuns`: newest first (at most 20), with the agent's `draftHash` and `current` on each run that tested it |
 
 - **Identity** (`src/identity.rs`): middleware on the whole `/api/v1` router, unknown paths included. Databricks Apps signs the user in and forwards `X-Forwarded-User` (stable IdP user ID) and `X-Forwarded-Email`; both must be present and valid, or the answer is 401. The app is reachable only through that proxy, which sets the headers, so they are trusted.
 - **Errors** (`src/problem.rs`): `ApiError` → `application/problem+json` with `type: about:blank`:
@@ -34,7 +39,7 @@ Today it exposes:
   - 401.
   - 403: a media handshake from a page on another site.
   - 404: also for an ID that can't name an agent, and for a session ticket that is unknown, expired, used or another operator's.
-  - 409: archived (it can't be edited or take calls), or still conflicting after retries.
+  - 409: archived (it can't be edited, take calls or be tested), still conflicting after retries, a test run already active, or a run that is over and can't be cancelled.
   - 415.
   - 422: with `errors: [{field, message}]`, one per invalid field; plan fields are paths such as `nodes[2].label`.
   - 503: storage unavailable or the request deadline passed (a source is logged once, never sent), or a refusal with a detail for people that logs nothing (`ApiError::Refused`: voice sessions aren't set up on this server, or too many test calls are running).
@@ -43,7 +48,7 @@ Today it exposes:
 - **Media bridge** (`src/sessions/bridge.rs`): one task per socket moves frames between the WebSocket and the session's `MediaPeer`, and does nothing else. The session itself runs in a spawned task (`MediaSession::run`). Client audio goes through an `InputFramer` and is pushed without waiting: when the pipeline falls behind, frames are dropped and counted (`dropped_frames`, logged when the socket closes). Agent frames are written into one reused `BytesMut`, so no frame allocates. Each socket write has a 5 s timeout: a client that stops reading is gone, and its session ends instead of holding a slot. When either side ends, the other one ends too.
 - **Same origin** (`sessions::same_origin`): a media handshake whose `Origin` isn't the app's own host (`X-Forwarded-Host` behind the Databricks Apps proxy, else `Host`) is refused with 403, so a page on another site can't open a call with the operator's session (cross-site WebSocket hijacking). A handshake without `Origin` isn't a browser and carries no ambient credentials, so it passes.
 
-Every route comes from an `OpenApiRouter` (`src/openapi.rs`: `public()`, `v1()` and `v1_media()`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`, `tests/contract_plan_api.rs`. Voice sessions: `tests/sessions.rs`.
+Every route comes from an `OpenApiRouter` (`src/openapi.rs`: `public()`, `v1()` and `v1_media()`), so a route can't exist without its documentation. Contracts: `tests/contract_health.rs`, `tests/contract_agent_provisioning_api.rs`, `tests/contract_plan_api.rs`, `tests/contract_test_runs_api.rs` (`test-runs` v1; here, not in `vak-contract-tests`, because booting the API needs `vak-services`, which that crate may not depend on). Voice sessions: `tests/sessions.rs`. The scenario and test-run routes are tagged `testing`.
 
 ## Dependencies
 

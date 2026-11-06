@@ -24,7 +24,7 @@ People judge an experience by its high point and its ending, so the first succes
 
 | # | Rule (measurable) | Check | Checked by |
 |---|---|---|---|
-| PE-1 | The first successful test call ends on a summary: turns, latency p50/p95, transcript, and a "Publish" call to action. | `@golden` spec asserts the `role=status` text and the next-step CTA | Planned, M5 |
+| PE-1 | The first successful test call ends on a summary: turns, latency p50/p95, transcript, and a "Publish" call to action. | `e2e/golden/test-call.golden.spec.ts` asserts the "Call summary" `role=status` text and the "Publish" action ("Later" until M6) | A |
 | PE-2 | Publishing ends on the version number, the live channel, a "Roll back" link and a success toast. | `@golden` spec asserts the end screen | Planned, M6 |
 | PE-3 | Every error state ends with a recovery action. | `frontend/src/app/app.test.tsx` covers `RouteError` ("Try again") and `NotFound` ("Go to Agents") | P: A for these two, R for new error states |
 | PE-4 | Peak and end screens look finished: no placeholder copy, clear success state. | Visual snapshots of the end states | R today; snapshots planned |

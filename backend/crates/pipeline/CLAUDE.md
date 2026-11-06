@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-This crate runs the real-time voice path, with one session actor task per call: `run_session(SessionConfig, Engines, MediaTransport) -> SessionOutcome`.
+This crate runs the real-time voice path, with one session actor task per call: `run_session(SessionConfig, Engines, MediaTransport) -> SessionOutcome`. It also plays the same reply logic in text for test runs: `run_text_session` (below).
 
 Today (M4a):
 
@@ -40,6 +40,17 @@ Confirm when unsure (`opt-out-confirm` v1; the thresholds and the live scores be
 | `routing` | `Router`, the seam for plan routing (below) |
 | `config` | `Engines`, `SessionConfig`, `TurnPolicy`, `OptOutPolicy` (phrases, confirmation, check question, decision and confirm thresholds, decision wait and deadline), `StageDeadlines` (STT, LLM first token and TTS; 10 s each by default), `SessionObserver` |
 | `outcome` | `SessionOutcome` (end reason, turns) and `TurnRecord` |
+| `text` | Text-mode conversations for test runs (below): `run_text_session`, `TextSessionConfig`, `TextEngines`, `TextDeadlines`, the `SimulatedCaller` trait, `LlmCaller`, `CallerTurn`, `TextOutcome` |
+
+### Text mode (M5)
+
+`run_text_session(&TextSessionConfig, &TextEngines, &mut dyn SimulatedCaller) -> TextOutcome` plays one conversation line by line, for test runs. The agent side is the voice session's, through the same `Router`: the locked disclosure first, the instructions, history and tools, and the three opt-out layers with the confirm band (`OptOutPolicy`). There is no STT, TTS, VAD, pacing or barge-in, so a conversation is as fast as its model calls; the audio actor is unchanged.
+
+- **Per caller line:** the phrase list first (a match ends it before any model call), then the `opt_out` decision and the LLM reply in parallel (`tokio::join!`). The decision is always awaited, up to its deadline: in text there is no reply to hold back. At or above the decision threshold, or on `mark_do_not_call`, the agent says the locked confirmation and it ends (`OptOut`); in the confirm band the check question replaces the reply and the next line answers it, never twice in a row. A decision that times out or fails is never a no.
+- **The caller:** `LlmCaller` sends the scenario's instructions as the system message, the agent's lines as `user` and its own as `assistant`, and offers `end_call` (`CALLER_TOOL`) to hang up; a blank reply hangs up too. Any `SimulatedCaller` works (tests use their own).
+- **Endings:** the caller hangs up (`ClientEnded`; its last words are recorded, not answered), an opt-out, the turn cap (`Timeout`), or a model failure (`Error`).
+- **Deadlines and sampling:** every LLM request has a first-token deadline and the whole reply a total one (`TextDeadlines`), and samples greedily with the config's seed; the decision has its policy's deadline. Dropping the future drops every request in flight.
+- Audio-mode simulation (TTS for the caller, STT for the agent) is a later option.
 
 **The routing seam (M4b).** `Router` builds each turn's decision request and LLM request:
 
@@ -48,7 +59,7 @@ Confirm when unsure (`opt-out-confirm` v1; the thresholds and the live scores be
 
 Plan routing replaces these inputs with the plan node's. It adds a `branch` choice to the same decision request, so it costs no extra round trip, and swaps in the node's prompt and tools. The actor only calls `Router`, so it doesn't change.
 
-Later: plan execution (M4b), model VADs and turn detection on inference threads, and persisting turns through a sink trait that services provide (M5).
+Later: plan execution (M4b), model VADs and turn detection on inference threads, and persisting call turns through a sink trait that services provide (test runs store their text transcripts already).
 
 ## Dependencies
 
@@ -94,6 +105,7 @@ Later: plan execution (M4b), model VADs and turn detection on inference threads,
 - **Confirm band edges** (`tests/session_confirm.rs`, not a contract): a blank check question, a configured floor, an answer whose decision times out, a later in-band turn asking again, an opt-out while the question plays, and the dropped reply's LLM stream (runs to its end unspoken; cancelled once the caller answers).
 - **Failure and limit paths** (`tests/session_failures.rs`, not a contract; it reuses the contracts' setup as is): the disclosure's synthesis failing ends the session, a failed STT or LLM (or an LLM past its deadline) leaves the turn unanswered and the call going, a failed clause is skipped, an opt-out still ends the call when its confirmation can't be spoken, the time limit, audio that isn't PCM16, and the latencies the observer is told.
 - **Unit tests** next to the code cover the chunker, the turn detector, playback and routing.
+- **Text mode** (`tests/text_session.rs`, not a contract): the endings, the opt-out layers and the confirm band, deadlines, and the caller's requests, with scripted engines. The `test-runs` v1 contract (`vak-services`) covers it through test runs.
 - **Inline inference in simulations,** behind its trait. Paused time doesn't wait for our OS threads.
 - **CPU cost per frame:** criterion or gungraun benchmarks, not unit tests.
 

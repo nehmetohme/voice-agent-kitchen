@@ -11,18 +11,19 @@ This crate builds the `vak-server` binary. It is the only place that:
 Today the CLI (clap) has three subcommands:
 
 - `vak-server serve` loads `Settings` from `vak-config`, initialises `vak-telemetry`, and wires `Database::connect_lazy` (needs `DATABASE_URL`) → `PgAgentRepo` → `AgentService` (with `vak_services::rule_packs::shipped()`; a pack that doesn't load stops the server), then `VoiceService` → `AppState::with_voice` → `vak_api::app`. API requests run under the `VAK_HTTP_REQUEST_TIMEOUT_MS` deadline (default 10 s). If `VAK_DEV_OPERATOR_EMAIL` is set (local profile only; `vak-config` rejects it elsewhere), API requests without identity headers act as that operator, and a warning says so at startup. It binds `settings.http.addr`; on Ctrl-C or SIGTERM it shuts down gracefully, letting in-flight requests finish.
+- **Test runs:** `voice::test_engines(&settings.models)` builds only the LLM and the decision model (test runs are text, with no speech), or `None` with a warning, and `vak-server` wires `PgTestRunRepo` into `AgentService::with_test_runs` (the Test step of progress) and a `TestRunService` into `AppState::with_test_runs`. `serve` spawns the service's `TestRunWorker::run`, which interrupts runs a stopped server left running, then runs queued runs; it stops with the server (shutdown waits at most 5 s for it).
 - **Voice** (`src/voice.rs`): `voice::engines(&settings.models)` builds the four adapters from `ModelSettings`: `OpenAiLlm` (with the API key and the parsed `VAK_LLM_EXTRA_BODY`), `ServingStt`, `ServingTts` and `SystemOneDecisions` (with `VAK_DECISION_PATH` when set). When a model isn't configured, it returns `None` with a warning that names the first missing variable. Voice sessions are then off, and `POST /api/v1/agents/{id}/sessions` answers 503. A setting that can't be used (an extra body that isn't JSON, or an `https://` base URL before M7) fails startup.
 - `vak-server migrate` applies the pending `vak-repositories-pg` migrations and exits. Run it before each deploy (and before `serve` on a fresh database).
 - `vak-server openapi [--output FILE]` writes `vak_api::openapi_json()` to the file, or to stdout. It reads no settings or environment. `just openapi` uses it to write `contracts/openapi.json`, and `just contracts-verify` uses it to check that file for drift.
 
-Planned subcommand: `worker` (job queue).
+Planned subcommand: `worker` (a separate job-queue process). Until then the test run worker runs inside `serve`.
 
 **Deployment assumption.** The API trusts `X-Forwarded-User` and `X-Forwarded-Email` because, on Databricks Apps, the app is reachable only through the platform proxy, which signs the user in and sets them. Never expose `vak-server` directly (for example a public `VAK_HTTP_ADDR` outside Databricks Apps) without a proxy that strips and sets those headers. The local dev operator is refused outside the `local` profile.
 
 ## Dependencies
 
 - **May depend on:** every workspace crate. `layers.toml` lists all of them. Dev-only: `vak-testkit`.
-- **External crates:** `anyhow` (allowed here, unlike in libraries), `clap`, `tokio` (rt-multi-thread, macros, net, signal), `axum` (for `axum::serve`; a `deny.toml` wrapper), `tracing`, `serde_json` (parses `VAK_LLM_EXTRA_BODY`).
+- **External crates:** `anyhow` (allowed here, unlike in libraries), `clap`, `tokio` (rt-multi-thread, macros, net, signal, sync and time: the worker's stop signal and shutdown wait), `axum` (for `axum::serve`; a `deny.toml` wrapper), `tracing`, `serde_json` (parses `VAK_LLM_EXTRA_BODY`).
 - **Must not:** contain business logic, handlers, SQL or vendor protocol code. If it isn't wiring or lifecycle, it belongs in a library crate.
 
 ## Conventions
