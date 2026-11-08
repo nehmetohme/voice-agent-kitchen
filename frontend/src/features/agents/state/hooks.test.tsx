@@ -30,9 +30,10 @@ function wrapper() {
 const agent: AgentDetails = {
   id: AGENT_ID,
   archived: false,
+  useCase: 'support',
   settings: {
     name: 'Front desk',
-    useCase: 'support',
+    purpose: 'support',
     voice: 'af_heart',
     language: 'en-US',
     jurisdiction: 'US',

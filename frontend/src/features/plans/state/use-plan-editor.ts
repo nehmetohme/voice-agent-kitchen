@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { SaveState } from '../../../shared/ui/save-status';
-import { isSendable, type Path, type PlanDraft, type PlanView, type Step } from '../api/plans-api';
+import {
+  isSendable,
+  type Path,
+  type PlanDraft,
+  type PlanTarget,
+  type PlanView,
+  type Step,
+} from '../api/plans-api';
 import { addPath, addStep, deletePath, deleteStep, sameDraft, updateStep } from './plan-edits';
 import { useSavePlan } from './plans-queries';
 
@@ -14,6 +21,8 @@ export interface PlanEditor {
   /** The server's last answer: whether a plan is saved, its rules and its problems. */
   view: PlanView;
   status: SaveState;
+  /** Shown but not changed: a built-in purpose's flow. */
+  readOnly: boolean;
   /** Saves the template as it is (the "Use this plan" action). */
   keepTemplate: () => void;
   /** Saves again after a failure. */
@@ -46,11 +55,15 @@ function stateOf(input: {
  * saved the template is shown and nothing is sent: the first edit, or "Use this plan", saves.
  */
 export function usePlanEditor(
-  agentId: string,
+  target: PlanTarget,
   initial: PlanView,
-  { onSaved, delayMs = AUTOSAVE_DELAY_MS }: { onSaved?: () => void; delayMs?: number } = {},
+  {
+    onSaved,
+    delayMs = AUTOSAVE_DELAY_MS,
+    readOnly = false,
+  }: { onSaved?: () => void; delayMs?: number; readOnly?: boolean } = {},
 ): PlanEditor {
-  const { mutate, isPending } = useSavePlan(agentId, onSaved);
+  const { mutate, isPending } = useSavePlan(target, onSaved);
   const [view, setView] = useState(initial);
   const [draft, setDraft] = useState(() => draftOf(initial));
   // What the server stores: `null` while only the template exists.
@@ -80,14 +93,14 @@ export function usePlanEditor(
   );
 
   useEffect(() => {
-    if (!dirty || invalid || isPending || failed) return undefined;
+    if (readOnly || !dirty || invalid || isPending || failed) return undefined;
     const timer = setTimeout(() => {
       save(draft);
     }, delayMs);
     return () => {
       clearTimeout(timer);
     };
-  }, [delayMs, dirty, draft, failed, invalid, isPending, save]);
+  }, [delayMs, dirty, draft, failed, invalid, isPending, readOnly, save]);
 
   const edit = useCallback((change: (current: PlanDraft) => PlanDraft) => {
     setEdited(true);
@@ -98,6 +111,7 @@ export function usePlanEditor(
     draft,
     view,
     status: stateOf({ invalid, saving: isPending, failed, dirty: dirty || stored === null }),
+    readOnly,
     keepTemplate: () => {
       save(draft);
     },

@@ -3,16 +3,19 @@ import { useId } from 'react';
 
 import { Button } from '../../../shared/ui/button';
 import { SaveStatus } from '../../../shared/ui/save-status';
-import type { PlanView } from '../state/models';
+import type { PlanTarget, PlanView } from '../state/models';
 import { usePlanEditor } from '../state/use-plan-editor';
 import { AddStepDialog } from './add-step-dialog';
+import { LockedOpening } from './locked-opening';
 import { PlanCanvas } from './plan-canvas';
 
 interface PlanEditorProps {
-  agentId: string;
+  target: PlanTarget;
   initial: PlanView;
   /** Called after each save, e.g. to refresh the setup progress. */
   onSaved?: (() => void) | undefined;
+  /** Shown but not changed: a built-in purpose's flow. */
+  readOnly?: boolean | undefined;
 }
 
 /** One line on how the plan stands: valid, or how many problems are left. */
@@ -35,11 +38,15 @@ function Summary({ view }: { view: PlanView }) {
 }
 
 /**
- * The flow editor: the steps and their paths, autosaved. Until a plan is saved the use case's
- * template is shown, and "Use this plan" (or any edit) saves it.
+ * The flow editor: the steps and their paths, autosaved. Until an agent's plan is saved the
+ * starting flow is shown, and "Use this plan" (or any edit) saves it. A purpose's flow is
+ * edited the same way; read-only, it is only shown.
  */
-export function PlanEditor({ agentId, initial, onSaved }: PlanEditorProps) {
-  const editor = usePlanEditor(agentId, initial, onSaved === undefined ? {} : { onSaved });
+export function PlanEditor({ target, initial, onSaved, readOnly = false }: PlanEditorProps) {
+  const editor = usePlanEditor(target, initial, {
+    readOnly,
+    ...(onSaved === undefined ? {} : { onSaved }),
+  });
   const { view, status } = editor;
   const titleId = useId();
   const planProblems = view.problems.filter(
@@ -60,21 +67,32 @@ export function PlanEditor({ agentId, initial, onSaved }: PlanEditorProps) {
             </p>
           )}
         </div>
-        <div data-region="actions" className="flex flex-wrap items-center gap-2">
-          <SaveStatus status={status} onRetry={editor.retry} />
-          <AddStepDialog onAdd={editor.addStep} />
-          {!view.saved && (
-            <Button
-              variant="primary"
-              aria-busy={status === 'saving'}
-              disabled={status === 'saving'}
-              onClick={editor.keepTemplate}
-            >
-              Use this plan
-            </Button>
-          )}
-        </div>
+        {!readOnly && (
+          <div data-region="actions" className="flex flex-wrap items-center gap-2">
+            <SaveStatus status={status} onRetry={editor.retry} />
+            <AddStepDialog onAdd={editor.addStep} />
+            {!view.saved && (
+              <Button
+                variant="primary"
+                aria-busy={status === 'saving'}
+                disabled={status === 'saving'}
+                onClick={editor.keepTemplate}
+              >
+                Use this plan
+              </Button>
+            )}
+          </div>
+        )}
       </div>
+      {view.prependedTexts.length > 0 && (
+        <div className="flex max-w-readable flex-col gap-2">
+          <p className="text-sm text-muted">
+            Every agent&apos;s opening starts with its rule pack&apos;s locked texts, then this
+            flow&apos;s greeting. In the US:
+          </p>
+          <LockedOpening locked={view.prependedTexts} />
+        </div>
+      )}
       {planProblems.length > 0 && (
         <ul aria-label="Plan problems" className="flex flex-col gap-1">
           {planProblems.map((problem) => (

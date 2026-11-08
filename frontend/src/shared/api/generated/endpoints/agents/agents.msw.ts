@@ -21,27 +21,40 @@ import type {
 
 import {
   ModelProfile,
+  PlanOnUpdate,
+  PurposeChangeArea,
   SetupStep,
   UseCase
 } from '../../model';
 import type {
   Agent,
   AgentList,
+  AgentPurpose,
   CreateAgentRequest,
+  PurposeUpdate,
   SetupProgress,
+  UpdateAgentPurposeInput,
   UpdateAgentRequest
 } from '../../model';
 
 
-export const getListAgentsResponseMock = (overrideResponse: Partial<Extract<AgentList, object>> = {}): AgentList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 10, max: 20}}), progressPercent: faker.number.int({min: 0, max: 100}), updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}})})), ...overrideResponse})
+export const getListAgentsResponseMock = (overrideResponse: Partial<Extract<AgentList, object>> = {}): AgentList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 10, max: 20}}), progressPercent: faker.number.int({min: 0, max: 100}), purpose: {id: faker.string.uuid(), system: faker.datatype.boolean(), version: faker.number.int({min: 1})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}})})), ...overrideResponse})
 
-export const getCreateAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
+export const getCreateAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), purpose: {id: faker.string.uuid(), system: faker.datatype.boolean(), version: faker.number.int({min: 1})}, rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 
-export const getGetAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
+export const getGetAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), purpose: {id: faker.string.uuid(), system: faker.datatype.boolean(), version: faker.number.int({min: 1})}, rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 
-export const getUpdateAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
+export const getUpdateAgentResponseMock = (overrideResponse: Partial<Extract<Agent, object>> = {}): Agent => ({archivedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', draftHash: faker.helpers.fromRegExp("^sha256:[0-9a-f]{64}$"), id: faker.string.uuid(), jurisdiction: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), model: faker.helpers.arrayElement(Object.values(ModelProfile)), name: faker.string.alpha({length: {min: 10, max: 20}}), purpose: {id: faker.string.uuid(), system: faker.datatype.boolean(), version: faker.number.int({min: 1})}, rulePack: {id: faker.string.alpha({length: {min: 10, max: 20}}), version: faker.number.int({min: 1})}, turnDetection: {bargeIn: faker.datatype.boolean(), silenceMs: faker.number.int({min: 200, max: 2000})}, updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', useCase: faker.helpers.arrayElement(Object.values(UseCase)), voice: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 
 export const getGetAgentProgressResponseMock = (overrideResponse: Partial<Extract<SetupProgress, object>> = {}): SetupProgress => ({nextStep: faker.helpers.arrayElement([faker.helpers.arrayElement(Object.values(SetupStep)),null,]), percent: faker.number.int({min: 0, max: 100}), steps: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({done: faker.datatype.boolean(), step: faker.helpers.arrayElement(Object.values(SetupStep))})), ...overrideResponse})
+
+export const getGetAgentPurposeResponsePurposeUpdateMock = (overrideResponse: Partial<PurposeUpdate> = {}): PurposeUpdate => ({...{changes: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({area: faker.helpers.arrayElement(Object.values(PurposeChangeArea)), summary: faker.string.alpha({length: {min: 10, max: 20}})})), plan: faker.helpers.arrayElement(Object.values(PlanOnUpdate)), planEdited: faker.datatype.boolean(), version: faker.number.int({min: 1})}, ...overrideResponse});
+
+export const getGetAgentPurposeResponseMock = (overrideResponse: Partial<Extract<AgentPurpose, object>> = {}): AgentPurpose => ({id: faker.string.uuid(), latestVersion: faker.helpers.arrayElement([faker.number.int({min: 1}), null]), name: faker.string.alpha({length: {min: 10, max: 20}}), system: faker.datatype.boolean(), update: faker.helpers.arrayElement([{...getGetAgentPurposeResponsePurposeUpdateMock()},null,]), version: faker.number.int({min: 1}), ...overrideResponse})
+
+export const getUpdateAgentPurposeResponsePurposeUpdateMock = (overrideResponse: Partial<PurposeUpdate> = {}): PurposeUpdate => ({...{changes: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({area: faker.helpers.arrayElement(Object.values(PurposeChangeArea)), summary: faker.string.alpha({length: {min: 10, max: 20}})})), plan: faker.helpers.arrayElement(Object.values(PlanOnUpdate)), planEdited: faker.datatype.boolean(), version: faker.number.int({min: 1})}, ...overrideResponse});
+
+export const getUpdateAgentPurposeResponseMock = (overrideResponse: Partial<Extract<AgentPurpose, object>> = {}): AgentPurpose => ({id: faker.string.uuid(), latestVersion: faker.helpers.arrayElement([faker.number.int({min: 1}), null]), name: faker.string.alpha({length: {min: 10, max: 20}}), system: faker.datatype.boolean(), update: faker.helpers.arrayElement([{...getUpdateAgentPurposeResponsePurposeUpdateMock()},null,]), version: faker.number.int({min: 1}), ...overrideResponse})
 
 
 export const getListAgentsMockHandler = (overrideResponse?: AgentList | ((info: Parameters<HttpResponseResolver>[0]) => Promise<AgentList> | AgentList), options?: RequestHandlerOptions) => {
@@ -113,11 +126,37 @@ export const getGetAgentProgressMockHandler = (overrideResponse?: SetupProgress 
       })
   }, options)
 }
+
+export const getGetAgentPurposeMockHandler = (overrideResponse?: AgentPurpose | ((info: Parameters<HttpResponseResolver<{ id: string }>>[0]) => Promise<AgentPurpose> | AgentPurpose), options?: RequestHandlerOptions) => {
+  return http.get<{ id: string }>('*/api/v1/agents/:id/purpose', async (info: Parameters<HttpResponseResolver<{ id: string }>>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetAgentPurposeResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getUpdateAgentPurposeMockHandler = (overrideResponse?: AgentPurpose | ((info: Parameters<HttpResponseResolver<{ id: string }, UpdateAgentPurposeInput>>[0]) => Promise<AgentPurpose> | AgentPurpose), options?: RequestHandlerOptions) => {
+  return http.post<{ id: string }, UpdateAgentPurposeInput>('*/api/v1/agents/:id/purpose/update', async (info: Parameters<HttpResponseResolver<{ id: string }, UpdateAgentPurposeInput>>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getUpdateAgentPurposeResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getAgentsMock = () => [
   getListAgentsMockHandler(),
   getCreateAgentMockHandler(),
   getArchiveAgentMockHandler(),
   getGetAgentMockHandler(),
   getUpdateAgentMockHandler(),
-  getGetAgentProgressMockHandler()
+  getGetAgentProgressMockHandler(),
+  getGetAgentPurposeMockHandler(),
+  getUpdateAgentPurposeMockHandler()
 ]

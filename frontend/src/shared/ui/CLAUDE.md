@@ -8,7 +8,12 @@ the token theme. **The only folder that may import `@base-ui/react`** or render 
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `button.tsx`                                               | `Button`: variants `primary`, `secondary` (default), `ghost`, `danger`; `buttonLook(variant)` styles a router link as a button (Base UI: links keep link semantics)                         |
 | `field.tsx`                                                | `Field` (label, control, help and error text tied by IDs) and `controlClassName`                                                                                                            |
-| `text-field.tsx`, `select-field.tsx`, `checkbox-field.tsx` | Labelled native controls; selects are for short fixed lists (≤ 7, HICK-3)                                                                                                                   |
+| `combobox-field.tsx`, `choice-field.tsx`                   | `ComboboxField`: a labelled, searchable Base UI combobox for long lists. `ChoiceField`: a select up to `MAX_SELECT_OPTIONS` (7), a combobox past it, for lists that grow                    |
+| `text-list-field.tsx`                                      | `TextListField`: a short list of phrases edited in place (each with Remove, then an input and "Add …"; repeats ignored), or shown `readOnly`                                                |
+| `radio-group-field.tsx`                                    | `RadioGroupField`: one choice from a few, all in view, as a named group of native radios (44 px rows)                                                                                       |
+| `section-nav.tsx`                                          | `SectionNav` and `sectionLinkClassName`: a page's sections as a named navigation of links (`aria-current=page`), so each has its own address                                                |
+| `modal-layer.ts`                                           | `useModalOpen`, `InsideModal`, `useCoveredByModal`: while a dialog is open, a primary `Button` behind it renders as secondary, so the dialog's submit is the one primary                    |
+| `text-field.tsx`, `select-field.tsx`, `checkbox-field.tsx` | Labelled native controls; selects are for short fixed lists (≤ 7, HICK-3); a checkbox can be `disabled` (always on)                                                                         |
 | `progress-bar.tsx`                                         | `ProgressBar`: Base UI Progress, a named `role=progressbar` with `aria-valuenow`; `compact` puts the percentage and a slim bar on one line (label for screen readers only)                  |
 | `confirm-dialog.tsx`                                       | `ConfirmDialog`: a danger trigger and a Base UI `role=alertdialog` (VR-4); without `triggerLabel` it is opened by `open`/`onOpenChange`, e.g. from a menu item                              |
 | `action-menu.tsx`                                          | `ActionMenu`: rare actions behind one "⋯" button named by `label` (HICK-2), a Base UI menu of 44 px items; `danger` items are red and should open a `ConfirmDialog`                         |
@@ -48,7 +53,8 @@ the token theme. **The only folder that may import `@base-ui/react`** or render 
 
 - `button.contract.test.tsx` is part of contract `app-shell/v1`: never edit it.
 - Each component has a Testing Library test by role and name, or a story, or both
-  (`form-controls.test.tsx`, `workspace-controls.test.tsx`). jsdom has no layout, so
+  (`form-controls.test.tsx`, `workspace-controls.test.tsx`, `list-controls.test.tsx`). jsdom opens a
+  combobox with ArrowDown, then typing filters it. jsdom has no layout, so
   `FollowScroll` tests set `scrollHeight` and `clientHeight` by hand.
 - Stories show every variant and the disabled state.
 - Coverage counts toward the 80 % frontend floor; stories are excluded.

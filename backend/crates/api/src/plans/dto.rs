@@ -65,6 +65,15 @@ pub(crate) struct LockedTextDto {
     text: String,
 }
 
+impl From<&LockedText> for LockedTextDto {
+    fn from(locked: &LockedText) -> Self {
+        Self {
+            key: locked.key().to_owned(),
+            text: locked.text().to_owned(),
+        }
+    }
+}
+
 /// The rule a plan breaks, in words, located on a step (`nodeId`), a path (`edgeId`), or
 /// neither (the whole plan).
 #[derive(Debug, Serialize, ToSchema)]
@@ -143,7 +152,7 @@ fn locked_name(key: &str) -> String {
 }
 
 /// What an operator reads on the step or path, or above the plan.
-fn message(error: &PlanError) -> String {
+pub(crate) fn plan_message(error: &PlanError) -> String {
     match error {
         PlanError::MissingStart => "Add a start step: the call needs a place to begin.".to_owned(),
         PlanError::MultipleStarts { .. } => {
@@ -182,7 +191,7 @@ impl From<&Result<(), Vec<PlanError>>> for ValidationDto {
                 .iter()
                 .map(|error| ProblemDto {
                     code: error.code(),
-                    message: message(error),
+                    message: plan_message(error),
                     node_id: error.node().map(ToString::to_string),
                     edge_id: error.edge().map(ToString::to_string),
                 })
@@ -196,14 +205,7 @@ impl From<&DraftPlan> for AgentPlanDto {
         Self {
             saved: shown.saved(),
             rule_pack: shown.rule_pack().into(),
-            locked_texts: shown
-                .locked_texts()
-                .iter()
-                .map(|locked| LockedTextDto {
-                    key: locked.key().to_owned(),
-                    text: locked.text().to_owned(),
-                })
-                .collect(),
+            locked_texts: shown.locked_texts().iter().map(Into::into).collect(),
             opt_out_confirmation: shown.opt_out_confirmation().map(str::to_owned),
             nodes: shown.plan().nodes().iter().map(StepDto::from).collect(),
             edges: shown.plan().edges().iter().map(PathDto::from).collect(),
@@ -244,7 +246,7 @@ mod tests {
             },
         ];
 
-        let messages: BTreeSet<String> = errors.iter().map(message).collect();
+        let messages: BTreeSet<String> = errors.iter().map(plan_message).collect();
 
         assert_eq!(messages.len(), errors.len());
         assert!(

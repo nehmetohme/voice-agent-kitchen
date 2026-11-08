@@ -8,9 +8,12 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use utoipa::ToSchema;
+use vak_domain::{PurposeError, PurposeProblem};
 use vak_services::{
-    ArchiveAgentError, CancelTestRunError, CreateAgentError, FindAgentError, FindTestRunError,
-    ListAgentsError, OpenMediaError, StartSessionError, StartTestRunError, UpdateDraftError,
+    ArchiveAgentError, CancelTestRunError, CreateAgentError, DuplicatePurposeError, FindAgentError,
+    FindPurposeError, FindTestRunError, ListAgentsError, OpenMediaError, SavePurposeVersionError,
+    StartSessionError, StartTestRunError, UpdateAgentPurposeError, UpdateDraftError,
+    UpdatePurposeError,
 };
 
 /// The media type of every error response.
@@ -161,9 +164,30 @@ impl From<JsonRejection> for ApiError {
     }
 }
 
+/// A single invalid field.
+fn invalid(field: &str, message: &'static str) -> ApiError {
+    ApiError::Invalid(vec![FieldError {
+        field: field.to_owned(),
+        message,
+    }])
+}
+
+const NO_PURPOSE: &str = "Choose a purpose from the list.";
+const NO_VERSION: &str = "This purpose has no saved version yet. Save one on its page first.";
+const READ_ONLY: &str = "Built-in purposes can't change. Duplicate it to customize.";
+
 impl From<CreateAgentError> for ApiError {
     fn from(error: CreateAgentError) -> Self {
-        Self::Unavailable(Box::new(error))
+        match error {
+            CreateAgentError::PurposeNotFound => invalid("purposeId", NO_PURPOSE),
+            CreateAgentError::PurposeHasNoVersion => invalid("purposeId", NO_VERSION),
+            CreateAgentError::UseCaseMismatch { .. } => {
+                invalid("useCase", "Use the chosen purpose's compliance class.")
+            }
+            unavailable @ CreateAgentError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
     }
 }
 
@@ -208,6 +232,8 @@ impl From<UpdateDraftError> for ApiError {
             UpdateDraftError::Conflict => {
                 Self::Conflict("The agent changed while saving. Reload it and try again.")
             }
+            UpdateDraftError::PurposeNotFound => invalid("purposeId", NO_PURPOSE),
+            UpdateDraftError::PurposeHasNoVersion => invalid("purposeId", NO_VERSION),
             unavailable @ UpdateDraftError::Unavailable(_) => {
                 Self::Unavailable(Box::new(unavailable))
             }
@@ -266,6 +292,73 @@ impl From<StartTestRunError> for ApiError {
     }
 }
 
+impl From<FindPurposeError> for ApiError {
+    fn from(error: FindPurposeError) -> Self {
+        match error {
+            FindPurposeError::NotFound => Self::NotFound,
+            unavailable @ FindPurposeError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<DuplicatePurposeError> for ApiError {
+    fn from(error: DuplicatePurposeError) -> Self {
+        match error {
+            DuplicatePurposeError::SourceNotFound => {
+                invalid("duplicateOf", "Choose a purpose to copy.")
+            }
+            DuplicatePurposeError::VersionNotFound => {
+                invalid("version", "Choose a version the purpose has.")
+            }
+            unavailable @ DuplicatePurposeError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<UpdatePurposeError> for ApiError {
+    fn from(error: UpdatePurposeError) -> Self {
+        match error {
+            UpdatePurposeError::NotFound => Self::NotFound,
+            UpdatePurposeError::ReadOnly => Self::Conflict(READ_ONLY),
+            UpdatePurposeError::Invalid(PurposeError::PersonaTooLong { .. }) => {
+                invalid("persona", "Use at most 2,000 characters.")
+            }
+            UpdatePurposeError::Invalid(_) => invalid("description", "Use at most 500 characters."),
+            UpdatePurposeError::Conflict => {
+                Self::Conflict("The purpose changed while saving. Reload it and try again.")
+            }
+            unavailable @ UpdatePurposeError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+impl From<SavePurposeVersionError> for ApiError {
+    fn from(error: SavePurposeVersionError) -> Self {
+        match error {
+            SavePurposeVersionError::NotFound => Self::NotFound,
+            SavePurposeVersionError::ReadOnly => Self::Conflict(READ_ONLY),
+            SavePurposeVersionError::Unchanged { .. } => Self::Conflict(
+                "Nothing changed since the latest version, so there is nothing to save.",
+            ),
+            SavePurposeVersionError::Invalid { problems } => {
+                Self::Invalid(problem_fields(&problems))
+            }
+            SavePurposeVersionError::Conflict => {
+                Self::Conflict("The purpose changed while saving. Reload it and try again.")
+            }
+            unavailable @ SavePurposeVersionError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
 impl From<FindTestRunError> for ApiError {
     fn from(error: FindTestRunError) -> Self {
         match error {
@@ -288,6 +381,50 @@ impl From<CancelTestRunError> for ApiError {
                 Self::Conflict("The test run kept changing while cancelling. Try again.")
             }
             unavailable @ CancelTestRunError::Unavailable(_) => {
+                Self::Unavailable(Box::new(unavailable))
+            }
+        }
+    }
+}
+
+/// One field error per section with problems: `flow` or `tools`.
+fn problem_fields(problems: &[PurposeProblem]) -> Vec<FieldError> {
+    let mut errors: Vec<FieldError> = Vec::new();
+    for problem in problems {
+        let (field, message) = match problem {
+            PurposeProblem::Flow(_) => (
+                "flow".to_owned(),
+                "Fix the starting flow's problems first; each is shown on its step.",
+            ),
+            PurposeProblem::HostNotAllowed { .. } => (
+                "tools".to_owned(),
+                "A tool calls a host that isn't on the tool host allow-list.",
+            ),
+        };
+        if !errors.iter().any(|error| error.field == field) {
+            errors.push(FieldError { field, message });
+        }
+    }
+    errors
+}
+
+impl From<UpdateAgentPurposeError> for ApiError {
+    fn from(error: UpdateAgentPurposeError) -> Self {
+        match error {
+            UpdateAgentPurposeError::NotFound => Self::NotFound,
+            UpdateAgentPurposeError::Archived => {
+                Self::Conflict("This agent is archived, so it can't be edited.")
+            }
+            UpdateAgentPurposeError::VersionNotFound => {
+                invalid("version", "Choose a version the purpose has.")
+            }
+            UpdateAgentPurposeError::SameVersion => {
+                invalid("version", "The agent already uses this version.")
+            }
+            UpdateAgentPurposeError::Conflict => {
+                Self::Conflict("The agent changed while saving. Reload it and try again.")
+            }
+            unavailable @ UpdateAgentPurposeError::Unavailable(_) => {
                 Self::Unavailable(Box::new(unavailable))
             }
         }

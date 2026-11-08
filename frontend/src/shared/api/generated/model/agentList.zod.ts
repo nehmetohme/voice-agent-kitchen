@@ -11,11 +11,17 @@ export const agentListItemsItemProgressPercentMin = 0;
 export const agentListItemsItemProgressPercentMax = 100;
 
 
+
 export const AgentList = zod.object({
   "items": zod.array(zod.object({
   "id": zod.uuid(),
   "name": zod.string(),
   "progressPercent": zod.int().min(agentListItemsItemProgressPercentMin).max(agentListItemsItemProgressPercentMax).describe('Setup progress: 0, 25, 50, 75 or 100.'),
+  "purpose": zod.object({
+  "id": zod.uuid(),
+  "system": zod.boolean().describe('A built-in purpose.'),
+  "version": zod.int().min(1)
+}).describe('The purpose version an agent pins.'),
   "updatedAt": zod.iso.datetime({"offset":true}),
   "useCase": zod.enum(['support', 'service', 'booking', 'survey', 'telemarketing', 'custom']).describe('What the agent is for. It picks the starting template and the default rule pack.'),
   "voice": zod.string()

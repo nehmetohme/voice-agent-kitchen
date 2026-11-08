@@ -44,6 +44,10 @@
     "target": {
       "$value": "2.75rem",
       "$description": "Minimum interactive target: 44 CSS px (Fitts, WCAG 2.5.5)"
+    },
+    "popup": {
+      "$value": "20rem",
+      "$description": "Tallest popup list (a combobox's options) before it scrolls"
     }
   },
   "breakpoint": {

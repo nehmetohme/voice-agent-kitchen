@@ -4,8 +4,10 @@
 use jiff_sqlx::ToSqlx as _;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
-use vak_domain::{Actor, Agent, AgentId, AuditEvent};
-use vak_repositories::{AgentQuery, AgentRepo, BoxFuture, RepoError, Revision, Versioned};
+use vak_domain::{Actor, Agent, AgentId, AuditEvent, PurposeId};
+use vak_repositories::{
+    AgentQuery, AgentRepo, BoxFuture, PurposeUsage, RepoError, Revision, Versioned,
+};
 
 use crate::records::{AgentRow, AuditDetails, PersonaRecord, PlanRecord, SettingsRecord};
 use crate::scenario_records::ScenarioRecord;
@@ -65,8 +67,8 @@ impl PgAgentRepo {
         sqlx::query!(
             "INSERT INTO agent_drafts (agent_id, persona, settings, plan, scenarios,
                                        rule_pack_id, rule_pack_version, content_hash,
-                                       updated_at, updated_by)
-             VALUES ($1, $2, $3, $4, $10, $5, $6, $7, $8, $9)",
+                                       updated_at, updated_by, purpose_id, purpose_version)
+             VALUES ($1, $2, $3, $4, $10, $5, $6, $7, $8, $9, $11, $12)",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
             SettingsRecord::of(draft) as _,
@@ -77,6 +79,8 @@ impl PgAgentRepo {
             agent.updated_at().to_sqlx() as _,
             operator,
             ScenarioRecord::of_draft(draft.scenarios()) as _,
+            draft.purpose().id().as_uuid(),
+            purpose_version(draft)?,
         )
         .execute(&mut *tx)
         .await
@@ -95,7 +99,8 @@ impl PgAgentRepo {
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
                       d.plan AS "plan: _", d.scenarios AS "scenarios: _",
-                      d.rule_pack_id, d.rule_pack_version, d.content_hash
+                      d.rule_pack_id, d.rule_pack_version, d.purpose_id, d.purpose_version,
+                      d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.id = $1 AND a.workspace_id = $2"#,
             id.as_uuid(),
@@ -117,7 +122,8 @@ impl PgAgentRepo {
                       a.archived_at AS "archived_at: jiff_sqlx::Timestamp",
                       d.persona AS "persona: _", d.settings AS "settings: _",
                       d.plan AS "plan: _", d.scenarios AS "scenarios: _",
-                      d.rule_pack_id, d.rule_pack_version, d.content_hash
+                      d.rule_pack_id, d.rule_pack_version, d.purpose_id, d.purpose_version,
+                      d.content_hash
                FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
                WHERE a.workspace_id = $1 AND a.archived_at IS NULL
                ORDER BY a.updated_at DESC, a.id DESC
@@ -171,7 +177,7 @@ impl PgAgentRepo {
             "UPDATE agent_drafts
              SET persona = $2, settings = $3, plan = $4, rule_pack_id = $5,
                  rule_pack_version = $6, content_hash = $7, updated_at = $8, updated_by = $9,
-                 scenarios = $10
+                 scenarios = $10, purpose_id = $11, purpose_version = $12
              WHERE agent_id = $1",
             agent.id().as_uuid(),
             PersonaRecord::of(draft) as _,
@@ -183,6 +189,8 @@ impl PgAgentRepo {
             agent.updated_at().to_sqlx() as _,
             operator,
             ScenarioRecord::of_draft(draft.scenarios()) as _,
+            draft.purpose().id().as_uuid(),
+            purpose_version(draft)?,
         )
         .execute(&mut *tx)
         .await
@@ -193,6 +201,34 @@ impl PgAgentRepo {
             .map(Revision::new)
             .map_err(RepoError::unavailable)
     }
+
+    async fn usage(&self) -> Result<Vec<PurposeUsage>, RepoError> {
+        let rows = sqlx::query!(
+            r#"SELECT d.purpose_id, count(*) AS "agents!"
+               FROM agents a JOIN agent_drafts d ON d.agent_id = a.id
+               WHERE a.workspace_id = $1 AND a.archived_at IS NULL
+               GROUP BY d.purpose_id
+               ORDER BY d.purpose_id"#,
+            DEFAULT_WORKSPACE,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_error)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(PurposeUsage {
+                    purpose: PurposeId::from_uuid(row.purpose_id)
+                        .map_err(RepoError::unavailable)?,
+                    agents: u32::try_from(row.agents).map_err(RepoError::unavailable)?,
+                })
+            })
+            .collect()
+    }
+}
+
+/// The pinned purpose version as Postgres stores it.
+fn purpose_version(draft: &vak_domain::AgentDraft) -> Result<i32, RepoError> {
+    i32::try_from(draft.purpose().version()).map_err(RepoError::unavailable)
 }
 
 /// Why a conditional update matched no row: the agent is gone, or its revision moved on.
@@ -280,6 +316,10 @@ impl AgentRepo for PgAgentRepo {
 
     fn list(&self, query: AgentQuery) -> BoxFuture<'_, Result<Vec<Agent>, RepoError>> {
         Box::pin(self.list_agents(query))
+    }
+
+    fn purpose_usage(&self) -> BoxFuture<'_, Result<Vec<PurposeUsage>, RepoError>> {
+        Box::pin(self.usage())
     }
 
     fn update<'a>(

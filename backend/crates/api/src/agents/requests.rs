@@ -4,9 +4,10 @@
 use serde::Deserialize;
 use utoipa::ToSchema;
 use vak_domain::{
-    AgentName, DraftPatch, Jurisdiction, Language, ModelProfile, TurnDetection, UseCase, VoiceId,
+    AgentName, DraftPatch, Jurisdiction, Language, ModelProfile, PurposeId, TurnDetection, UseCase,
+    VoiceId,
 };
-use vak_services::CreateAgent;
+use vak_services::{CreateAgent, UpdateAgent, UpdateAgentPurpose};
 
 use super::dto::{ModelProfileDto, TurnDetectionDto, UseCaseDto, name_message};
 use crate::problem::{ApiError, FieldError};
@@ -35,6 +36,10 @@ pub(crate) struct CreateAgentRequest {
     model: Option<String>,
     #[schema(value_type = TurnDetectionDto, required = false, default = json!({ "silenceMs": 500, "bargeIn": true }))]
     turn_detection: Option<TurnDetectionDto>,
+    /// Pin this purpose's latest version (from `GET /api/v1/purposes`); `useCase` must then be
+    /// its compliance class. `null` pins the use case's built-in purpose.
+    #[schema(value_type = Option<String>, format = "uuid", required = false, default = json!(null))]
+    purpose_id: Option<String>,
 }
 
 /// Change the agent's draft (autosave). Send only the fields that changed.
@@ -55,6 +60,23 @@ pub(crate) struct UpdateAgentRequest {
     model: Option<String>,
     #[schema(value_type = TurnDetectionDto, required = false)]
     turn_detection: Option<TurnDetectionDto>,
+    /// Switch to this purpose's latest version; a saved plan stays. `useCase` alone switches
+    /// to the use case's built-in purpose.
+    #[schema(value_type = String, format = "uuid", required = false)]
+    purpose_id: Option<String>,
+}
+
+/// Move the agent to another version of its purpose.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(as = UpdateAgentPurposeInput)]
+pub(crate) struct UpdateAgentPurposeRequest {
+    /// The version to move to, as `GET …/purpose` offered it.
+    #[schema(value_type = u32, required = true, minimum = 1)]
+    version: Option<u32>,
+    /// Replace a plan with the operator's own edits by the new starting flow.
+    #[schema(value_type = bool, required = false, default = false)]
+    replace_plan: Option<bool>,
 }
 
 /// Collects field errors while parsing.
@@ -129,12 +151,23 @@ fn model(raw: &str) -> Result<ModelProfile, &'static str> {
     ModelProfile::parse(raw).map_err(|_| "Choose balanced or fast.")
 }
 
+fn purpose(raw: &str) -> Result<PurposeId, &'static str> {
+    PurposeId::parse(raw).map_err(|_| "Choose a purpose from the list.")
+}
+
 fn turn_detection(dto: TurnDetectionDto) -> Result<TurnDetection, &'static str> {
     TurnDetection::new(dto.silence_ms, dto.barge_in)
         .map_err(|_| "Use a silence between 200 and 2000 ms.")
 }
 
-impl TryFrom<CreateAgentRequest> for CreateAgent {
+/// A checked `POST /agents` body: the agent to create, and the purpose it pins, if any.
+#[derive(Debug)]
+pub(crate) struct NewAgent {
+    pub(crate) agent: CreateAgent,
+    pub(crate) purpose: Option<PurposeId>,
+}
+
+impl TryFrom<CreateAgentRequest> for NewAgent {
     type Error = ApiError;
 
     fn try_from(body: CreateAgentRequest) -> Result<Self, ApiError> {
@@ -147,27 +180,32 @@ impl TryFrom<CreateAgentRequest> for CreateAgent {
             fields.optional("jurisdiction", body.jurisdiction.as_deref(), jurisdiction);
         let model = fields.optional("model", body.model.as_deref(), model);
         let turn_detection = fields.optional("turnDetection", body.turn_detection, turn_detection);
+        let purpose = fields.optional("purposeId", body.purpose_id.as_deref(), purpose);
         match (name, use_case, voice) {
             (Some(name), Some(use_case), Some(voice)) if fields.errors.is_empty() => Ok(Self {
-                name,
-                use_case,
-                voice,
-                language,
-                jurisdiction,
-                model,
-                turn_detection,
+                agent: CreateAgent {
+                    name,
+                    use_case,
+                    voice,
+                    language,
+                    jurisdiction,
+                    model,
+                    turn_detection,
+                },
+                purpose,
             }),
             _ => Err(fields.into_error()),
         }
     }
 }
 
-impl TryFrom<UpdateAgentRequest> for DraftPatch {
+impl TryFrom<UpdateAgentRequest> for UpdateAgent {
     type Error = ApiError;
 
     fn try_from(body: UpdateAgentRequest) -> Result<Self, ApiError> {
         let mut fields = Fields::default();
-        let patch = Self {
+        let purpose = fields.optional("purposeId", body.purpose_id.as_deref(), purpose);
+        let patch = DraftPatch {
             name: fields.optional("name", body.name.as_deref(), name),
             use_case: fields.optional("useCase", body.use_case.as_deref(), use_case),
             voice: fields.optional("voice", body.voice.as_deref(), voice),
@@ -183,11 +221,28 @@ impl TryFrom<UpdateAgentRequest> for DraftPatch {
             // `PUT /agents/{id}/scenarios`.
             plan: None,
             scenarios: None,
+            purpose: None,
         };
         if fields.errors.is_empty() {
-            Ok(patch)
+            Ok(Self { patch, purpose })
         } else {
             Err(fields.into_error())
+        }
+    }
+}
+
+impl TryFrom<UpdateAgentPurposeRequest> for UpdateAgentPurpose {
+    type Error = ApiError;
+
+    fn try_from(body: UpdateAgentPurposeRequest) -> Result<Self, ApiError> {
+        let mut fields = Fields::default();
+        let version = fields.required("version", body.version, Ok::<u32, &'static str>);
+        match version {
+            Some(version) => Ok(Self {
+                version,
+                replace_plan: body.replace_plan.unwrap_or(false),
+            }),
+            None => Err(fields.into_error()),
         }
     }
 }
@@ -224,7 +279,7 @@ mod tests {
         }))
         .expect("parses");
 
-        let error = CreateAgent::try_from(body).expect_err("invalid");
+        let error = NewAgent::try_from(body).expect_err("invalid");
 
         assert_eq!(
             fields_of(error),
@@ -242,7 +297,7 @@ mod tests {
     fn create_names_each_missing_required_field() {
         let body: CreateAgentRequest = serde_json::from_value(json!({})).expect("parses");
 
-        let error = CreateAgent::try_from(body).expect_err("invalid");
+        let error = NewAgent::try_from(body).expect_err("invalid");
 
         assert_eq!(
             fields_of(error)
@@ -259,7 +314,7 @@ mod tests {
             "useCase": " SURVEY ", "turnDetection": { "silenceMs": 700, "bargeIn": false },
         }))
         .expect("parses");
-        let patch = DraftPatch::try_from(body).expect("valid");
+        let patch = UpdateAgent::try_from(body).expect("valid").patch;
         assert_eq!(patch.use_case, Some(UseCase::Survey));
         assert_eq!(
             patch.turn_detection.map(|turn| turn.silence_ms()),
@@ -269,7 +324,7 @@ mod tests {
 
         let body: UpdateAgentRequest =
             serde_json::from_value(json!({ "name": "", "voice": "x" })).expect("parses");
-        let error = DraftPatch::try_from(body).expect_err("invalid");
+        let error = UpdateAgent::try_from(body).expect_err("invalid");
         assert_eq!(
             fields_of(error),
             pairs(&[

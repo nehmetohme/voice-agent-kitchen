@@ -9,7 +9,8 @@ use axum::extract::{Path, State};
 use axum::{Extension, Json};
 use vak_domain::{Actor, Plan};
 
-use self::dto::{AgentPlanDto, ValidationDto};
+use self::dto::ValidationDto;
+pub(crate) use self::dto::{AgentPlanDto, LockedTextDto, plan_message};
 pub(crate) use self::requests::PlanRequest;
 use crate::agents::agent_id;
 use crate::json::JsonBody;

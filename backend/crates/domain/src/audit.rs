@@ -2,7 +2,7 @@
 
 use jiff::Timestamp;
 
-use crate::{Actor, AgentId, AuditEventId, ContentHash, DraftField, TestRunId};
+use crate::{Actor, AgentId, AuditEventId, ContentHash, DraftField, PurposeId, TestRunId};
 
 /// What happened to an agent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +90,90 @@ impl AuditEvent {
 
     #[must_use]
     pub fn action(&self) -> &AuditAction {
+        &self.action
+    }
+}
+
+/// What happened to a purpose of the workspace's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PurposeAuditAction {
+    /// The purpose was made as a copy of `source`: of `version`, or of its draft.
+    Created {
+        source: PurposeId,
+        version: Option<u32>,
+    },
+    /// The draft changed.
+    DraftUpdated { draft_hash: ContentHash },
+    /// The draft was saved as `version`.
+    VersionSaved {
+        version: u32,
+        content_hash: ContentHash,
+    },
+}
+
+impl PurposeAuditAction {
+    /// The stored action name, e.g. `purpose.version_saved`.
+    #[must_use]
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Self::Created { .. } => "purpose.created",
+            Self::DraftUpdated { .. } => "purpose.draft_updated",
+            Self::VersionSaved { .. } => "purpose.version_saved",
+        }
+    }
+}
+
+/// One audit record about a purpose. Written in the same transaction as the change.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PurposeAuditEvent {
+    id: AuditEventId,
+    at: Timestamp,
+    actor: Actor,
+    purpose_id: PurposeId,
+    action: PurposeAuditAction,
+}
+
+impl PurposeAuditEvent {
+    #[must_use]
+    pub fn new(
+        id: AuditEventId,
+        at: Timestamp,
+        actor: Actor,
+        purpose_id: PurposeId,
+        action: PurposeAuditAction,
+    ) -> Self {
+        Self {
+            id,
+            at,
+            actor,
+            purpose_id,
+            action,
+        }
+    }
+
+    #[must_use]
+    pub fn id(&self) -> AuditEventId {
+        self.id
+    }
+
+    #[must_use]
+    pub fn at(&self) -> Timestamp {
+        self.at
+    }
+
+    #[must_use]
+    pub fn actor(&self) -> &Actor {
+        &self.actor
+    }
+
+    /// The purpose the event is about.
+    #[must_use]
+    pub fn purpose_id(&self) -> PurposeId {
+        self.purpose_id
+    }
+
+    #[must_use]
+    pub fn action(&self) -> &PurposeAuditAction {
         &self.action
     }
 }

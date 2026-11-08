@@ -1,5 +1,5 @@
-//! Persistence ports: one trait per aggregate (`AgentRepo` and `TestRunRepo` today;
-//! `VersionRepo`, `SessionRepo`, `AuditRepo` and the `JobQueue` port arrive with their
+//! Persistence ports: one trait per aggregate (`AgentRepo`, `TestRunRepo` and `PurposeRepo`
+//! today; `VersionRepo`, `SessionRepo`, `AuditRepo` and the `JobQueue` port arrive with their
 //! milestones), plus `RepoError`.
 //!
 //! Traits and port types only. The Postgres implementation lives in
@@ -10,10 +10,12 @@
 
 mod agents;
 mod error;
+mod purposes;
 mod test_runs;
 
-pub use agents::{AgentQuery, AgentRepo};
+pub use agents::{AgentQuery, AgentRepo, PurposeUsage};
 pub use error::{BoxError, RepoError};
+pub use purposes::{PurposeListing, PurposeQuery, PurposeRepo};
 pub use test_runs::TestRunRepo;
 
 use std::future::Future;

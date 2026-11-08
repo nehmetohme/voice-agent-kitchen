@@ -4,15 +4,17 @@
 
 This crate defines the persistence ports:
 
-- one trait per aggregate: `AgentRepo` and `TestRunRepo` today; `VersionRepo`, `SessionRepo` and `AuditRepo` arrive with their milestones
+- one trait per aggregate: `AgentRepo`, `TestRunRepo` and `PurposeRepo` today; `VersionRepo`, `SessionRepo` and `AuditRepo` arrive with their milestones
 - the `JobQueue` port, which hides apalis-postgres from services
-- `RepoError`, `Revision`, `Versioned<T>`, plus paging and filter types (`AgentQuery`)
+- `RepoError`, `Revision`, `Versioned<T>`, plus paging and filter types (`AgentQuery`, `PurposeQuery`) and read models (`PurposeListing`, `PurposeUsage`)
 
 It contains **traits and port types only**. The Postgres implementation lives in `vak-repositories-pg`, and the in-memory fakes live in `vak-testkit`.
 
-`AgentRepo` stores an agent with its draft (saved plan and scenarios included). Each mutation (`create`, `update`) also takes the `AuditEvent` that records it, and stores both in one transaction.
+`AgentRepo` stores an agent with its draft (saved plan and scenarios included, and the purpose version it pins); `purpose_usage` counts active agents per purpose. Each mutation (`create`, `update`) also takes the `AuditEvent` that records it, and stores both in one transaction.
 
 `TestRunRepo` stores test runs, each with every scenario's result: `create` (with its `test_run.started` event; `Conflict` while the agent has an active run), `get`, `list` (an agent's runs, newest first), `update` under the expected revision (with an operator's event, such as a cancel, or none for the worker's steps), `next_queued` (oldest first), `running`, and `latest_verdicts` (for each agent and draft hash, the verdict of the latest finished run on it, in one call for the agent list).
+
+`PurposeRepo` stores the workspace's own purposes: `create`, `get`, `list(PurposeQuery)`, `update_draft` (at a revision), `save_version` (the new version, append-only, with the draft's revision) and `version(PurposeRef)`. Each mutation takes its `PurposeAuditEvent`. The six built-in purposes are never stored.
 
 ## Dependencies
 

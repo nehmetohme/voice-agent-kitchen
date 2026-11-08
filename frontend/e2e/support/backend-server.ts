@@ -103,6 +103,8 @@ const env = {
   DATABASE_URL: databaseUrl,
   VAK_PROFILE: 'local',
   VAK_DEV_OPERATOR_EMAIL: DEV_OPERATOR,
+  // Purposes' HTTP tools may name these hosts (nothing is ever called: tools run in M4b).
+  VAK_TOOL_HOSTS: 'calendar.example.com,*.tools.example.com',
   VAK_HTTP_ADDR: `127.0.0.1:${ports.api}`,
   VAK_LOG: process.env['VAK_LOG'] ?? 'warn',
   VAK_LLM_BASE_URL: `${models.baseUrl}/v1`,

@@ -7,10 +7,13 @@
 
 mod agents;
 mod database;
+mod purpose_records;
+mod purposes;
 mod records;
 mod scenario_records;
 mod test_runs;
 
 pub use agents::PgAgentRepo;
 pub use database::{Database, DatabaseConfig, DatabaseError};
+pub use purposes::PgPurposeRepo;
 pub use test_runs::PgTestRunRepo;

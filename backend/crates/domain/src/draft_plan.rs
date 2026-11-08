@@ -1,7 +1,10 @@
 //! What the Plan step shows for a draft: the saved plan, or the use case's template until one
 //! is saved, checked against the draft's pinned rule pack.
 
-use crate::{AgentDraft, LockedText, Plan, PlanError, RulePackCatalog, RulePackRef};
+use crate::{
+    AgentDraft, Jurisdiction, LockedText, Plan, PlanError, PurposeDefinition, PurposeVersion,
+    RulePackCatalog, RulePackRef,
+};
 
 /// A draft's plan, with the rules it is checked against and the result.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,16 +23,25 @@ impl DraftPlan {
     /// no such pack there are no locked texts or confirmation, and the plan is invalid.
     #[must_use]
     pub fn of(draft: &AgentDraft, packs: &RulePackCatalog) -> Self {
+        let system = PurposeVersion::system(draft.persona().use_case());
+        Self::for_purpose(draft, packs, system.definition())
+    }
+
+    /// Like [`DraftPlan::of`], but an unsaved draft shows `purpose`'s starting flow (the
+    /// agent's pinned version), opened with the pinned pack's locked texts.
+    #[must_use]
+    pub fn for_purpose(
+        draft: &AgentDraft,
+        packs: &RulePackCatalog,
+        purpose: &PurposeDefinition,
+    ) -> Self {
         let pack = packs.get(draft.rule_pack());
         let locked_texts = pack
             .map(|pack| pack.locked_texts().to_vec())
             .unwrap_or_default();
-        let (plan, saved) = match draft.plan() {
+        let (plan, saved): (Plan, bool) = match draft.plan() {
             Some(plan) => (plan.clone(), true),
-            None => (
-                Plan::template(draft.persona().use_case(), &locked_texts),
-                false,
-            ),
+            None => (purpose.opened_flow(&locked_texts), false),
         };
         let validation = packs.validate(&plan, draft.rule_pack());
         Self {
@@ -39,6 +51,25 @@ impl DraftPlan {
             locked_texts,
             opt_out_confirmation: pack.map(|pack| pack.opt_out_confirmation().to_owned()),
             validation,
+        }
+    }
+
+    /// A purpose's starting flow, as its editor shows it: stored, without the locked texts,
+    /// next to the texts of its class's pack in the default jurisdiction (`US`), which every
+    /// agent's opening starts with first. It is checked by the graph rules only.
+    #[must_use]
+    pub fn of_flow(purpose: &PurposeDefinition, packs: &RulePackCatalog) -> Self {
+        let rule_pack = RulePackRef::for_agent(purpose.compliance(), &Jurisdiction::default());
+        let pack = packs.get(&rule_pack);
+        Self {
+            plan: purpose.flow().clone(),
+            saved: true,
+            locked_texts: pack
+                .map(|pack| pack.locked_texts().to_vec())
+                .unwrap_or_default(),
+            opt_out_confirmation: pack.map(|pack| pack.opt_out_confirmation().to_owned()),
+            validation: purpose.flow().validate_graph(),
+            rule_pack,
         }
     }
 

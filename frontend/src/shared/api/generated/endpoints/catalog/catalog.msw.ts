@@ -18,13 +18,19 @@ import type {
   RequestHandlerOptions
 } from 'msw';
 
+import {
+  BuiltinTool
+} from '../../model';
 import type {
   LanguageList,
+  ToolCatalog,
   VoiceList
 } from '../../model';
 
 
 export const getListLanguagesResponseMock = (overrideResponse: Partial<Extract<LanguageList, object>> = {}): LanguageList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({code: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}})})), ...overrideResponse})
+
+export const getListToolsResponseMock = (overrideResponse: Partial<Extract<ToolCatalog, object>> = {}): ToolCatalog => ({allowedHosts: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => (faker.string.alpha({length: {min: 10, max: 20}}))), builtins: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({description: faker.string.alpha({length: {min: 10, max: 20}}), label: faker.string.alpha({length: {min: 10, max: 20}}), locked: faker.datatype.boolean(), name: faker.helpers.arrayElement(Object.values(BuiltinTool))})), ...overrideResponse})
 
 export const getListVoicesResponseMock = (overrideResponse: Partial<Extract<VoiceList, object>> = {}): VoiceList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({description: faker.string.alpha({length: {min: 10, max: 20}}), id: faker.string.alpha({length: {min: 10, max: 20}}), language: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}})})), ...overrideResponse})
 
@@ -36,6 +42,18 @@ export const getListLanguagesMockHandler = (overrideResponse?: LanguageList | ((
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getListLanguagesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getListToolsMockHandler = (overrideResponse?: ToolCatalog | ((info: Parameters<HttpResponseResolver>[0]) => Promise<ToolCatalog> | ToolCatalog), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/catalog/tools', async (info: Parameters<HttpResponseResolver>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListToolsResponseMock(),
       { status: 200
       })
   }, options)
@@ -54,5 +72,6 @@ export const getListVoicesMockHandler = (overrideResponse?: VoiceList | ((info: 
 }
 export const getCatalogMock = () => [
   getListLanguagesMockHandler(),
+  getListToolsMockHandler(),
   getListVoicesMockHandler()
 ]
