@@ -103,7 +103,7 @@ jobs:
           workspaces: backend -> target
           # PR runs read the cache from main but never write their own.
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just,cargo-nextest,cargo-llvm-cov,cargo-deny,cargo-audit,cargo-shear,taplo
       - run: just backend-verify
@@ -131,7 +131,7 @@ jobs:
           require-lockfile: true
           cache: true
           save-cache: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just
       # The E2E run builds vak-server and serves it on a throwaway Postgres in Docker
@@ -194,7 +194,7 @@ jobs:
           require-lockfile: true
           cache: true
           save-cache: false # the web job saves the same store
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just
       - uses: ./.github/actions/install-release-bin
@@ -232,7 +232,7 @@ jobs:
           persist-credentials: false
       # shellcheck is pinned here (taiki-e's manifest at this SHA) rather than taken from the
       # runner image, so repo-hooks-test lints with the same version every run.
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just,taplo,shellcheck
       - uses: ./.github/actions/install-release-bin
@@ -270,7 +270,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just,zizmor,shellcheck
       - uses: ./.github/actions/install-release-bin
